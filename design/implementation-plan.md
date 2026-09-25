@@ -4,9 +4,9 @@
 
 **Goal:** Build a working macOS menu bar app that shows per-account Claude Code and Codex quota snapshots, manual refresh, and optional refresh when opening the popover.
 
-**Architecture:** A SwiftPM executable hosts an AppKit status item and a SwiftUI popover. Pure Swift models, parsers, persistence, and an actor-based refresh coordinator sit behind provider interfaces; Claude uses a restricted PTY session plus OAuth read, while Codex uses app-server JSON-RPC. All refresh policy values come from a bundled JSON resource.
+**Architecture:** A SwiftPM executable and core library host an AppKit status item and a SwiftUI popover. Pure Swift models, parsers, persistence, and an actor-based refresh coordinator sit behind provider interfaces; Claude uses a restricted PTY session plus OAuth read, while Codex uses app-server JSON-RPC. All refresh policy values come from a bundled JSON resource.
 
-**Tech Stack:** Swift 6.3, Foundation, AppKit, SwiftUI, Security, XCTest, Swift Package Manager; no third-party runtime packages.
+**Tech Stack:** Swift 6.3, Foundation, AppKit, SwiftUI, Security, Swift Package Manager; no third-party runtime packages.
 
 **Spec:** [spec.md](spec.md), with the approved visual contract in [capbar-visual-study.html](capbar-visual-study.html).
 
@@ -18,21 +18,21 @@
 - Default Claude directory launches without `CLAUDE_CONFIG_DIR`; custom directories use their absolute paths. Provider identities and quota values come from the real accounts, never from editable display names.
 - No OAuth token, raw provider payload, or conversation text in snapshots or logs. Never execute Claude tools or MCP during probes.
 - `references/AIBar` remains ignored reference material. Do not copy its source into CapBar.
-- Test-first for domain rules, parsers, storage, refresh concurrency, retries, and provider protocols. Visual styling receives screenshot/manual QA against the HTML.
+- Run `swift run CapBarChecks` as the test gate: the installed Command Line Tools lack runnable XCTest, and Swift Testing compiles without discovering tests here. Test-first for domain rules, parsers, storage, refresh concurrency, retries, and provider protocols. Visual styling receives screenshot/manual QA against the HTML.
 
 ## File Map
 
 | File or directory | Responsibility |
 | --- | --- |
-| `Package.swift`, `Sources/CapBar/Resources/ProbePolicy.json` | SwiftPM target and bundled probe policy. |
-| `Sources/CapBar/Domain/Models.swift` | Account IDs, identity, quota windows, snapshots, errors. |
-| `Sources/CapBar/Domain/TimeLabel.swift` | Relative and absolute collection-time copy. |
-| `Sources/CapBar/Storage/SettingsStore.swift`, `SnapshotStore.swift` | Versioned, private, atomic JSON persistence. |
-| `Sources/CapBar/Refresh/RetryRunner.swift`, `RefreshCoordinator.swift` | Retry classification, per-account single flight, all/open triggers. |
-| `Sources/CapBar/Providers/Codex/` | Codex app-server transport and response parser. |
-| `Sources/CapBar/Providers/Claude/` | Claude auth/Keychain, statusline/OAuth parsing, PTY session, source selection. |
+| `Package.swift`, `Sources/CapBarCore/Resources/ProbePolicy.json` | SwiftPM target and bundled probe policy. |
+| `Sources/CapBarCore/Domain/Models.swift` | Account IDs, identity, quota windows, snapshots, errors. |
+| `Sources/CapBarCore/Domain/TimeLabel.swift` | Relative and absolute collection-time copy. |
+| `Sources/CapBarCore/Storage/SettingsStore.swift`, `SnapshotStore.swift` | Versioned, private, atomic JSON persistence. |
+| `Sources/CapBarCore/Refresh/RetryRunner.swift`, `RefreshCoordinator.swift` | Retry classification, per-account single flight, all/open triggers. |
+| `Sources/CapBarCore/Providers/Codex/` | Codex app-server transport and response parser. |
+| `Sources/CapBarCore/Providers/Claude/` | Claude auth/Keychain, statusline/OAuth parsing, PTY session, source selection. |
 | `Sources/CapBar/App/`, `Sources/CapBar/UI/` | Status item, popover, account rows, settings, visual states. |
-| `Tests/CapBarTests/`, `Tests/Fixtures/` | Unit tests, fake clocks/providers/processes, sanitized response fixtures. |
+| `Tests/CapBarChecks/, `Tests/Fixtures/` | Unit tests, fake clocks/providers/processes, sanitized response fixtures. |
 | `scripts/package-app.sh`, `scripts/Info.plist` | SwiftPM executable to local `.app` bundle and ad-hoc signature. |
 
 ## Review Focus
@@ -49,7 +49,7 @@ The following cases need explicit tests in their owning tasks:
 
 ### Task 1: SwiftPM shell, domain models, bundled policy
 
-**Files:** Create `Package.swift`, `Sources/CapBar/Domain/Models.swift`, `Sources/CapBar/Resources/ProbePolicy.json`, `Tests/CapBarTests/ModelTests.swift`, `Sources/CapBar/App/main.swift`.
+**Files:** Create `Package.swift`, `Sources/CapBarCore/Domain/Models.swift`, `Sources/CapBarCore/Resources/ProbePolicy.json`, `Tests/CapBarChecks/ModelChecks.swift`, `Sources/CapBar/App/main.swift`.
 
 **Interfaces:**
 
@@ -63,13 +63,13 @@ struct UsageSnapshot: Codable, Sendable { let identity: AccountIdentity; let win
 struct ProbePolicy: Codable, Sendable { let maxAttempts: Int; let attemptTimeoutSeconds: Double; let retryDelayMinSeconds: Double; let retryDelayMaxSeconds: Double }
 ```
 
-- [ ] **RED:** Add tests that canonicalizing `~/.claude` and its absolute spelling yields the same `AccountID`, two directories with the same email remain distinct, and invalid policy values reject decoding/validation. Run `swift test --filter ModelTests`; expect failures because the types are absent.
-- [ ] **GREEN:** Add the package with a `CapBar` executable and `CapBarTests` test target. Implement the models, directory normalization, percentage validation, and `ProbePolicy.validate()`. Put `3 / 45 / 10 / 20` into `ProbePolicy.json`, include it as a SwiftPM resource, and make a minimal executable entry point. Run `swift test --filter ModelTests`; expect all tests to pass.
-- [ ] **REFACTOR/VERIFY:** Run `swift test` and `swift build`; confirm the bundle resource can be loaded in tests. Commit this independently buildable foundation.
+- [ ] **RED:** Add tests that canonicalizing `~/.claude` and its absolute spelling yields the same `AccountID`, two directories with the same email remain distinct, and invalid policy values reject decoding/validation. Run `swift run CapBarChecks --filter ModelTests`; expect failures because the types are absent.
+- [ ] **GREEN:** Add the package with a `CapBarCore` library, `CapBar` executable, and `CapBarChecks` executable check target. Implement the models, directory normalization, percentage validation, and `ProbePolicy.validate()`. Put `3 / 45 / 10 / 20` into `ProbePolicy.json`, include it as a SwiftPM resource, and make a minimal executable entry point. Run `swift run CapBarChecks --filter ModelTests`; expect all tests to pass.
+- [ ] **REFACTOR/VERIFY:** Run `swift run CapBarChecks` and `swift build`; confirm the bundle resource can be loaded in tests. Commit this independently buildable foundation.
 
 ### Task 2: JSON settings, snapshots, and time labels
 
-**Files:** Create `Sources/CapBar/Storage/SettingsStore.swift`, `SnapshotStore.swift`, `Sources/CapBar/Domain/TimeLabel.swift`, `Tests/CapBarTests/StorageTests.swift`, `TimeLabelTests.swift`.
+**Files:** Create `Sources/CapBarCore/Storage/SettingsStore.swift`, `SnapshotStore.swift`, `Sources/CapBarCore/Domain/TimeLabel.swift`, `Tests/CapBarChecks/StorageChecks.swift`, `TimeLabelChecks.swift`.
 
 **Interfaces:**
 
@@ -91,13 +91,13 @@ actor SnapshotStore { func load() throws -> [AccountID: AccountRecord]; func upd
 func capturedAtLabel(_ date: Date?, now: Date, calendar: Calendar) -> String
 ```
 
-- [ ] **RED:** In temp directories, test first-run default seeding once, removal of `~/.claude` surviving a new store instance, two accounts with the same email preserving separate records, concurrent updates preserving both, and corrupt JSON returning a readable error without overwriting the file. Test time labels at 3 minutes, 59 minutes, 60 minutes, and a prior year. Run `swift test --filter StorageTests` and `swift test --filter TimeLabelTests`; expect failures.
+- [ ] **RED:** In temp directories, test first-run default seeding once, removal of `~/.claude` surviving a new store instance, two accounts with the same email preserving separate records, concurrent updates preserving both, and corrupt JSON returning a readable error without overwriting the file. Test time labels at 3 minutes, 59 minutes, 60 minutes, and a prior year. Run `swift run CapBarChecks --filter StorageTests` and `swift run CapBarChecks --filter TimeLabelTests`; expect failures.
 - [ ] **GREEN:** Implement versioned `settings.json` and `snapshots.json` under Application Support, with `0600` permissions, a serialized actor write path, and atomic replacement. Keep `lastAttemptAt` independent from `snapshot.capturedAt`. Implement time copy exactly as the spec states. Run the two filtered test suites; expect passes.
-- [ ] **REFACTOR/VERIFY:** Run `swift test`, inspect written JSON for absence of secrets, and commit storage/time formatting.
+- [ ] **REFACTOR/VERIFY:** Run `swift run CapBarChecks`, inspect written JSON for absence of secrets, and commit storage/time formatting.
 
 ### Task 3: Refresh coordinator and retry state machine
 
-**Files:** Create `Sources/CapBar/Refresh/RefreshCoordinator.swift`, `RetryRunner.swift`, `Tests/CapBarTests/RefreshCoordinatorTests.swift`, `RetryRunnerTests.swift`.
+**Files:** Create `Sources/CapBarCore/Refresh/RefreshCoordinator.swift`, `RetryRunner.swift`, `Tests/CapBarChecks/RefreshCoordinatorChecks.swift`, `RetryRunnerChecks.swift`.
 
 **Interfaces:**
 
@@ -112,48 +112,48 @@ actor RefreshCoordinator {
 }
 ```
 
-- [ ] **RED:** Use controllable fake providers and a fake clock/sleeper. Assert a running account rejects a second single refresh, “全部刷新” starts only idle accounts while its button stays usable, opening with the toggle off starts none, opening with the toggle on checks each account's `lastAttemptAt`, a failed attempt remains on cooldown, and closing the popover has no cancellation effect. Assert transient failures attempt at most three times with jitter values in range, while permanent failures attempt once. Run `swift test --filter RefreshCoordinatorTests` and `swift test --filter RetryRunnerTests`; expect failures.
+- [ ] **RED:** Use controllable fake providers and a fake clock/sleeper. Assert a running account rejects a second single refresh, “全部刷新” starts only idle accounts while its button stays usable, opening with the toggle off starts none, opening with the toggle on checks each account's `lastAttemptAt`, a failed attempt remains on cooldown, and closing the popover has no cancellation effect. Assert transient failures attempt at most three times with jitter values in range, while permanent failures attempt once. Run `swift run CapBarChecks --filter RefreshCoordinatorTests` and `swift run CapBarChecks --filter RetryRunnerTests`; expect failures.
 - [ ] **GREEN:** Implement one in-flight task per `AccountID` in an actor. Persist `lastAttemptAt` at start, expose state changes to the UI, use injected provider/clock/random delay to make tests deterministic, and preserve old snapshots on failure. Read `ProbePolicy` from the bundled resource and reject invalid policy at launch. Run both filtered suites; expect passes.
-- [ ] **REFACTOR/VERIFY:** Run `swift test`; inspect that no popover-close event cancels a task and no second task is queued for a busy account. Commit the coordinator.
+- [ ] **REFACTOR/VERIFY:** Run `swift run CapBarChecks`; inspect that no popover-close event cancels a task and no second task is queued for a busy account. Commit the coordinator.
 
 ### Task 4: Codex app-server adapter
 
-**Files:** Create `Sources/CapBar/Providers/Codex/CodexPayload.swift`, `CodexClient.swift`, `CodexProcess.swift`, `Tests/CapBarTests/CodexClientTests.swift`, `Tests/Fixtures/codex-weekly-only.json`, `codex-two-windows.json`.
+**Files:** Create `Sources/CapBarCore/Providers/Codex/CodexPayload.swift`, `CodexClient.swift`, `CodexProcess.swift`, `Tests/CapBarChecks/CodexClientChecks.swift`, `Tests/Fixtures/codex-weekly-only.json`, `codex-two-windows.json`.
 
 **Interfaces:** `CodexClient: UsageProvider`; `CodexPayload.decodeRateLimits(_:) throws -> [QuotaWindow]`; process transport accepts injected executable path and environment for tests.
 
-- [ ] **RED:** Add sanitized JSON fixtures for a seven-day-only `primary` window, a two-window response, absent `rateLimitsByLimitId`, `account/read` with null email, and a JSON-RPC error. Assert mapping by `windowDurationMins`, remaining percentage conversion, and absence of invented windows. Assert custom account directories set `CODEX_HOME` and process arguments request read-only mode with approval policy `never`. Run `swift test --filter CodexClientTests`; expect failures.
+- [ ] **RED:** Add sanitized JSON fixtures for a seven-day-only `primary` window, a two-window response, absent `rateLimitsByLimitId`, `account/read` with null email, and a JSON-RPC error. Assert mapping by `windowDurationMins`, remaining percentage conversion, and absence of invented windows. Assert custom account directories set `CODEX_HOME` and process arguments request read-only mode with approval policy `never`. Run `swift run CapBarChecks --filter CodexClientTests`; expect failures.
 - [ ] **GREEN:** Implement `initialize` → `initialized` → `account/read` → `account/rateLimits/read` over one app-server stdio connection, choose the Codex metered bucket when present, and parse primary/secondary by duration. Bound process lifetime by policy, terminate on timeout, and redact diagnostics. Run the filtered suite; expect passes.
-- [ ] **REFACTOR/VERIFY:** Run `swift test` and an opt-in local read of one configured Codex account; verify the current machine's seven-day-only response. Commit the adapter.
+- [ ] **REFACTOR/VERIFY:** Run `swift run CapBarChecks` and an opt-in local read of one configured Codex account; verify the current machine's seven-day-only response. Commit the adapter.
 
 ### Task 5: Claude parsing, identity, credentials, and source selection
 
-**Files:** Create `Sources/CapBar/Providers/Claude/ClaudePayload.swift`, `ClaudeCredentials.swift`, `ClaudeObservation.swift`, `Tests/CapBarTests/ClaudeParsingTests.swift`, `Tests/Fixtures/claude-statusline.json`, `claude-oauth.json`.
+**Files:** Create `Sources/CapBarCore/Providers/Claude/ClaudePayload.swift`, `ClaudeCredentials.swift`, `ClaudeObservation.swift`, `Tests/CapBarChecks/ClaudeParsingChecks.swift`, `Tests/Fixtures/claude-statusline.json`, `claude-oauth.json`.
 
 **Interfaces:** `ClaudeObservation` carries optional windows and a local `observedAt`; `ClaudeObservation.select(_:_:)` produces one `UsageSnapshot`; credential loader returns an in-memory token only.
 
-- [ ] **RED:** Test statusline missing five-hour or seven-day windows, OAuth `utilization` values 0/100, percent conversion, reset parsing, per-window selection of the later observation, fallback when one source is absent, and complete failure when neither has a valid window. Test `claude auth status --json` identity parsing and Keychain services: default `Claude Code-credentials`, custom `Claude Code-credentials-` plus the first 8 hex digits of SHA-256 of the normalized absolute path. Assert token and raw payload are absent from `AccountRecord` JSON and formatted errors. Run `swift test --filter ClaudeParsingTests`; expect failures.
+- [ ] **RED:** Test statusline missing five-hour or seven-day windows, OAuth `utilization` values 0/100, percent conversion, reset parsing, per-window selection of the later observation, fallback when one source is absent, and complete failure when neither has a valid window. Test `claude auth status --json` identity parsing and Keychain services: default `Claude Code-credentials`, custom `Claude Code-credentials-` plus the first 8 hex digits of SHA-256 of the normalized absolute path. Assert token and raw payload are absent from `AccountRecord` JSON and formatted errors. Run `swift run CapBarChecks --filter ClaudeParsingTests`; expect failures.
 - [ ] **GREEN:** Parse both provider shapes into a common observation; use the local receipt time per window for selection. Read the correct per-directory Claude credentials through Security APIs with no persistent copy. Keep identity fields optional. Run the filtered suite; expect passes.
-- [ ] **REFACTOR/VERIFY:** Compare sanitized fixtures against the five observed local profile shapes without committing secrets. Run `swift test`, then commit parsers and credential abstraction.
+- [ ] **REFACTOR/VERIFY:** Compare sanitized fixtures against the five observed local profile shapes without committing secrets. Run `swift run CapBarChecks`, then commit parsers and credential abstraction.
 
 ### Task 6: Restricted Claude interactive probe
 
-**Files:** Create `Sources/CapBar/Providers/Claude/ClaudeClient.swift`, `ClaudeTerminalSession.swift`, `ClaudeOAuthClient.swift`, `Tests/CapBarTests/ClaudeClientTests.swift`.
+**Files:** Create `Sources/CapBarCore/Providers/Claude/ClaudeClient.swift`, `ClaudeTerminalSession.swift`, `ClaudeOAuthClient.swift`, `Tests/CapBarChecks/ClaudeClientChecks.swift`.
 
 **Interfaces:** `ClaudeClient: UsageProvider`; `ClaudeTerminalSession` protocol exposes `start`, `send`, `readStatusline`, `stop`, and `terminate` so tests never consume real tokens.
 
-- [ ] **RED:** With a fake terminal and HTTP client, assert the order one prompt → statusline wait → OAuth GET → `/exit`, one prompt per attempt, OAuth fallback when statusline is absent, statusline fallback when OAuth fails, and termination/temporary-file cleanup on timeout. Assert the default profile leaves `CLAUDE_CONFIG_DIR` unset, custom profiles set it, and launch flags disable tools and MCP. Run `swift test --filter ClaudeClientTests`; expect failures.
+- [ ] **RED:** With a fake terminal and HTTP client, assert the order one prompt → statusline wait → OAuth GET → `/exit`, one prompt per attempt, OAuth fallback when statusline is absent, statusline fallback when OAuth fails, and termination/temporary-file cleanup on timeout. Assert the default profile leaves `CLAUDE_CONFIG_DIR` unset, custom profiles set it, and launch flags disable tools and MCP. Run `swift run CapBarChecks --filter ClaudeClientTests`; expect failures.
 - [ ] **GREEN:** Implement a PTY-backed `Process`, app-owned temporary cwd and statusline capture script, `--tools ""`, `--disallowedTools mcp__*`, `--strict-mcp-config`, temporary `--settings`, OAuth usage read, and guaranteed process cleanup. Do not mutate the user's Claude settings or credentials. Return success if either channel has a valid window. Run the filtered suite; expect passes.
-- [ ] **REFACTOR/VERIFY:** Run `swift test`. Perform one opt-in real-account integration probe with the smallest prompt, check statusline/OAuth fields, `/exit` completion, and absence of an orphan Claude process; keep token and raw transcript out of output. Commit the Claude adapter.
+- [ ] **REFACTOR/VERIFY:** Run `swift run CapBarChecks`. Perform one opt-in real-account integration probe with the smallest prompt, check statusline/OAuth fields, `/exit` completion, and absence of an orphan Claude process; keep token and raw transcript out of output. Commit the Claude adapter.
 
 ### Task 7: Native menu bar UI and settings
 
-**Files:** Create `Sources/CapBar/App/CapBarApp.swift`, `StatusItemController.swift`, `Sources/CapBar/UI/PopoverView.swift`, `AccountRowView.swift`, `SettingsView.swift`, `TimeLabelView.swift`, `Tests/CapBarTests/PopoverModelTests.swift`; retire the Task 1 minimal `main.swift` entry point.
+**Files:** Create `Sources/CapBar/App/CapBarApp.swift`, `StatusItemController.swift`, `Sources/CapBar/UI/PopoverView.swift`, `AccountRowView.swift`, `SettingsView.swift`, `TimeLabelView.swift`, `Tests/CapBarChecks/PopoverModelChecks.swift`; retire the Task 1 minimal `main.swift` entry point.
 
 **Interfaces:** A main-actor presentation model observes coordinator state and provides per-account rows, menu summary, button enabled state, and settings actions.
 
-- [ ] **RED:** Test presentation mapping for snapshot/loading/error/no-snapshot, per-account button disabled only during its own refresh, global button always enabled, hidden five-hour window when missing, and elapsed-time label updates without calling providers. Run `swift test --filter PopoverModelTests`; expect failures.
-- [ ] **GREEN:** Create an `NSStatusItem` and `NSPopover` with SwiftUI content. Wire open/close, manual all/single refresh, add/remove directories, the default-off auto-on-open switch, and the shared threshold. Keep live tasks in the coordinator when the popover closes. Reproduce the approved HTML's typography, spacing, grouping, light/dark states, and loading/error states with native controls. Run `swift test --filter PopoverModelTests`; expect passes.
+- [ ] **RED:** Test presentation mapping for snapshot/loading/error/no-snapshot, per-account button disabled only during its own refresh, global button always enabled, hidden five-hour window when missing, and elapsed-time label updates without calling providers. Run `swift run CapBarChecks --filter PopoverModelTests`; expect failures.
+- [ ] **GREEN:** Create an `NSStatusItem` and `NSPopover` with SwiftUI content. Wire open/close, manual all/single refresh, add/remove directories, the default-off auto-on-open switch, and the shared threshold. Keep live tasks in the coordinator when the popover closes. Reproduce the approved HTML's typography, spacing, grouping, light/dark states, and loading/error states with native controls. Run `swift run CapBarChecks --filter PopoverModelTests`; expect passes.
 - [ ] **REFACTOR/VERIFY:** Build and launch locally; compare light and dark popover states against the HTML and inspect all four state variants. Check keyboard focus and VoiceOver labels for refresh buttons. Commit the UI.
 
 ### Task 8: Bundle, integration, and delivery
@@ -161,8 +161,8 @@ actor RefreshCoordinator {
 **Files:** Create `scripts/package-app.sh`, `scripts/Info.plist`; update root `README.md`, `design/README.md`, and `.gitignore` only as needed for generated output.
 
 - [ ] **RED:** Run packaging checks against an empty output directory; they should fail because the bundle script and executable are not yet present. Specify assertions for `CFBundleExecutable`, `LSUIElement=true`, a bundled `ProbePolicy.json`, valid `plutil`, `codesign --verify`, and no credentials in packaged resources.
-- [ ] **GREEN:** Script `swift test`, `swift build -c release`, copy the executable and SwiftPM resources into `CapBar.app/Contents`, install `Info.plist`, and ad-hoc sign using the available Command Line Tools. Add concise local build/run instructions and explain where user settings and snapshots live. Keep the ignored AIBar checkout out of the bundle. Run the script; expect a launchable local `.app`.
-- [ ] **REFACTOR/VERIFY:** Exercise no-snapshot, manual single/all, auto-on-open threshold, partial provider failure, timeout cleanup, and persistence across relaunch using test accounts. Run `swift test`, `swift build -c release`, `plutil -lint`, `codesign --verify --deep --strict`, and a local app smoke launch; document any environment-dependent integration checks separately. Commit only after these gates pass.
+- [ ] **GREEN:** Script `swift run CapBarChecks`, `swift build -c release`, copy the executable and SwiftPM resources into `CapBar.app/Contents`, install `Info.plist`, and ad-hoc sign using the available Command Line Tools. Add concise local build/run instructions and explain where user settings and snapshots live. Keep the ignored AIBar checkout out of the bundle. Run the script; expect a launchable local `.app`.
+- [ ] **REFACTOR/VERIFY:** Exercise no-snapshot, manual single/all, auto-on-open threshold, partial provider failure, timeout cleanup, and persistence across relaunch using test accounts. Run `swift run CapBarChecks`, `swift build -c release`, `plutil -lint`, `codesign --verify --deep --strict`, and a local app smoke launch; document any environment-dependent integration checks separately. Commit only after these gates pass.
 
 ## Plan Self-Review
 

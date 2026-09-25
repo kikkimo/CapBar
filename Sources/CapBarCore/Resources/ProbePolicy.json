@@ -1,0 +1,6 @@
+{
+  "maxAttempts": 3,
+  "attemptTimeoutSeconds": 45,
+  "retryDelayMinSeconds": 10,
+  "retryDelayMaxSeconds": 20
+}
