@@ -17,8 +17,8 @@ private actor PreviewHangingProvider: UsageProvider {
     let settingsStore = SettingsStore(url: folder.appendingPathComponent("settings.json"))
     let snapshotStore = SnapshotStore(url: folder.appendingPathComponent("snapshots.json"))
     let accounts = [
+        AccountID(provider: .claude, directory: "~/.claude-personal"),
         AccountID(provider: .claude, directory: "~/.claude-team"),
-        AccountID(provider: .claude, directory: "~/.claude-shared"),
         AccountID(provider: .codex, directory: "~/.codex"),
         AccountID(provider: .codex, directory: "~/.codex-work"),
     ]
@@ -26,8 +26,8 @@ private actor PreviewHangingProvider: UsageProvider {
     try await settingsStore.save(settings)
     let now = Date()
     let samples: [(String, String, String?, Double, Double?, Int)] = [
-        ("adrian@example.com", "Team", "Example Studio", 0, 99, 2),
-        ("liubin@example.com", "Team", "Example Studio", 33, 33, 7),
+        ("alex@example.com", "Team", "Example Studio", 0, 99, 2),
+        ("sam@example.com", "Team", "Example Studio", 33, 33, 7),
         ("codex@example.com", "Plus", nil, 68, 42, 64),
         ("work@example.com", "Team", "Example Org", 13, nil, 180),
     ]
