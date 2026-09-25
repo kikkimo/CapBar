@@ -1,5 +1,11 @@
 # CapBar
 
+[![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2F80ED?style=flat-square)](scripts/Info.plist)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#install-and-use)
+[![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](Package.swift)
+[![Apple Silicon](https://img.shields.io/badge/arch-Apple%20Silicon-0A7F75?style=flat-square)](#build-from-source)
+[![License MIT](https://img.shields.io/badge/license-MIT-0A7F75?style=flat-square)](LICENSE)
+
 **Claude Code and Codex usage, together in your macOS menu bar.** CapBar shows the remaining quota, reset time, and capture time for multiple local account profiles in one compact window.
 
 [English](README.md) · [简体中文](docs/README-zh.md)
@@ -75,3 +81,7 @@ The screenshot command renders sample data from the SwiftUI app and updates `doc
 - [Visual design](design/capbar-visual-study.html)
 - [Product and engineering specification](design/spec.md)
 - [Implementation plan](design/implementation-plan.md)
+
+## License
+
+CapBar is available under the [MIT License](LICENSE).

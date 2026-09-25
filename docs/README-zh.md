@@ -1,5 +1,11 @@
 # CapBar
 
+[![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2F80ED?style=flat-square)](../scripts/Info.plist)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#安装与使用)
+[![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](../Package.swift)
+[![Apple Silicon](https://img.shields.io/badge/arch-Apple%20Silicon-0A7F75?style=flat-square)](#从源码构建)
+[![License MIT](https://img.shields.io/badge/license-MIT-0A7F75?style=flat-square)](../LICENSE)
+
 **在 macOS 菜单栏集中查看 Claude Code 与 Codex 额度。** CapBar 把多个本地账号的剩余额度、重置时间和采集时间放在同一个弹窗中。
 
 [English](../README.md) · [简体中文](README-zh.md)
@@ -75,3 +81,7 @@ swift run CapBarChecks
 - [视觉设计](../design/capbar-visual-study.html)
 - [产品与工程规格](../design/spec.md)
 - [实施计划](../design/implementation-plan.md)
+
+## 许可证
+
+CapBar 使用 [MIT 许可证](../LICENSE)。
