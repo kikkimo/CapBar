@@ -1,7 +1,7 @@
 # CapBar
 
 [![CI](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml)
-[![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2F80ED?style=flat-square)](scripts/Info.plist)
+[![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-2F80ED?style=flat-square)](scripts/Info.plist)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#install-and-use)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](Package.swift)
 [![Apple Silicon](https://img.shields.io/badge/arch-Apple%20Silicon-0A7F75?style=flat-square)](#build-from-source)
@@ -27,10 +27,10 @@
 
 ## Install and use
 
-CapBar 0.1.0 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
+CapBar 0.1.1 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
 
-1. Download `CapBar-0.1.0.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
-2. Open `CapBar-0.1.0.pkg`. The installer places the app at `/Applications/CapBar.app`.
+1. Download `CapBar-0.1.1.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
+2. Open `CapBar-0.1.1.pkg`. The installer places the app at `/Applications/CapBar.app`.
 3. Launch CapBar from Applications. It appears in the menu bar, without a Dock icon.
 4. Click the menu bar item to view snapshots. Select **Refresh All (全部刷新)** or refresh an individual account when you want current data.
 
@@ -64,7 +64,7 @@ cd CapBar
 ./scripts/package-installer.sh
 ```
 
-The script runs the checks, builds `dist/CapBar.app`, verifies the app bundle, and creates `dist/CapBar-0.1.0.pkg`. It verifies that the package targets `/Applications` **without relocating** to an existing development copy.
+The script runs the checks, builds `dist/CapBar.app`, verifies the app bundle, and creates `dist/CapBar-0.1.1.pkg`. It verifies that the package targets `/Applications` **without relocating** to an existing development copy.
 
 ```sh
 swift run CapBarChecks
