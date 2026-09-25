@@ -30,11 +30,13 @@
     .desktop { width: 510px; max-width: 100%; }
     .mac-menu { min-height: 34px; padding: 0 13px; display: flex; align-items: center; gap: 13px; background: light-dark(#d8d8ddcc, #3a3a40cc); border: 1px solid light-dark(#ceced3, #505057); border-radius: 9px 9px 0 0; font-size: 12px; font-weight: 560; backdrop-filter: blur(18px); }
     .menu-grow { flex: 1; }
-    .menu-capbar { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+    .menu-capbar { display: inline-flex; align-items: center; gap: 8px; padding: 3px 5px; border: 0; border-radius: 5px; background: transparent; color: inherit; white-space: nowrap; }
+    .menu-capbar:hover, .menu-capbar[aria-expanded="true"] { background: light-dark(#ffffff70, #ffffff24); }
     .capbar-mark { display: inline-grid; place-items: center; width: 17px; height: 17px; border: 1.5px solid currentColor; border-radius: 5px; color: var(--ink); font-size: 11px; font-weight: 750; letter-spacing: -.06em; }
     .menu-signal { color: var(--danger); font-weight: 750; }
     .popover-anchor { display: flex; justify-content: flex-end; padding-right: 9px; }
     .popover { width: 448px; max-width: 100%; max-height: min(790px, 87vh); margin-top: 7px; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid light-dark(#d4d4d9, #55555c); border-radius: 11px; box-shadow: 0 15px 36px light-dark(#1d1d1f29, #00000066); backdrop-filter: blur(28px); }
+    .popover[hidden] { display: none; }
     .popover-head { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: light-dark(#f6f6f8df, #343439df); }
     .brand-mark { width: 28px; height: 28px; flex: 0 0 auto; border: 1px solid light-dark(#d4d4da, #616169); border-radius: 7px; display: grid; place-items: center; background: light-dark(#fff, #45454b); color: var(--ink); font-size: 16px; font-weight: 720; letter-spacing: -.065em; box-shadow: 0 1px 2px light-dark(#0000000d, #00000030); }
     .head-text { min-width: 0; flex: 1; }
@@ -44,9 +46,12 @@
     .refresh-all:hover, .config-save:hover { filter: brightness(.94); }
     .icon-control, .account-refresh { display: inline-grid; place-items: center; flex: 0 0 auto; width: 27px; height: 27px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--sub); font-size: 16px; }
     .icon-control:hover, .account-refresh:hover { border-color: var(--line); background: var(--soft); color: var(--ink); }
+    .account-refresh:disabled { cursor: default; opacity: .38; }
+    .account-refresh:disabled:hover { border-color: transparent; background: transparent; color: var(--sub); }
     #capbar-overview { min-height: 0; overflow: auto; scrollbar-width: thin; }
     #capbar-overview[hidden], .settings-panel[hidden] { display: none; }
     .attention { margin: 0; padding: 9px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid light-dark(#f0d8cd, #664b43); background: light-dark(#fff7f0, #483831); color: light-dark(#995743, #f3ba9e); font-size: 11px; line-height: 1.4; }
+    .attention[hidden] { display: none; }
     .attention strong { font-weight: 680; }
     .provider-head { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 16px; border-bottom: 1px solid var(--line); background: light-dark(#f3f3f6, #333338); font-size: 10px; font-weight: 720; letter-spacing: .06em; }
     .provider-head .count { margin-left: auto; color: var(--sub); font-size: 10px; font-weight: 500; letter-spacing: 0; }
@@ -61,7 +66,26 @@
     .account-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; min-width: 0; color: var(--sub); font-size: 10px; }
     .account-meta .path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
     .account-meta .separator { opacity: .5; }
-    .updated { flex: 0 0 auto; align-self: flex-start; padding-top: 2px; color: var(--sub); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .updated-wrap { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 3px; align-self: flex-start; padding-top: 2px; }
+    .updated { color: var(--sub); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .refresh-status { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-size: 10px; white-space: nowrap; }
+    .error-status { display: inline-flex; align-items: center; gap: 4px; color: var(--danger); font-size: 10px; white-space: nowrap; }
+    .spinner { display: inline-block; width: 9px; height: 9px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: capbar-spin .7s linear infinite; }
+    @keyframes capbar-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
+    .empty-usage { margin-top: 10px; color: var(--sub); font-size: 11px; }
+    .empty-accounts { padding: 22px 16px; color: var(--sub); font-size: 12px; text-align: center; }
+    .state-gallery { margin-top: 29px; }
+    .state-gallery h3 { margin: 0 0 5px; font-size: 16px; font-weight: 680; letter-spacing: -.02em; }
+    .state-gallery > p { margin: 0 0 13px; color: var(--sub); font-size: 11px; line-height: 1.5; }
+    .state-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .state-case { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+    .state-case-head { display: flex; align-items: baseline; gap: 9px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--soft); }
+    .state-case-head strong { font-size: 12px; }
+    .state-case-head span { margin-left: auto; color: var(--sub); font-size: 10px; text-align: right; }
+    .state-case .account { margin: 0 14px; }
+    .state-case .account.is-exhausted::before { left: -14px; }
+    .state-case .account-refresh:not(:disabled) { opacity: .65; }
     .metrics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin-top: 11px; padding: 0; }
     .metrics-grid.single { grid-template-columns: 1fr; }
     .metric-card { min-width: 0; padding-right: 13px; }
@@ -86,10 +110,22 @@
     .settings-label { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; color: var(--sub); font-size: 11px; font-weight: 650; }
     .settings-label input, .settings-label select { width: 100%; padding: 7px 9px; border: 1px solid light-dark(#d1d1d6, #606067); border-radius: 6px; background: light-dark(#fff, #3a3a40); color: var(--ink); font-size: 12px; font-weight: 500; }
     .settings-label input[type=number] { max-width: 115px; }
+    .settings-label input:disabled { opacity: .5; cursor: not-allowed; }
+    .settings-toggle { display: flex; align-items: center; gap: 11px; padding: 10px 0; font-size: 12px; font-weight: 630; cursor: pointer; }
+    .settings-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    .switch { position: relative; order: -1; width: 29px; height: 17px; flex: 0 0 auto; border-radius: 999px; background: light-dark(#c8c8cd, #5c5c62); transition: background .2s; }
+    .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: white; box-shadow: 0 1px 2px #0003; transition: transform .2s; }
+    .settings-toggle input:checked + .switch { background: light-dark(#007aff, #0a84ff); }
+    .settings-toggle input:checked + .switch::after { transform: translateX(12px); }
+    .settings-toggle input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .settings-note { margin: 0 0 7px; color: var(--sub); font-size: 10px; line-height: 1.5; }
     .settings-subhead { margin-top: 19px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
-    .settings-account { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .settings-account { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .settings-account .settings-identity { min-width: 0; flex: 1; }
     .settings-account strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
     .settings-account span { display: block; margin-top: 4px; color: var(--sub); font-size: 10px; }
+    .settings-account button { flex: 0 0 auto; border: 0; background: transparent; color: var(--sub); font-size: 11px; }
+    .settings-account button:hover { color: var(--danger); }
     .settings-grid { display: grid; grid-template-columns: 125px 1fr; gap: 9px; }
     .config-save { margin-top: 14px; padding: 7px 11px; border: 0; border-radius: 6px; background: light-dark(#007aff, #0a84ff); color: #fff; font-size: 11px; font-weight: 630; }
     .concept-caption { margin: 12px 0 0; text-align: center; }
@@ -97,7 +133,7 @@
     .choice { padding: 13px 0; border-top: 1px solid var(--line); }
     .choice strong { display: block; margin-bottom: 6px; font-size: 12px; }
     .choice span { display: block; color: var(--sub); font-size: 11px; line-height: 1.6; }
-    @media (max-width: 600px) { body { padding: 21px 13px 48px; } .study-section + .study-section { margin-top: 42px; } .stage { padding: 15px 9px 19px; } .popover-anchor { padding-right: 0; } .design-choices { grid-template-columns: 1fr; gap: 0; } .mac-menu { gap: 8px; padding: 0 10px; } .popover-head { padding: 12px 13px; gap: 8px; } .attention { padding-right: 13px; padding-left: 13px; } .provider-head { padding-right: 13px; padding-left: 13px; } .account { margin-right: 13px; margin-left: 13px; } .account.is-exhausted::before { left: -13px; } .popover-foot { padding-right: 13px; padding-left: 13px; } }
+    @media (max-width: 600px) { body { padding: 21px 13px 48px; } .study-section + .study-section { margin-top: 42px; } .stage { padding: 15px 9px 19px; } .popover-anchor { padding-right: 0; } .design-choices, .state-grid { grid-template-columns: 1fr; gap: 0; } .state-grid { gap: 11px; } .mac-menu { gap: 8px; padding: 0 10px; } .popover-head { padding: 12px 13px; gap: 8px; } .attention { padding-right: 13px; padding-left: 13px; } .provider-head { padding-right: 13px; padding-left: 13px; } .account { margin-right: 13px; margin-left: 13px; } .account.is-exhausted::before { left: -13px; } .popover-foot { padding-right: 13px; padding-left: 13px; } }
     @media (max-width: 420px) { .mac-menu > span:nth-child(2), .mac-menu > span:nth-child(3), .mac-menu > span:nth-last-child(2) { display: none; } .popover { max-height: min(730px, 82vh); } .metric-card { padding-right: 9px; } .metric-card + .metric-card { padding-left: 10px; } .metric-reset { font-size: 9px; } }
   </style>
 </head>
@@ -117,14 +153,18 @@
     <h2 id="capbar-title">真实账号身份，逐账号查看额度</h2>
     <div class="stage">
       <div class="desktop" aria-label="CapBar 菜单栏与弹出面板设计">
-        <div class="mac-menu"><span>◉</span><span>文件</span><span>编辑</span><span class="menu-grow"></span><span class="menu-capbar"><span class="capbar-mark">C</span><span id="capbar-menu-text">6 账号 · <span class="menu-signal">1 耗尽</span></span></span><span>▰</span><span>16:01</span></div>
+        <div class="mac-menu"><span>◉</span><span>文件</span><span>编辑</span><span class="menu-grow"></span><button class="menu-capbar" type="button" id="menu-toggle" aria-expanded="true" aria-controls="capbar-popover"><span class="capbar-mark">C</span><span id="capbar-menu-text">6 账号 · <span class="menu-signal">1 耗尽</span></span></button><span>▰</span><span id="mock-clock">16:01</span></div>
         <div class="popover-anchor"><div class="popover" id="capbar-popover">
-          <div class="popover-head"><div class="brand-mark">C</div><div class="head-text"><div class="app-name">CapBar</div><div class="app-meta">6 个账号 · 本机快照 16:01</div></div><button class="refresh-all" type="button" id="capbar-refresh">↻ 全部刷新</button><button class="icon-control" type="button" aria-label="添加账号目录" id="capbar-add">＋</button></div>
-          <div id="capbar-overview"><div class="attention"><span aria-hidden="true">●</span><span><strong>1 个账号的 7 天额度已用尽</strong> · 请查看下方账号</span></div><div id="account-groups"></div></div>
+          <div class="popover-head"><div class="brand-mark">C</div><div class="head-text"><div class="app-name">CapBar</div><div class="app-meta" id="app-meta">6 个账号 · 仅手动刷新</div></div><button class="refresh-all" type="button" id="capbar-refresh">↻ 全部刷新</button><button class="icon-control" type="button" aria-label="添加账号目录" id="capbar-add">＋</button></div>
+          <div id="capbar-overview"><div class="attention" id="attention"><span aria-hidden="true">●</span><span id="attention-text"><strong>1 个账号的 7 天额度已用尽</strong> · 请查看下方账号</span></div><div id="account-groups"></div></div>
           <div class="settings-panel" id="settings-panel" hidden>
             <div class="settings-head"><span id="settings-title">账号与刷新</span><button type="button" id="settings-back">返回总览</button></div>
-            <p class="settings-help">邮箱、套餐和组织由 Claude Code / Codex 自动识别；只需指定账号目录。默认目录会自动加入。</p>
-            <label class="settings-label">自动刷新间隔（分钟）<input type="number" id="refresh-interval" min="1" value="5"></label>
+            <p class="settings-help">邮箱、套餐和组织由 Claude Code / Codex 自动识别。首次加入默认目录；移除后不会自动恢复。</p>
+            <div class="settings-subhead">刷新行为</div>
+            <label class="settings-toggle"><input type="checkbox" id="auto-refresh-on-open"><span class="switch" aria-hidden="true"></span>打开弹窗时自动刷新</label>
+            <p class="settings-note">关闭时只显示上次快照，不在后台定时刷新。</p>
+            <label class="settings-label">刷新阈值（分钟）<input type="number" id="refresh-threshold" min="1" value="5" disabled></label>
+            <p class="settings-note">开启后逐账号判断：距上次探测超过阈值才刷新。</p>
             <div class="settings-subhead">已识别的账号</div><div id="settings-accounts"></div>
             <div class="settings-subhead">添加目录</div>
             <div class="settings-grid"><label class="settings-label">服务<select id="account-provider"><option>Claude</option><option>Codex</option></select></label><label class="settings-label">配置目录<input id="account-directory" placeholder="例如 ~/.claude-work"></label></div>
@@ -134,8 +174,13 @@
         </div></div>
       </div>
     </div>
-    <p class="concept-caption" id="capbar-caption" aria-live="polite">静态设计稿：数据取自 2026 年 9 月 25 日约 16:01 的本机查询；按钮不发起真实请求。</p>
-    <div class="design-choices"><div class="choice"><strong>账号身份</strong><span>邮箱是主标识；组织、套餐和目录帮助核对身份。无需手填“个人”或“工作”。</span></div><div class="choice"><strong>真实窗口</strong><span>Claude 展示 5 小时与 7 天；本机 Codex 只返回 7 天，因此没有虚构 5 小时进度。</span></div><div class="choice"><strong>刷新状态</strong><span>打开窗口先显示快照；全部与单账号刷新分别更新。失败保留旧值并标记时间。</span></div></div>
+    <p class="concept-caption" id="capbar-caption" aria-live="polite">静态设计稿：数据取自 2026 年 9 月 25 日约 16:01 的本机查询；点击刷新只演示 loading，不请求真实账号。</p>
+    <section class="state-gallery" aria-labelledby="states-title">
+      <h3 id="states-title">同一账号行的四种状态</h3>
+      <p>下面使用同一账号的快照演示四种界面状态；相对采集时间仅作排版示例。上方弹窗可演示 loading 和跳过重复刷新。</p>
+      <div class="state-grid" id="state-grid"></div>
+    </section>
+    <div class="design-choices"><div class="choice"><strong>账号身份</strong><span>邮箱是主标识；组织、套餐和目录帮助核对身份。无需手填“个人”或“工作”。</span></div><div class="choice"><strong>真实窗口</strong><span>Claude 展示 5 小时与 7 天；本机 Codex 只返回 7 天，因此没有虚构 5 小时进度。</span></div><div class="choice"><strong>刷新状态</strong><span>每个账号独立显示采集时间。刷新中保留旧值；全局按钮始终可点，并跳过正在刷新的账号。</span></div></div>
   </section>
 
   <p class="credit">AIBar 截图来自 <a href="https://github.com/inxight/aibar">inxight/aibar</a>；许可文本见 <a href="assets/AIBar-LICENSE.txt">AIBar-LICENSE.txt</a>。CapBar 区域包含本机账号邮箱和一次性额度快照，页面本身不连接账号。</p>
@@ -143,36 +188,99 @@
 <script>
   (() => {
     const accounts = [
-      { provider: 'Claude', email: 'account3@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude', updated: '16:00', windows: [{ label: '5 小时', remaining: 90, reset: '今天 17:20' }, { label: '7 天', remaining: 77, reset: '9 月 30 日 08:00' }] },
-      { provider: 'Claude', email: 'account5@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-team', updated: '16:00', windows: [{ label: '5 小时', remaining: 100, reset: '今天 20:39' }, { label: '7 天', remaining: 0, reset: '9 月 29 日 11:59' }] },
-      { provider: 'Claude', email: 'account2@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-work', updated: '16:00', windows: [{ label: '5 小时', remaining: 86, reset: '今天 19:49' }, { label: '7 天', remaining: 97, reset: '9 月 26 日 12:59' }] },
-      { provider: 'Claude', email: 'account1@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-review', updated: '16:00', windows: [{ label: '5 小时', remaining: 98, reset: '今天 20:50' }, { label: '7 天', remaining: 21, reset: '9 月 30 日 00:00' }] },
-      { provider: 'Claude', email: 'account4@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-shared', updated: '16:00', windows: [{ label: '5 小时', remaining: 65, reset: '今天 18:49' }, { label: '7 天', remaining: 66, reset: '9 月 29 日 16:59' }] },
+      { provider: 'Claude', email: 'account3@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude', updated: '16:00', windows: [{ label: '5 小时', remaining: 90, reset: '9 月 25 日 17:20' }, { label: '7 天', remaining: 77, reset: '9 月 30 日 08:00' }] },
+      { provider: 'Claude', email: 'account5@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-team', updated: '16:00', windows: [{ label: '5 小时', remaining: 100, reset: '9 月 25 日 20:39' }, { label: '7 天', remaining: 0, reset: '9 月 29 日 11:59' }] },
+      { provider: 'Claude', email: 'account2@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-work', updated: '16:00', windows: [{ label: '5 小时', remaining: 86, reset: '9 月 25 日 19:49' }, { label: '7 天', remaining: 97, reset: '9 月 26 日 12:59' }] },
+      { provider: 'Claude', email: 'account1@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-review', updated: '16:00', windows: [{ label: '5 小时', remaining: 98, reset: '9 月 25 日 20:50' }, { label: '7 天', remaining: 21, reset: '9 月 30 日 00:00' }] },
+      { provider: 'Claude', email: 'account4@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-shared', updated: '16:00', windows: [{ label: '5 小时', remaining: 65, reset: '9 月 25 日 18:49' }, { label: '7 天', remaining: 66, reset: '9 月 29 日 16:59' }] },
       { provider: 'Codex', email: 'account6@example.com', plan: 'Pro', org: null, directory: '~/.codex', updated: '16:01', windows: [{ label: '7 天', remaining: 20, reset: '9 月 27 日 01:44' }] }
     ];
     const root = document.getElementById('capbar-visual-study');
     const popover = document.getElementById('capbar-popover');
     const caption = document.getElementById('capbar-caption');
+    const overview = document.getElementById('capbar-overview');
+    const settings = document.getElementById('settings-panel');
+    const autoOnOpen = document.getElementById('auto-refresh-on-open');
+    const thresholdInput = document.getElementById('refresh-threshold');
     const state = { accent: '#006bd6', density: 'comfortable', menu: 'attention' };
     const escapeHTML = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+    accounts.forEach(account => {
+      account.key = `${account.provider}:${account.directory}`;
+      account.capturedAt = new Date(`2026-09-25T${account.updated}:00+08:00`).getTime();
+      account.lastAttemptAt = account.capturedAt;
+      account.refreshing = false;
+      account.removed = false;
+    });
+    const activeAccounts = () => accounts.filter(account => !account.removed);
+    function displayTime(timestamp) {
+      if (!timestamp) return '尚无数据';
+      const age = Math.max(0, Date.now() - timestamp);
+      if (age <= 3 * 60_000) return '刚刚';
+      if (age < 60 * 60_000) return `${Math.floor(age / 60_000)} 分钟前`;
+      const date = new Date(timestamp);
+      const year = date.getFullYear() === new Date().getFullYear() ? '' : `${date.getFullYear()}年`;
+      return `${year}${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
     function metric(window) {
       const level = window.remaining === 0 ? 'exhausted' : window.remaining <= 25 ? 'warning' : '';
       return `<div class="metric-card"><div class="metric-head"><span class="metric-label">${escapeHTML(window.label)}</span><strong class="metric-value ${level}">余 ${window.remaining}%</strong></div><div class="metric-bar ${level}"><span class="metric-fill ${level}" style="--fill:${window.remaining}%"></span></div><div class="metric-reset">${escapeHTML(window.reset)} 重置</div></div>`;
     }
     function accountRow(account) {
-      const identity = [account.org, account.plan].filter(Boolean).join(' · ');
-      return `<div class="account ${account.windows.some(window => window.remaining === 0) ? 'is-exhausted' : ''}"><div class="account-top"><div class="identity"><span class="account-email" title="${escapeHTML(account.email)}">${escapeHTML(account.email)}</span><span class="account-meta"><span>${escapeHTML(identity)}</span><span class="separator">·</span><span class="path" title="${escapeHTML(account.directory)}">${escapeHTML(account.directory)}</span></span></div><span class="updated">${account.updated}</span><button class="account-refresh" type="button" aria-label="刷新 ${escapeHTML(account.email)}" data-account="${escapeHTML(account.email)}">↻</button></div><div class="metrics-grid ${account.windows.length === 1 ? 'single' : ''}">${account.windows.map(metric).join('')}</div></div>`;
+      const identity = [account.org, account.plan].filter(Boolean).join(' · ') || '待识别';
+      const loading = account.refreshing ? '<span class="refresh-status"><span class="spinner" aria-hidden="true"></span>刷新中</span>' : account.lastError ? `<span class="error-status" title="${escapeHTML(account.lastError)}">● 刷新失败</span>` : '';
+      const usage = account.windows.length ? `<div class="metrics-grid ${account.windows.length === 1 ? 'single' : ''}">${account.windows.map(metric).join('')}</div>` : '<div class="empty-usage">暂无额度快照</div>';
+      return `<div class="account ${account.windows.some(window => window.remaining === 0) ? 'is-exhausted' : ''}"><div class="account-top"><div class="identity"><span class="account-email" title="${escapeHTML(account.email)}">${escapeHTML(account.email)}</span><span class="account-meta"><span>${escapeHTML(identity)}</span><span class="separator">·</span><span class="path" title="${escapeHTML(account.directory)}">${escapeHTML(account.directory)}</span></span></div><span class="updated-wrap"><span class="updated" title="${account.capturedAt ? escapeHTML(new Date(account.capturedAt).toLocaleString('zh-CN')) : '尚无数据'}">${escapeHTML(displayTime(account.capturedAt))}</span>${loading}</span><button class="account-refresh" type="button" aria-label="刷新 ${escapeHTML(account.email)}" data-account="${escapeHTML(account.key)}" ${account.refreshing ? 'disabled' : ''}>↻</button></div>${usage}</div>`;
     }
-    document.getElementById('account-groups').innerHTML = ['Claude', 'Codex'].map(provider => {
-      const group = accounts.filter(account => account.provider === provider);
-      return `<div class="provider-head"><span class="provider-dot ${provider === 'Codex' ? 'codex' : ''}"></span>${provider === 'Claude' ? 'CLAUDE CODE' : 'CODEX'}<span class="count">${group.length} 个账号</span></div>${group.map(accountRow).join('')}`;
-    }).join('');
-    document.getElementById('settings-accounts').innerHTML = accounts.map(account => `<div class="settings-account"><strong>${escapeHTML(account.email)}</strong><span>${escapeHTML(account.provider)} · ${escapeHTML(account.directory)} · ${escapeHTML([account.org, account.plan].filter(Boolean).join(' · '))}</span></div>`).join('');
     function render() {
       if (state.accent !== '#006bd6') root.style.setProperty('--accent', state.accent);
       else root.style.removeProperty('--accent');
+      const visible = activeAccounts();
+      document.getElementById('account-groups').innerHTML = ['Claude', 'Codex'].map(provider => {
+        const group = visible.filter(account => account.provider === provider);
+        if (!group.length) return '';
+        return `<div class="provider-head"><span class="provider-dot ${provider === 'Codex' ? 'codex' : ''}"></span>${provider === 'Claude' ? 'CLAUDE CODE' : 'CODEX'}<span class="count">${group.length} 个账号</span></div>${group.map(accountRow).join('')}`;
+      }).join('') || '<div class="empty-accounts">尚未添加账号目录</div>';
       root.querySelectorAll('.account').forEach(row => { row.style.paddingTop = state.density === 'compact' ? '9px' : '12px'; row.style.paddingBottom = state.density === 'compact' ? '10px' : '13px'; });
-      document.getElementById('capbar-menu-text').innerHTML = state.menu === 'attention' ? '6 账号 · <span class="menu-signal">1 耗尽</span>' : '6 账号';
+      document.getElementById('settings-accounts').innerHTML = visible.map(account => `<div class="settings-account"><div class="settings-identity"><strong>${escapeHTML(account.email)}</strong><span>${escapeHTML(account.provider)} · ${escapeHTML(account.directory)} · ${escapeHTML([account.org, account.plan].filter(Boolean).join(' · '))}</span></div><button type="button" data-remove="${escapeHTML(account.key)}" ${account.refreshing ? 'disabled' : ''}>移除</button></div>`).join('');
+      const exhausted = visible.filter(account => account.windows.some(window => window.remaining === 0)).length;
+      document.getElementById('attention').hidden = exhausted === 0;
+      document.getElementById('attention-text').innerHTML = `<strong>${exhausted} 个账号的额度已用尽</strong> · 请查看下方账号`;
+      document.getElementById('capbar-menu-text').innerHTML = `${visible.length} 账号${state.menu === 'attention' && exhausted ? ` · <span class="menu-signal">${exhausted} 耗尽</span>` : ''}`;
+      document.getElementById('app-meta').textContent = `${visible.length} 个账号 · ${autoOnOpen.checked ? '打开时按需刷新' : '仅手动刷新'}`;
+      document.getElementById('mock-clock').textContent = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const stateCases = [
+        { title: '正常快照', note: '3 分钟内显示“刚刚”', account: { ...accounts[0], capturedAt: Date.now() - 2 * 60_000, refreshing: false, lastError: null } },
+        { title: '刷新中', note: '旧额度与“X 分钟前”仍可见', account: { ...accounts[0], capturedAt: Date.now() - 17 * 60_000, refreshing: true, lastError: null } },
+        { title: '刷新失败', note: '保留旧值和具体采集时间', account: { ...accounts[0], refreshing: false, lastError: '网络超时' } },
+        { title: '首次无快照', note: '等待手动刷新或打开时探测', account: { ...accounts[0], refreshing: false, lastError: null, capturedAt: null, windows: [] } }
+      ];
+      document.getElementById('state-grid').innerHTML = stateCases.map(item => `<div class="state-case"><div class="state-case-head"><strong>${item.title}</strong><span>${item.note}</span></div>${accountRow(item.account)}</div>`).join('');
+    }
+    function startDemoRefresh(account) {
+      if (account.refreshing || account.removed) return false;
+      account.refreshing = true;
+      account.lastError = null;
+      account.lastAttemptAt = Date.now();
+      render();
+      setTimeout(() => {
+        account.refreshing = false;
+        render();
+        caption.textContent = '演示加载结束：本页没有请求真实账号，原快照与采集时间保持不变。';
+      }, 2600);
+      return true;
+    }
+    function refreshAll() {
+      const visible = activeAccounts();
+      const started = visible.filter(startDemoRefresh).length;
+      caption.textContent = started ? `交互示意：${started} 个账号开始刷新；已在刷新的账号被跳过。` : visible.length ? '所有账号正在刷新，未重复发起请求。' : '请先添加账号目录。';
+    }
+    function refreshOnOpen() {
+      if (!autoOnOpen.checked) return;
+      const threshold = Number(thresholdInput.value);
+      if (!Number.isInteger(threshold) || threshold < 1) return;
+      const now = Date.now();
+      const started = activeAccounts().filter(account => !account.refreshing && (!account.lastAttemptAt || now - account.lastAttemptAt >= threshold * 60_000)).filter(startDemoRefresh).length;
+      caption.textContent = started ? `交互示意：${started} 个超过 ${threshold} 分钟阈值的账号开始刷新。` : '没有需要新发起刷新的账号；正在刷新的任务会继续完成。';
     }
     render();
     if (globalThis.Tweak) {
@@ -181,27 +289,60 @@
       tweak.addSelect(state, 'density', { label: '面板密度', options: [{ label: '舒展', value: 'comfortable' }, { label: '紧凑', value: 'compact' }] });
       tweak.addSelect(state, 'menu', { label: '菜单栏摘要', options: [{ label: '显示提醒', value: 'attention' }, { label: '仅账号数', value: 'count' }] });
     }
-    document.getElementById('capbar-refresh').addEventListener('click', () => { caption.textContent = '交互示意：全部刷新会分别请求 6 个账号；本页不会发起真实请求。'; });
-    root.querySelectorAll('.account-refresh').forEach(button => button.addEventListener('click', () => { caption.textContent = `交互示意：只刷新 ${button.dataset.account}；本页不会发起真实请求。`; }));
-    const overview = document.getElementById('capbar-overview');
-    const settings = document.getElementById('settings-panel');
+    document.getElementById('menu-toggle').addEventListener('click', event => {
+      popover.hidden = !popover.hidden;
+      event.currentTarget.setAttribute('aria-expanded', String(!popover.hidden));
+      if (!popover.hidden) { settings.hidden = true; overview.hidden = false; refreshOnOpen(); }
+    });
+    document.getElementById('capbar-refresh').addEventListener('click', refreshAll);
+    document.getElementById('account-groups').addEventListener('click', event => {
+      const button = event.target.closest('.account-refresh');
+      if (!button || button.disabled) return;
+      const account = accounts.find(item => item.key === button.dataset.account);
+      if (account && startDemoRefresh(account)) caption.textContent = `交互示意：只刷新 ${account.email}；旧额度仍然显示。`;
+    });
+    document.getElementById('settings-accounts').addEventListener('click', event => {
+      const button = event.target.closest('[data-remove]');
+      if (!button || button.disabled) return;
+      const account = accounts.find(item => item.key === button.dataset.remove);
+      if (!account) return;
+      account.removed = true;
+      render();
+      caption.textContent = `交互示意：已从列表移除 ${account.directory}；重新加载页面可恢复静态示例。`;
+    });
+    autoOnOpen.addEventListener('change', () => {
+      thresholdInput.disabled = !autoOnOpen.checked;
+      render();
+      caption.textContent = autoOnOpen.checked ? '打开时自动刷新已开启；下次打开弹窗将逐账号检查阈值。' : '打开时自动刷新已关闭；仅手动按钮会发起刷新。';
+    });
+    thresholdInput.addEventListener('change', () => {
+      const value = Number(thresholdInput.value);
+      if (!Number.isInteger(value) || value < 1) { thresholdInput.value = '5'; caption.textContent = '刷新阈值必须是至少 1 分钟的整数，已恢复为 5 分钟。'; }
+    });
     function showSettings(focusDirectory) {
       overview.hidden = true; settings.hidden = false;
       document.getElementById('settings-title').textContent = focusDirectory ? '添加账号目录' : '账号与刷新';
       if (focusDirectory) document.getElementById('account-directory').focus();
-      caption.textContent = '只需配置服务和目录；邮箱、组织、套餐在读取账号后自动识别。';
+      caption.textContent = '邮箱、组织和套餐由账号自动识别；刷新阈值只在打开时自动刷新开启后生效。';
     }
     document.getElementById('capbar-add').addEventListener('click', () => showSettings(true));
     document.getElementById('capbar-config').addEventListener('click', () => showSettings(false));
     document.getElementById('settings-back').addEventListener('click', () => { settings.hidden = true; overview.hidden = false; });
     document.getElementById('settings-save').addEventListener('click', () => {
       const directory = document.getElementById('account-directory').value.trim();
-      const interval = Number(document.getElementById('refresh-interval').value);
-      if (!Number.isInteger(interval) || interval < 1) { caption.textContent = '刷新间隔至少为 1 分钟。'; return; }
       if (!directory) { caption.textContent = '请填写配置目录。'; return; }
-      caption.textContent = `交互示意：添加 ${document.getElementById('account-provider').value} 目录 ${directory}，刷新间隔 ${interval} 分钟。`;
+      const provider = document.getElementById('account-provider').value;
+      const key = `${provider}:${directory}`;
+      const existing = accounts.find(account => account.key === key);
+      if (existing && !existing.removed) { caption.textContent = '这个服务和配置目录已经在列表中。'; return; }
+      if (existing) existing.removed = false;
+      else accounts.push({ provider, email: '尚未识别账号', plan: null, org: null, directory, updated: '', windows: [], key, capturedAt: null, lastAttemptAt: null, refreshing: false, removed: false });
+      render();
+      document.getElementById('account-directory').value = '';
+      caption.textContent = `交互示意：已添加 ${provider} 目录 ${directory}；本页不会读取真实账号。`;
       settings.hidden = true; overview.hidden = false;
     });
+    setInterval(() => { if (!popover.hidden) render(); }, 30_000);
   })();
 </script>
 </body>
