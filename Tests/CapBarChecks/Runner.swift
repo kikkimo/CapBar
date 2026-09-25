@@ -50,6 +50,7 @@ import Foundation
         if filter == nil || filter == "PopoverModelTests" { runPopoverModelChecks() }
         if filter == nil || filter == "PopoverDismissalTests" { runPopoverDismissalChecks() }
         if filter == nil || filter == "StatusMenuTests" { runStatusMenuChecks() }
+        if filter == nil || filter == "LaunchAtLoginTests" { runLaunchAtLoginChecks() }
         if filter == nil || filter == "ViewModelTests" { await runViewModelChecks() }
         if checksRun == 0 {
             fputs("No checks matched \(filter ?? "all")\n", stderr)

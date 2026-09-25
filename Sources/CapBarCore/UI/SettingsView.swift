@@ -5,6 +5,7 @@ struct CapBarSettingsView: View {
     private enum SizeField: Hashable { case width, height }
 
     @ObservedObject var model: CapBarViewModel
+    @StateObject private var launchAtLogin = LaunchAtLoginController()
     @FocusState private var focusedSizeField: SizeField?
     private let secondary = Color(nsColor: .secondaryLabelColor)
     private let line = Color(nsColor: .separatorColor)
@@ -51,6 +52,33 @@ struct CapBarSettingsView: View {
                 .padding(.top, 13)
                 Text("开启后逐账号判断：距上次探测超过阈值才刷新。")
                     .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
+
+                sectionTitle("启动").padding(.top, 20)
+                Toggle("登录时自动启动", isOn: Binding(
+                    get: { launchAtLogin.isOn },
+                    set: { launchAtLogin.setEnabled($0) }
+                ))
+                .font(.system(size: 12, weight: .medium))
+                .toggleStyle(.switch)
+                .disabled(!launchAtLogin.canConfigure)
+                .padding(.top, 10)
+                Text(launchAtLogin.canConfigure
+                     ? "默认关闭；开启后随当前用户登录启动，不自动刷新额度。"
+                     : "请先将 CapBar 安装到“应用程序”，再开启登录时启动。")
+                    .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
+                if let message = launchAtLogin.message {
+                    Text(message)
+                        .font(.system(size: 10))
+                        .foregroundStyle(launchAtLogin.needsApproval ? Color(nsColor: .systemOrange) : Color(nsColor: .systemRed))
+                        .padding(.top, 5)
+                }
+                if launchAtLogin.needsApproval {
+                    Button("打开系统登录项设置") { launchAtLogin.openSystemSettings() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.top, 6)
+                }
 
                 line.frame(height: 1).padding(.top, 20)
                 HStack {
@@ -178,6 +206,7 @@ struct CapBarSettingsView: View {
             .padding(16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { launchAtLogin.refresh() }
         .onChange(of: focusedSizeField) { previous, current in
             if previous == .width && current != .width {
                 model.commitPopoverWidthInput(maximum: maximumWidth)
