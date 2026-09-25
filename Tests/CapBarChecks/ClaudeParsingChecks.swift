@@ -44,9 +44,9 @@ private func claudeFixture(_ name: String) throws -> Data {
         check(try ClaudePayload.oauth(invalid, observedAt: later).windows.isEmpty, "out-of-range windows are discarded")
 
         let defaultID = AccountID(provider: .claude, directory: "~/.claude")
-        let customID = AccountID(provider: .claude, directory: "/Users/example/.claude-shared")
+        let customID = AccountID(provider: .claude, directory: "/Users/example/.claude-work")
         check(ClaudeCredentialLoader.serviceName(for: defaultID) == "Claude Code-credentials", "default profile selects its service")
-        check(ClaudeCredentialLoader.serviceName(for: customID) == "Claude Code-credentials-711cc167", "custom profile selects its service")
+        check(ClaudeCredentialLoader.serviceName(for: customID) == "Claude Code-credentials-dd1118a7", "custom profile selects its service")
 
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)

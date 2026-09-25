@@ -183,17 +183,17 @@
     <div class="design-choices"><div class="choice"><strong>账号身份</strong><span>邮箱是主标识；组织、套餐和目录帮助核对身份。无需手填“个人”或“工作”。</span></div><div class="choice"><strong>真实窗口</strong><span>Claude 展示 5 小时与 7 天；本机 Codex 只返回 7 天，因此没有虚构 5 小时进度。</span></div><div class="choice"><strong>刷新状态</strong><span>每个账号独立显示采集时间。刷新中保留旧值；全局按钮始终可点，并跳过正在刷新的账号。</span></div></div>
   </section>
 
-  <p class="credit">AIBar 截图来自 <a href="https://github.com/inxight/aibar">inxight/aibar</a>；许可文本见 <a href="assets/AIBar-LICENSE.txt">AIBar-LICENSE.txt</a>。CapBar 区域包含本机账号邮箱和一次性额度快照，页面本身不连接账号。</p>
+  <p class="credit">AIBar 截图来自 <a href="https://github.com/inxight/aibar">inxight/aibar</a>；许可文本见 <a href="assets/AIBar-LICENSE.txt">AIBar-LICENSE.txt</a>。CapBar 区域使用虚构账号邮箱和示例额度快照，页面本身不连接账号。</p>
 </main>
 <script>
   (() => {
     const accounts = [
-      { provider: 'Claude', email: 'account3@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude', updated: '16:00', windows: [{ label: '5 小时', remaining: 90, reset: '9 月 25 日 17:20' }, { label: '7 天', remaining: 77, reset: '9 月 30 日 08:00' }] },
-      { provider: 'Claude', email: 'account5@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-team', updated: '16:00', windows: [{ label: '5 小时', remaining: 100, reset: '9 月 25 日 20:39' }, { label: '7 天', remaining: 0, reset: '9 月 29 日 11:59' }] },
-      { provider: 'Claude', email: 'account2@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-work', updated: '16:00', windows: [{ label: '5 小时', remaining: 86, reset: '9 月 25 日 19:49' }, { label: '7 天', remaining: 97, reset: '9 月 26 日 12:59' }] },
-      { provider: 'Claude', email: 'account1@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-review', updated: '16:00', windows: [{ label: '5 小时', remaining: 98, reset: '9 月 25 日 20:50' }, { label: '7 天', remaining: 21, reset: '9 月 30 日 00:00' }] },
-      { provider: 'Claude', email: 'account4@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-shared', updated: '16:00', windows: [{ label: '5 小时', remaining: 65, reset: '9 月 25 日 18:49' }, { label: '7 天', remaining: 66, reset: '9 月 29 日 16:59' }] },
-      { provider: 'Codex', email: 'account6@example.com', plan: 'Pro', org: null, directory: '~/.codex', updated: '16:01', windows: [{ label: '7 天', remaining: 20, reset: '9 月 27 日 01:44' }] }
+      { provider: 'Claude', email: 'alex@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude', updated: '16:00', windows: [{ label: '5 小时', remaining: 90, reset: '9 月 25 日 17:20' }, { label: '7 天', remaining: 77, reset: '9 月 30 日 08:00' }] },
+      { provider: 'Claude', email: 'daniel@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-team', updated: '16:00', windows: [{ label: '5 小时', remaining: 100, reset: '9 月 25 日 20:39' }, { label: '7 天', remaining: 0, reset: '9 月 29 日 11:59' }] },
+      { provider: 'Claude', email: 'alex-team@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-work', updated: '16:00', windows: [{ label: '5 小时', remaining: 86, reset: '9 月 25 日 19:49' }, { label: '7 天', remaining: 97, reset: '9 月 26 日 12:59' }] },
+      { provider: 'Claude', email: 'alex-work@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-review', updated: '16:00', windows: [{ label: '5 小时', remaining: 98, reset: '9 月 25 日 20:50' }, { label: '7 天', remaining: 21, reset: '9 月 30 日 00:00' }] },
+      { provider: 'Claude', email: 'lin@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-shared', updated: '16:00', windows: [{ label: '5 小时', remaining: 65, reset: '9 月 25 日 18:49' }, { label: '7 天', remaining: 66, reset: '9 月 29 日 16:59' }] },
+      { provider: 'Codex', email: 'codex@example.com', plan: 'Pro', org: null, directory: '~/.codex', updated: '16:01', windows: [{ label: '7 天', remaining: 20, reset: '9 月 27 日 01:44' }] }
     ];
     const root = document.getElementById('capbar-visual-study');
     const popover = document.getElementById('capbar-popover');

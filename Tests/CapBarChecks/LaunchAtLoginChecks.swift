@@ -25,7 +25,7 @@ import Foundation
 
 @MainActor func runLaunchAtLoginChecks() {
     let installedURL = URL(fileURLWithPath: "/Applications/CapBar.app")
-    let temporaryURL = URL(fileURLWithPath: "/Users/example/workspace/develop/CapBar/dist/CapBar.app")
+    let temporaryURL = URL(fileURLWithPath: "/Users/example/projects/CapBar/dist/CapBar.app")
     check(LaunchAtLoginPolicy.canRegister(applicationURL: installedURL),
           "installed app may register as a login item")
     check(!LaunchAtLoginPolicy.canRegister(applicationURL: temporaryURL),
