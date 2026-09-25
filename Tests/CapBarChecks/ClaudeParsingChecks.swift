@@ -53,10 +53,9 @@ private func claudeFixture(_ name: String) throws -> Data {
         defer { try? FileManager.default.removeItem(at: temporary) }
         let fakeSecurity = temporary.appendingPathComponent("fake-security")
         let script = #"""
-#!/usr/bin/python3
-import json, sys
-assert sys.argv[1:] == ['find-generic-password', '-s', 'Claude Code-credentials', '-w']
-print(json.dumps({'claudeAiOauth': {'accessToken': 'fake-tool-token'}}))
+#!/bin/sh
+test "$#" -eq 4 && test "$1" = find-generic-password && test "$2" = -s && test "$3" = "Claude Code-credentials" && test "$4" = -w || exit 2
+printf '%s\n' '{"claudeAiOauth":{"accessToken":"fake-tool-token"}}'
 """#
         try Data(script.utf8).write(to: fakeSecurity)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: fakeSecurity.path)
