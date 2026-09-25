@@ -1,5 +1,7 @@
 # CapBar 方案记录
 
+可验收的正式规格见 [spec.md](spec.md)，任务拆分见 [implementation-plan.md](implementation-plan.md)。
+
 ## 账号与设置
 
 - Claude Code 和 Codex 的默认配置目录首次自动加入；用户可以追加或移除任意目录，包括默认目录。移除的默认目录不会在下次启动时重新加入。
