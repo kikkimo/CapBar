@@ -1,5 +1,6 @@
 # CapBar
 
+[![CI](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml)
 [![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2F80ED?style=flat-square)](scripts/Info.plist)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#install-and-use)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](Package.swift)
@@ -26,12 +27,14 @@
 
 ## Install and use
 
-CapBar requires **macOS 14 or later**. The current installer is built locally; it is not signed with an Apple Developer ID or notarized for distribution.
+CapBar 0.1.0 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
 
-1. Build the installer using the commands in [Build from source](#build-from-source).
-2. Open `dist/CapBar-0.1.0.pkg`. The installer places the app at `/Applications/CapBar.app`.
+1. Download `CapBar-0.1.0.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
+2. Open `CapBar-0.1.0.pkg`. The installer places the app at `/Applications/CapBar.app`.
 3. Launch CapBar from Applications. It appears in the menu bar, without a Dock icon.
 4. Click the menu bar item to view snapshots. Select **Refresh All (全部刷新)** or refresh an individual account when you want current data.
+
+The installer has no Developer ID signature or Apple notarization. macOS may require an explicit choice in **System Settings → Privacy & Security** after you try to open it; see [Apple's instructions](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac). You can also [build from source](#build-from-source).
 
 On first launch, CapBar adds `~/.claude` and `~/.codex` as default entries. Add other configuration directories in the settings view. Right-click the menu bar item for Refresh All, Settings, About CapBar, and Quit. The popover footer also has a Quit action. The app interface currently uses Chinese labels.
 
@@ -53,7 +56,7 @@ Codex refresh uses the local read-only app-server interface and does not send a 
 
 ## Build from source
 
-You need a Swift 6 toolchain and the macOS command-line packaging tools. This is a private repository, so cloning requires repository access.
+You need a Swift 6 toolchain and the macOS command-line packaging tools.
 
 ```sh
 git clone https://github.com/kikkimo/CapBar.git

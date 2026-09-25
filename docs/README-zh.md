@@ -1,5 +1,6 @@
 # CapBar
 
+[![CI](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml)
 [![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2F80ED?style=flat-square)](../scripts/Info.plist)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#安装与使用)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](../Package.swift)
@@ -26,12 +27,14 @@
 
 ## 安装与使用
 
-需要 **macOS 14 或更高版本**。当前安装包供本机使用，尚未经过 Apple Developer ID 签名与公证，不适合直接分发给其他 Mac。
+CapBar 0.1.0 需要 **macOS 14 或更高版本**及 **Apple Silicon Mac**。从 [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest) 下载安装包与校验文件；安装包由 CI 从对应版本源码构建。
 
-1. 按[从源码构建](#从源码构建)生成安装包。
-2. 打开 `dist/CapBar-0.1.0.pkg`；应用会安装到 `/Applications/CapBar.app`。
+1. 下载 `CapBar-0.1.0.pkg` 和 `SHA256SUMS`，在下载目录运行 `shasum -a 256 -c SHA256SUMS`。
+2. 打开 `CapBar-0.1.0.pkg`；应用会安装到 `/Applications/CapBar.app`。
 3. 从“应用程序”启动 CapBar。它只显示在菜单栏，不显示 Dock 图标。
 4. 点击菜单栏图标查看快照；需要最新额度时，手动点“全部刷新”或某个账号旁的刷新按钮。
+
+当前安装包没有 Apple Developer ID 签名，也未经过 Apple 公证。首次打开若被 macOS 拦截，请在尝试打开后按需前往**系统设置 → 隐私与安全性**明确允许；操作方式见 [Apple 官方说明](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac)。也可以[从源码构建](#从源码构建)。
 
 首次运行会加入存在的 `~/.claude` 和 `~/.codex` 目录。其他配置目录可在设置页添加。右键菜单栏图标可以全部刷新、进入配置、查看关于 CapBar 或退出；弹窗底部也有退出入口。
 
@@ -53,7 +56,7 @@ Codex 使用本机只读 app-server 接口查询，不发送对话。关闭弹�
 
 ## 从源码构建
 
-需要 Swift 6 工具链和 macOS 自带的打包命令行工具。仓库目前为私有仓库，克隆时需要访问权限。
+需要 Swift 6 工具链和 macOS 自带的打包命令行工具。
 
 ```sh
 git clone https://github.com/kikkimo/CapBar.git
