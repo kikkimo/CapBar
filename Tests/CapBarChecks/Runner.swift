@@ -36,6 +36,8 @@ import Foundation
         if filter == nil || filter == "TimeLabelTests" { runTimeLabelChecks() }
         if filter == nil || filter == "RetryRunnerTests" { await runRetryRunnerChecks() }
         if filter == nil || filter == "RefreshCoordinatorTests" { await runRefreshCoordinatorChecks() }
+        if filter == nil || filter == "CodexClientTests" { await runCodexClientChecks() }
+        if filter == "CodexLiveTests" { await runCodexLiveChecks() }
         if checksRun == 0 {
             fputs("No checks matched \(filter ?? "all")\n", stderr)
             exit(2)
