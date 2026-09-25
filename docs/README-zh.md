@@ -1,7 +1,7 @@
 # CapBar
 
 [![CI](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml)
-[![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2F80ED?style=flat-square)](../scripts/Info.plist)
+[![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-2F80ED?style=flat-square)](../scripts/Info.plist)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#安装与使用)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](../Package.swift)
 [![Apple Silicon](https://img.shields.io/badge/arch-Apple%20Silicon-0A7F75?style=flat-square)](#从源码构建)
@@ -27,10 +27,10 @@
 
 ## 安装与使用
 
-CapBar 0.1.0 需要 **macOS 14 或更高版本**及 **Apple Silicon Mac**。从 [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest) 下载安装包与校验文件；安装包由 CI 从对应版本源码构建。
+CapBar 0.1.1 需要 **macOS 14 或更高版本**及 **Apple Silicon Mac**。从 [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest) 下载安装包与校验文件；安装包由 CI 从对应版本源码构建。
 
-1. 下载 `CapBar-0.1.0.pkg` 和 `SHA256SUMS`，在下载目录运行 `shasum -a 256 -c SHA256SUMS`。
-2. 打开 `CapBar-0.1.0.pkg`；应用会安装到 `/Applications/CapBar.app`。
+1. 下载 `CapBar-0.1.1.pkg` 和 `SHA256SUMS`，在下载目录运行 `shasum -a 256 -c SHA256SUMS`。
+2. 打开 `CapBar-0.1.1.pkg`；应用会安装到 `/Applications/CapBar.app`。
 3. 从“应用程序”启动 CapBar。它只显示在菜单栏，不显示 Dock 图标。
 4. 点击菜单栏图标查看快照；需要最新额度时，手动点“全部刷新”或某个账号旁的刷新按钮。
 
@@ -64,7 +64,7 @@ cd CapBar
 ./scripts/package-installer.sh
 ```
 
-脚本会运行项目检查，构建并验证 `dist/CapBar.app`，生成 `dist/CapBar-0.1.0.pkg`，同时检查安装包固定安装到 `/Applications`，不会定位到开发目录中的旧应用。
+脚本会运行项目检查，构建并验证 `dist/CapBar.app`，生成 `dist/CapBar-0.1.1.pkg`，同时检查安装包固定安装到 `/Applications`，不会定位到开发目录中的旧应用。
 
 ```sh
 swift run CapBarChecks
