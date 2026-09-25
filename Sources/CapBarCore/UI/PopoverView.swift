@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct CapBarPopoverView: View {
@@ -132,6 +133,12 @@ struct CapBarPopoverView: View {
             .buttonStyle(.plain)
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(Color.accentColor)
+            line.frame(width: 1, height: 12).padding(.horizontal, 5)
+            Button("退出") { NSApplication.shared.terminate(nil) }
+                .buttonStyle(.plain)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(secondary)
+                .accessibilityLabel("退出 CapBar")
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.58))

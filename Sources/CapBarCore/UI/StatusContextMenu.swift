@@ -4,18 +4,22 @@ import AppKit
     let menu = NSMenu()
     private let onRefreshAll: () -> Void
     private let onOpenSettings: () -> Void
+    private let onAbout: () -> Void
     private let onQuit: () -> Void
 
     init(onRefreshAll: @escaping () -> Void,
          onOpenSettings: @escaping () -> Void,
+         onAbout: @escaping () -> Void,
          onQuit: @escaping () -> Void) {
         self.onRefreshAll = onRefreshAll
         self.onOpenSettings = onOpenSettings
+        self.onAbout = onAbout
         self.onQuit = onQuit
         super.init()
         menu.autoenablesItems = false
         addItem("全部刷新", action: #selector(refreshAll))
         addItem("进入配置", action: #selector(openSettings))
+        addItem("关于 CapBar", action: #selector(showAbout))
         addItem("退出 CapBar", action: #selector(quit))
     }
 
@@ -27,6 +31,7 @@ import AppKit
 
     @objc private func refreshAll() { onRefreshAll() }
     @objc private func openSettings() { onOpenSettings() }
+    @objc private func showAbout() { onAbout() }
     @objc private func quit() { onQuit() }
 }
 

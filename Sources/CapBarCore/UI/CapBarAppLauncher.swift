@@ -92,6 +92,7 @@ import SwiftUI
                 model.showsSettings = true
                 self.showPopover()
             },
+            onAbout: { AboutCapBar.show() },
             onQuit: { NSApplication.shared.terminate(nil) }
         )
         statusRightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in

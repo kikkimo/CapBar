@@ -174,11 +174,6 @@ struct CapBarSettingsView: View {
                         .font(.system(size: 11))
                 }
                 .padding(.top, 13)
-                Button("退出 CapBar") { NSApplication.shared.terminate(nil) }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11))
-                    .foregroundStyle(secondary)
-                    .padding(.top, 13)
             }
             .padding(16)
         }
