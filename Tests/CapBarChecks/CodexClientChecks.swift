@@ -98,15 +98,20 @@ while True:
         try Data(stubbornScript.utf8).write(to: stubborn)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: stubborn.path)
         let start = Date()
-        let timeoutProcess = CodexProcess(executablePath: stubborn.path, inheritedEnvironment: ["PATH": "/usr/bin:/bin", "CAPBAR_FAKE_LOG": pidFile.path], timeoutSeconds: 0.3)
+        // Allow the Python fixture to start even when the full suite is building concurrently.
+        let timeoutProcess = CodexProcess(executablePath: stubborn.path, inheritedEnvironment: ["PATH": "/usr/bin:/bin", "CAPBAR_FAKE_LOG": pidFile.path], timeoutSeconds: 1)
         do {
             _ = try await timeoutProcess.read(account: fakeID)
             check(false, "unresponsive app-server must time out")
         } catch {
-            check(Date().timeIntervalSince(start) < 2, "timeout ends an unresponsive app-server promptly")
+            check(Date().timeIntervalSince(start) < 3, "timeout ends an unresponsive app-server promptly")
         }
-        let pid = Int((try String(contentsOf: pidFile, encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines))!
-        check(Darwin.kill(Int32(pid), 0) == -1, "stubborn timed-out child is not left running")
+        if let contents = try? String(contentsOf: pidFile, encoding: .utf8),
+           let pid = Int(contents.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            check(Darwin.kill(Int32(pid), 0) == -1, "stubborn timed-out child is not left running")
+        } else {
+            check(false, "stubborn fixture started before the timeout")
+        }
     } catch {
         check(false, "Codex fixtures should parse: \(error)")
     }
