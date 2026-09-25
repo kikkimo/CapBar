@@ -80,6 +80,13 @@ struct ProbePolicy: Codable, Sendable {
     let retryDelayMinSeconds: Double
     let retryDelayMaxSeconds: Double
 
+    init(maxAttempts: Int, attemptTimeoutSeconds: Double, retryDelayMinSeconds: Double, retryDelayMaxSeconds: Double) {
+        self.maxAttempts = maxAttempts
+        self.attemptTimeoutSeconds = attemptTimeoutSeconds
+        self.retryDelayMinSeconds = retryDelayMinSeconds
+        self.retryDelayMaxSeconds = retryDelayMaxSeconds
+    }
+
     func validate() throws {
         guard maxAttempts > 0,
               attemptTimeoutSeconds.isFinite, (30...60).contains(attemptTimeoutSeconds),

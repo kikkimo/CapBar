@@ -4,9 +4,9 @@ import Foundation
 @MainActor private(set) var checksRun = 0
 @MainActor private(set) var checksFailed = 0
 
-@MainActor func check(_ condition: @autoclosure () -> Bool, _ message: String, file: StaticString = #filePath, line: UInt = #line) {
+@MainActor func check(_ condition: Bool, _ message: String, file: StaticString = #filePath, line: UInt = #line) {
     checksRun += 1
-    if !condition() {
+    if !condition {
         checksFailed += 1
         fputs("FAIL \(file):\(line): \(message)\n", stderr)
     }
@@ -34,6 +34,8 @@ import Foundation
         if filter == nil || filter == "ModelTests" { runModelChecks() }
         if filter == nil || filter == "StorageTests" { await runStorageChecks() }
         if filter == nil || filter == "TimeLabelTests" { runTimeLabelChecks() }
+        if filter == nil || filter == "RetryRunnerTests" { await runRetryRunnerChecks() }
+        if filter == nil || filter == "RefreshCoordinatorTests" { await runRefreshCoordinatorChecks() }
         if checksRun == 0 {
             fputs("No checks matched \(filter ?? "all")\n", stderr)
             exit(2)
