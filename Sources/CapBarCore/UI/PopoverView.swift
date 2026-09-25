@@ -16,8 +16,11 @@ struct CapBarPopoverView: View {
             }
             footer
         }
-        .frame(width: 448, height: 620)
-        .background(.regularMaterial)
+        .frame(width: CGFloat(model.settings.popoverSize.width), height: CGFloat(model.settings.popoverSize.height))
+        .background {
+            Rectangle().fill(.regularMaterial)
+                .overlay(Color(nsColor: .windowBackgroundColor).opacity(0.78))
+        }
     }
 
     private var header: some View {
@@ -109,7 +112,7 @@ struct CapBarPopoverView: View {
             .background(Color(nsColor: .controlBackgroundColor).opacity(0.72))
             .overlay(alignment: .bottom) { line.frame(height: 1) }
             ForEach(rows, id: \.account) { row in
-                CapBarAccountRow(row: row) { model.refresh(row.account) }
+                CapBarAccountRow(row: row, width: model.settings.popoverSize.width) { model.refresh(row.account) }
                     .padding(.horizontal, 16)
                 if row.account != rows.last?.account {
                     line.frame(height: 1).padding(.horizontal, 16)
@@ -138,63 +141,43 @@ struct CapBarPopoverView: View {
 
 private struct CapBarAccountRow: View {
     let row: PopoverAccountRow
+    let width: Int
     let refresh: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
     private let secondary = Color(nsColor: .secondaryLabelColor)
     private let line = Color(nsColor: .separatorColor)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(row.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .lineLimit(1)
-                        .help(row.title)
-                    HStack(spacing: 5) {
-                        Text(row.subtitle).lineLimit(1)
-                        Text("·")
-                        Text(row.directoryLabel).lineLimit(1)
-                            .font(.system(size: 10, design: .monospaced))
-                            .help(row.account.directory)
-                    }
-                    .font(.system(size: 10)).foregroundStyle(secondary)
-                }
-                Spacer(minLength: 4)
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(row.timeLabel).font(.system(size: 10)).foregroundStyle(secondary)
-                    if row.isRefreshing {
-                        HStack(spacing: 4) {
-                            ProgressView().controlSize(.mini).scaleEffect(0.6)
-                            Text("刷新中")
+        Group {
+            if PopoverLayout.usesWideRows(width: width) {
+                HStack(alignment: .top, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .top, spacing: 6) {
+                            identity
+                            Spacer(minLength: 2)
+                            refreshButton
                         }
-                        .font(.system(size: 10)).foregroundStyle(Color.accentColor)
-                    } else if row.error != nil {
-                        Text("● 刷新失败").font(.system(size: 10))
-                            .foregroundStyle(Color(nsColor: .systemRed))
-                            .help(row.error ?? "")
+                        HStack(spacing: 7) {
+                            captureTimeBadge
+                            stateLabel
+                        }
                     }
+                    .frame(width: max(240, min(360, CGFloat(width) * 0.35)), alignment: .leading)
+                    metrics.frame(maxWidth: .infinity)
                 }
-                Button(action: refresh) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .medium))
-                        .frame(width: 27, height: 27)
-                }
-                .buttonStyle(.plain)
-                .disabled(!row.refreshEnabled)
-                .accessibilityLabel("刷新 \(row.title)")
-                .help(row.isRefreshing ? "正在刷新" : "刷新此账号")
-            }
-            if row.windows.isEmpty {
-                Text("尚无快照 · 点击右侧刷新")
-                    .font(.system(size: 11)).foregroundStyle(secondary)
-                    .padding(.top, 1)
             } else {
-                HStack(alignment: .top, spacing: 0) {
-                    ForEach(Array(row.windows.enumerated()), id: \.offset) { index, window in
-                        if index > 0 { line.frame(width: 1).padding(.horizontal, 14) }
-                        CapBarMetric(window: window).frame(maxWidth: .infinity)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
+                        identity
+                        Spacer(minLength: 4)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            captureTimeBadge
+                            stateLabel
+                        }
+                        refreshButton
                     }
+                    metrics
                 }
             }
         }
@@ -202,6 +185,92 @@ private struct CapBarAccountRow: View {
         .overlay(alignment: .leading) {
             if row.isExhausted {
                 Color(nsColor: .systemRed).frame(width: 2).offset(x: -16)
+            }
+        }
+    }
+
+    private var captureTimeColor: Color {
+        switch row.captureAgeBand {
+        case .unknown: secondary
+        case .fresh: Color(nsColor: .systemGreen)
+        case .underTen: colorScheme == .dark
+            ? Color(red: 0.76, green: 0.84, blue: 0.37)
+            : Color(red: 0.36, green: 0.53, blue: 0.12)
+        case .underThirty: colorScheme == .dark
+            ? Color(red: 0.97, green: 0.80, blue: 0.30)
+            : Color(red: 0.62, green: 0.43, blue: 0.06)
+        case .underSixty: Color(nsColor: .systemOrange)
+        case .old: Color(nsColor: .systemRed)
+        }
+    }
+
+    private var captureTimeBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "clock").font(.system(size: 9, weight: .semibold))
+            Text(row.timeLabel).monospacedDigit()
+        }
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(captureTimeColor)
+        .padding(.horizontal, 7).padding(.vertical, 4)
+        .background(captureTimeColor.opacity(0.12), in: Capsule())
+        .accessibilityLabel("额度采集时间：\(row.timeLabel)")
+        .help("额度采集时间：\(row.timeLabel)")
+    }
+
+    private var identity: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(row.title)
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .help(row.title)
+            HStack(spacing: 5) {
+                Text(row.subtitle).lineLimit(1)
+                Text("·")
+                Text(row.directoryLabel).lineLimit(1)
+                    .font(.system(size: 10, design: .monospaced))
+                    .help(row.account.directory)
+            }
+            .font(.system(size: 10)).foregroundStyle(secondary)
+        }
+    }
+
+    @ViewBuilder private var stateLabel: some View {
+        if row.isRefreshing {
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.mini).scaleEffect(0.6)
+                Text("刷新中")
+            }
+            .font(.system(size: 10)).foregroundStyle(Color.accentColor)
+        } else if row.error != nil {
+            Text("● 刷新失败").font(.system(size: 10))
+                .foregroundStyle(Color(nsColor: .systemRed))
+                .help(row.error ?? "")
+        }
+    }
+
+    private var refreshButton: some View {
+        Button(action: refresh) {
+            Image(systemName: "arrow.clockwise")
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 27, height: 27)
+        }
+        .buttonStyle(.plain)
+        .disabled(!row.refreshEnabled)
+        .accessibilityLabel("刷新 \(row.title)")
+        .help(row.isRefreshing ? "正在刷新" : "刷新此账号")
+    }
+
+    @ViewBuilder private var metrics: some View {
+        if row.windows.isEmpty {
+            Text("尚无快照 · 点击右侧刷新")
+                .font(.system(size: 11)).foregroundStyle(secondary)
+                .padding(.top, 1)
+        } else {
+            HStack(alignment: .top, spacing: 0) {
+                ForEach(Array(row.windows.enumerated()), id: \.offset) { index, window in
+                    if index > 0 { line.frame(width: 1).padding(.horizontal, 14) }
+                    CapBarMetric(window: window).frame(maxWidth: .infinity)
+                }
             }
         }
     }

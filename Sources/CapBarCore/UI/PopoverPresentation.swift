@@ -6,12 +6,17 @@ struct PopoverAccountRow: Sendable {
     let subtitle: String
     let directoryLabel: String
     let timeLabel: String
+    let captureAgeBand: CaptureAgeBand
     let windows: [QuotaWindow]
     let isRefreshing: Bool
     let error: String?
 
     var refreshEnabled: Bool { !isRefreshing }
     var isExhausted: Bool { windows.contains { $0.remainingPercent == 0 } }
+}
+
+enum PopoverLayout {
+    static func usesWideRows(width: Int) -> Bool { width >= 640 }
 }
 
 enum PopoverPresentation {
@@ -36,6 +41,7 @@ enum PopoverPresentation {
                 subtitle: details.isEmpty ? "待识别" : details.joined(separator: " · "),
                 directoryLabel: path,
                 timeLabel: capturedAtLabel(record?.snapshot?.capturedAt, now: now, calendar: calendar),
+                captureAgeBand: captureAgeBand(record?.snapshot?.capturedAt, now: now),
                 windows: record?.snapshot?.windows ?? [],
                 isRefreshing: state.refreshing.contains(account),
                 error: record?.lastError

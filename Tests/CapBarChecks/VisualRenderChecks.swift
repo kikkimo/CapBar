@@ -58,6 +58,11 @@ private actor PreviewHangingProvider: UsageProvider {
     }
     model.showsSettings = true
     try render(model: model, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-settings.png"))
+    model.setPopoverSize(width: 720, height: 800)
+    model.showsSettings = false
+    try render(model: model, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-wide.png"))
+    model.showsSettings = true
+    try render(model: model, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-settings-wide.png"))
 
     let stateStore = SnapshotStore(url: folder.appendingPathComponent("state-snapshots.json"))
     try await stateStore.update(AccountRecord(id: accounts[0], snapshot: snapshots[0], lastAttemptAt: now, lastError: nil))
@@ -72,13 +77,13 @@ private actor PreviewHangingProvider: UsageProvider {
     }
     try render(model: stateModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-states.png"))
     await stateCoordinator.cancelAll()
-    print("Rendered /tmp/capbar-preview-{light,dark,settings,states}.png")
+    print("Rendered /tmp/capbar-preview-{light,dark,settings,wide,settings-wide,states}.png")
 }
 
 @MainActor private func render(model: CapBarViewModel, appearance: NSAppearance.Name, to url: URL) throws {
     let view = NSHostingView(rootView: CapBarPopoverView(model: model))
     view.appearance = NSAppearance(named: appearance)
-    view.frame = NSRect(x: 0, y: 0, width: 448, height: 620)
+    view.frame = NSRect(x: 0, y: 0, width: model.settings.popoverSize.width, height: model.settings.popoverSize.height)
     view.layoutSubtreeIfNeeded()
     guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
         throw NSError(domain: "CapBarVisual", code: 2)

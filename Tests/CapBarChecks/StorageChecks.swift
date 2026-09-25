@@ -14,11 +14,19 @@ import Foundation
         check(settings.accounts.contains(AccountID(provider: .codex, directory: "~/.codex")), "first run seeds default Codex directory")
         check(settings.autoRefreshOnOpen == false, "auto refresh defaults off")
         check(settings.refreshThresholdMinutes == 5, "shared threshold defaults to 5 minutes")
+        check(settings.popoverSize.width == 448 && settings.popoverSize.height == 620, "popover defaults to the current minimum size")
+        settings.popoverSize = PopoverSize(width: 720, height: 780)
         settings.accounts.removeAll { $0.provider == .claude }
         try await firstSettingsStore.save(settings)
         let newStore = SettingsStore(url: settingsURL)
         let restored = try await newStore.loadOrSeed()
         check(!restored.accounts.contains { $0.provider == .claude }, "removed default directory stays removed after restart")
+        check(restored.popoverSize.width == 720 && restored.popoverSize.height == 780, "custom popover size survives restart")
+        check(PopoverSize(width: 100, height: 200).width == 448 && PopoverSize(width: 100, height: 200).height == 620, "popover size clamps both minimums")
+        let legacy = #"{"schemaVersion":1,"settings":{"accounts":[],"defaultsSeeded":true,"autoRefreshOnOpen":false,"refreshThresholdMinutes":5}}"#
+        try Data(legacy.utf8).write(to: settingsURL, options: .atomic)
+        let migrated = try await SettingsStore(url: settingsURL).loadOrSeed()
+        check(migrated.popoverSize.width == 448 && migrated.popoverSize.height == 620, "existing settings without dimensions migrate to defaults")
         let mode = try FileManager.default.attributesOfItem(atPath: settingsURL.path)[.posixPermissions] as? NSNumber
         check(mode?.intValue == 0o600, "settings file is private to current user")
     } catch {

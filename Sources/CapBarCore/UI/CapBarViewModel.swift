@@ -8,17 +8,32 @@ import Foundation
     @Published var showsSettings = false
     @Published var selectedProvider: Provider = .claude
     @Published var directoryInput = ""
+    @Published var popoverWidthInput: String
+    @Published var popoverHeightInput: String
     @Published var settingsMessage: String?
 
     let settingsStore: SettingsStore
     let coordinator: RefreshCoordinator
     var onRowsChange: (([PopoverAccountRow]) -> Void)?
+    var onPopoverSizeChange: ((PopoverSize) -> Void)?
+    var onFolderPickerWillOpen: (() -> Void)?
+    var onFolderPickerFinished: (() -> Void)?
 
     private var timer: Timer?
     private var saveTask: Task<Void, Never>?
 
+    var maximumPopoverWidth: Int {
+        max(PopoverSize.minimumWidth, Int(NSScreen.main?.visibleFrame.width ?? 1200) - 32)
+    }
+
+    var maximumPopoverHeight: Int {
+        max(PopoverSize.minimumHeight, Int(NSScreen.main?.visibleFrame.height ?? 900) - 24)
+    }
+
     init(settings: UserSettings, settingsStore: SettingsStore, coordinator: RefreshCoordinator) {
         self.settings = settings
+        self.popoverWidthInput = String(settings.popoverSize.width)
+        self.popoverHeightInput = String(settings.popoverSize.height)
         self.settingsStore = settingsStore
         self.coordinator = coordinator
     }
@@ -39,6 +54,8 @@ import Foundation
     func closed() {
         timer?.invalidate()
         timer = nil
+        commitPopoverWidthInput(maximum: maximumPopoverWidth)
+        commitPopoverHeightInput(maximum: maximumPopoverHeight)
     }
 
     func updateRows() {
@@ -76,6 +93,62 @@ import Foundation
         enqueueSave()
     }
 
+    func setPopoverWidth(_ width: Int) {
+        settings.popoverSize = PopoverSize(width: width, height: settings.popoverSize.height)
+        popoverWidthInput = String(settings.popoverSize.width)
+        onPopoverSizeChange?(settings.popoverSize)
+        enqueueSave()
+    }
+
+    func setPopoverHeight(_ height: Int) {
+        settings.popoverSize = PopoverSize(width: settings.popoverSize.width, height: height)
+        popoverHeightInput = String(settings.popoverSize.height)
+        onPopoverSizeChange?(settings.popoverSize)
+        enqueueSave()
+    }
+
+    func setPopoverSize(width: Int, height: Int) {
+        settings.popoverSize = PopoverSize(width: width, height: height)
+        popoverWidthInput = String(settings.popoverSize.width)
+        popoverHeightInput = String(settings.popoverSize.height)
+        onPopoverSizeChange?(settings.popoverSize)
+        enqueueSave()
+    }
+
+    func editPopoverWidthInput(_ text: String) {
+        popoverWidthInput = text
+    }
+
+    func editPopoverHeightInput(_ text: String) {
+        popoverHeightInput = text
+    }
+
+    func commitPopoverWidthInput(maximum: Int) {
+        guard let value = Int(popoverWidthInput.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            popoverWidthInput = String(settings.popoverSize.width)
+            return
+        }
+        let width = min(maximum, value)
+        if width == settings.popoverSize.width {
+            popoverWidthInput = String(width)
+        } else {
+            setPopoverWidth(width)
+        }
+    }
+
+    func commitPopoverHeightInput(maximum: Int) {
+        guard let value = Int(popoverHeightInput.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            popoverHeightInput = String(settings.popoverSize.height)
+            return
+        }
+        let height = min(maximum, value)
+        if height == settings.popoverSize.height {
+            popoverHeightInput = String(height)
+        } else {
+            setPopoverHeight(height)
+        }
+    }
+
     func addAccount() {
         let input = directoryInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else { settingsMessage = "请输入配置目录"; return }
@@ -109,7 +182,23 @@ import Foundation
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url { directoryInput = url.path }
+        prepareDirectorySelection()
+        panel.begin { [weak self] response in
+            let chosenURL = response == .OK ? panel.url : nil
+            Task { @MainActor [weak self] in
+                self?.finishDirectorySelection(chosenURL)
+            }
+        }
+    }
+
+    func prepareDirectorySelection() {
+        onFolderPickerWillOpen?()
+    }
+
+    func finishDirectorySelection(_ url: URL?) {
+        if let url { directoryInput = url.path }
+        showsSettings = true
+        onFolderPickerFinished?()
     }
 
     private func enqueueSave() {

@@ -1,6 +1,32 @@
 import AppKit
 import SwiftUI
 
+@MainActor final class PopoverDismissalController {
+    private weak var popover: NSPopover?
+    private(set) var isChoosingDirectory = false
+
+    init(popover: NSPopover) {
+        self.popover = popover
+        popover.behavior = .transient
+    }
+
+    var shouldClose: Bool { !isChoosingDirectory }
+
+    func shouldDismissOutsideClick(isShown: Bool, pointerInsidePopover: Bool) -> Bool {
+        isShown && shouldClose && !pointerInsidePopover
+    }
+
+    func beginDirectorySelection() {
+        isChoosingDirectory = true
+        popover?.behavior = .applicationDefined
+    }
+
+    func endDirectorySelection() {
+        isChoosingDirectory = false
+        popover?.behavior = .transient
+    }
+}
+
 @MainActor public enum CapBarAppLauncher {
     private static var retainedDelegate: CapBarAppDelegate?
 
@@ -26,8 +52,11 @@ import SwiftUI
 @MainActor private final class CapBarAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
+    private var dismissalController: PopoverDismissalController?
     private var viewModel: CapBarViewModel?
     private var statusTimer: Timer?
+    private var outsideClickMonitor: Any?
+    private var resignActiveObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -64,15 +93,19 @@ import SwiftUI
             )
             let model = CapBarViewModel(settings: settings, settingsStore: settingsStore, coordinator: coordinator)
             model.onRowsChange = { [weak self] rows in self?.updateStatusItem(rows) }
+            model.onPopoverSizeChange = { [weak self] size in self?.resizePopover(size) }
+            model.onFolderPickerWillOpen = { [weak self] in self?.dismissalController?.beginDirectorySelection() }
+            model.onFolderPickerFinished = { [weak self] in self?.dismissalController?.endDirectorySelection() }
             viewModel = model
 
             let panel = NSPopover()
-            panel.behavior = .transient
+            dismissalController = PopoverDismissalController(popover: panel)
             panel.animates = true
-            panel.contentSize = NSSize(width: 448, height: 620)
+            panel.contentSize = NSSize(width: CGFloat(settings.popoverSize.width), height: CGFloat(settings.popoverSize.height))
             panel.contentViewController = NSHostingController(rootView: CapBarPopoverView(model: model))
             panel.delegate = self
             popover = panel
+            installFocusDismissal()
 
             model.updateRows()
             statusTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak model] _ in
@@ -98,13 +131,55 @@ import SwiftUI
             : "\(rows.count) 账号"
     }
 
+    private func resizePopover(_ size: PopoverSize) {
+        popover?.contentSize = NSSize(width: CGFloat(size.width), height: CGFloat(size.height))
+    }
+
+    private func showPopover() {
+        guard let button = statusItem?.button, let popover, !popover.isShown else { return }
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.isOpaque = false
+        popover.contentViewController?.view.window?.backgroundColor = .clear
+        viewModel?.opened()
+    }
+
+    private func installFocusDismissal() {
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] event in
+            let point = event.locationInWindow
+            Task { @MainActor [weak self] in self?.dismissForOutsideClick(at: point) }
+        }
+        resignActiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: NSApplication.shared,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.dismissForAppDeactivation() }
+        }
+    }
+
+    private func dismissForOutsideClick(at screenPoint: NSPoint) {
+        guard let popover,
+              dismissalController?.shouldDismissOutsideClick(
+                isShown: popover.isShown,
+                pointerInsidePopover: popover.contentViewController?.view.window?.frame.contains(screenPoint) == true
+              ) == true else { return }
+        popover.close()
+    }
+
+    private func dismissForAppDeactivation() {
+        guard let popover, popover.isShown,
+              dismissalController?.shouldClose == true else { return }
+        popover.close()
+    }
+
     @objc private func togglePopover() {
-        guard let button = statusItem?.button, let popover else { return }
+        guard let popover else { return }
         if popover.isShown {
             popover.performClose(nil)
         } else {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            viewModel?.opened()
+            showPopover()
         }
     }
 
@@ -112,8 +187,14 @@ import SwiftUI
         viewModel?.closed()
     }
 
+    func popoverShouldClose(_ popover: NSPopover) -> Bool {
+        dismissalController?.shouldClose ?? true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         statusTimer?.invalidate()
+        if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
+        if let resignActiveObserver { NotificationCenter.default.removeObserver(resignActiveObserver) }
         viewModel?.closed()
     }
 

@@ -13,4 +13,11 @@ import Foundation
     let priorYear = capturedAtLabel(now.addingTimeInterval(-400 * 86400), now: now, calendar: calendar)
     check(priorYear.contains("2025"), "cross-year time includes the year")
     check(capturedAtLabel(nil, now: now, calendar: calendar) == "尚未采集", "missing snapshot has no false age")
+    check(captureAgeBand(nil, now: now) == .unknown, "missing snapshot has a neutral time color")
+    check(captureAgeBand(now.addingTimeInterval(-180), now: now) == .fresh, "just now stays green through three minutes")
+    check(captureAgeBand(now.addingTimeInterval(-10 * 60 - 59), now: now) == .underTen, "displayed ten minutes keeps the ten-minute color")
+    check(captureAgeBand(now.addingTimeInterval(-11 * 60), now: now) == .underThirty, "eleven minutes moves to the thirty-minute color")
+    check(captureAgeBand(now.addingTimeInterval(-30 * 60 - 59), now: now) == .underThirty, "displayed thirty minutes keeps the thirty-minute color")
+    check(captureAgeBand(now.addingTimeInterval(-31 * 60), now: now) == .underSixty, "thirty-one minutes moves to the sixty-minute color")
+    check(captureAgeBand(now.addingTimeInterval(-3600), now: now) == .old, "a concrete time is red after sixty minutes")
 }

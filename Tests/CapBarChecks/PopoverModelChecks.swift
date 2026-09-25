@@ -23,11 +23,14 @@ import Foundation
         check(rows.count == 3, "configured accounts retain order")
         check(rows[0].title == "person@example.com" && rows[0].subtitle == "Example · Team", "identity uses email then organization and plan")
         check(rows[0].timeLabel == "17 分钟前" && rows[0].isRefreshing, "loading keeps old capture time")
+        check(rows[0].captureAgeBand == .underThirty, "row exposes a time color from its actual snapshot age")
         check(!rows[0].refreshEnabled && rows[0].windows.count == 2, "only loading account disables its refresh")
         check(rows[1].refreshEnabled && rows[1].error == "网络超时", "failed account retains snapshot and refresh action")
         check(rows[1].windows.count == 1 && rows[1].windows[0].kind == .sevenDay, "weekly-only account has no invented window")
         check(rows[2].title == "尚未识别" && rows[2].windows.isEmpty && rows[2].timeLabel == "尚未采集", "first-run account has empty state")
+        check(rows[2].captureAgeBand == .unknown, "uncollected account does not show a misleading freshness color")
         check(PopoverPresentation.exhaustedCount(rows: rows) == 0, "header exhaustion count follows actual windows")
+        check(!PopoverLayout.usesWideRows(width: 448) && PopoverLayout.usesWideRows(width: 640), "account row layout changes at the wide breakpoint")
     } catch {
         check(false, "popover rows should map: \(error)")
     }

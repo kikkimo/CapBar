@@ -2,9 +2,14 @@ import SwiftUI
 import AppKit
 
 struct CapBarSettingsView: View {
+    private enum SizeField: Hashable { case width, height }
+
     @ObservedObject var model: CapBarViewModel
+    @FocusState private var focusedSizeField: SizeField?
     private let secondary = Color(nsColor: .secondaryLabelColor)
     private let line = Color(nsColor: .separatorColor)
+    private var maximumWidth: Int { model.maximumPopoverWidth }
+    private var maximumHeight: Int { model.maximumPopoverHeight }
 
     var body: some View {
         ScrollView {
@@ -45,6 +50,67 @@ struct CapBarSettingsView: View {
                 }
                 .padding(.top, 13)
                 Text("开启后逐账号判断：距上次探测超过阈值才刷新。")
+                    .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
+
+                line.frame(height: 1).padding(.top, 20)
+                HStack {
+                    Text("弹窗尺寸").font(.system(size: 11, weight: .bold)).tracking(0.4)
+                    Spacer()
+                    Button("恢复最小") {
+                        model.setPopoverSize(width: PopoverSize.minimumWidth, height: PopoverSize.minimumHeight)
+                    }
+                    .buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(Color.accentColor)
+                }
+                .padding(.top, 8)
+                HStack {
+                    Text("宽度").font(.system(size: 11, weight: .medium))
+                    Spacer()
+                    Stepper(value: Binding(
+                        get: { model.settings.popoverSize.width },
+                        set: { model.setPopoverWidth($0) }
+                    ), in: PopoverSize.minimumWidth...maximumWidth, step: 10) {
+                        HStack(spacing: 4) {
+                            TextField("宽度", text: Binding(
+                                get: { model.popoverWidthInput },
+                                set: { model.editPopoverWidthInput($0) }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 62)
+                            .focused($focusedSizeField, equals: .width)
+                            .onSubmit { model.commitPopoverWidthInput(maximum: maximumWidth) }
+                            Text("pt")
+                        }
+                        .monospacedDigit()
+                    }
+                    .frame(width: 132)
+                }
+                .padding(.top, 10)
+                HStack {
+                    Text("高度").font(.system(size: 11, weight: .medium))
+                    Spacer()
+                    Stepper(value: Binding(
+                        get: { model.settings.popoverSize.height },
+                        set: { model.setPopoverHeight($0) }
+                    ), in: PopoverSize.minimumHeight...maximumHeight, step: 10) {
+                        HStack(spacing: 4) {
+                            TextField("高度", text: Binding(
+                                get: { model.popoverHeightInput },
+                                set: { model.editPopoverHeightInput($0) }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 62)
+                            .focused($focusedSizeField, equals: .height)
+                            .onSubmit { model.commitPopoverHeightInput(maximum: maximumHeight) }
+                            Text("pt")
+                        }
+                        .monospacedDigit()
+                    }
+                    .frame(width: 132)
+                }
+                .padding(.top, 8)
+                Text("最小 448 × 620 pt；调整后立即生效，上限由当前屏幕决定。")
                     .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
 
                 sectionTitle("已添加的账号").padding(.top, 20)
@@ -108,6 +174,14 @@ struct CapBarSettingsView: View {
             .padding(16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: focusedSizeField) { previous, current in
+            if previous == .width && current != .width {
+                model.commitPopoverWidthInput(maximum: maximumWidth)
+            }
+            if previous == .height && current != .height {
+                model.commitPopoverHeightInput(maximum: maximumHeight)
+            }
+        }
     }
 
     private func sectionTitle(_ title: String) -> some View {
