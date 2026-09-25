@@ -50,6 +50,9 @@ struct CodexProcess: CodexTransport {
     ) -> CodexProcessConfiguration {
         var environment = inheritedEnvironment
         environment["CODEX_HOME"] = account.directory
+        let executableDirectory = URL(fileURLWithPath: executablePath).deletingLastPathComponent().path
+        let path = Self.searchDirectories(in: inheritedEnvironment)
+        environment["PATH"] = ([executableDirectory] + path.filter { $0 != executableDirectory }).joined(separator: ":")
         return CodexProcessConfiguration(
             executablePath: executablePath,
             arguments: ["-s", "read-only", "-a", "never", "app-server"],
@@ -117,14 +120,35 @@ struct CodexProcess: CodexTransport {
         }
     }
 
-    private static func findCodex(in environment: [String: String]) -> String? {
-        let search = (environment["PATH"] ?? "").split(separator: ":").map(String.init)
-            + ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]
-        for directory in search {
+    static func findCodex(in environment: [String: String]) -> String? {
+        for directory in searchDirectories(in: environment) {
             let candidate = URL(fileURLWithPath: directory).appendingPathComponent("codex").path
             if FileManager.default.isExecutableFile(atPath: candidate) { return candidate }
         }
         return nil
+    }
+
+    private static func searchDirectories(in environment: [String: String]) -> [String] {
+        let home = environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
+        var directories = (environment["PATH"] ?? "").split(separator: ":").map(String.init)
+        directories += [
+            "\(home)/.local/bin", "\(home)/.cargo/bin", "\(home)/.volta/bin",
+            "\(home)/.bun/bin", "\(home)/.asdf/shims", "\(home)/.asdf/bin",
+            "\(home)/.local/share/mise/shims", "\(home)/.npm-global/bin",
+            "\(home)/Library/pnpm", "\(home)/.local/share/pnpm"
+        ]
+        for (root, suffix) in [
+            ("\(home)/.nvm/versions/node", "bin"),
+            ("\(home)/.local/share/fnm/node-versions", "installation/bin"),
+            ("\(home)/.local/share/mise/installs/node", "bin")
+        ] {
+            let versions = (try? FileManager.default.contentsOfDirectory(atPath: root)) ?? []
+            directories += versions.sorted { $0.compare($1, options: .numeric) == .orderedDescending }
+                .map { "\(root)/\($0)/\(suffix)" }
+        }
+        directories += ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/usr/bin"]
+        var seen = Set<String>()
+        return directories.filter { seen.insert($0).inserted }
     }
 
     private static func write(_ line: String, to file: FileHandle) throws {

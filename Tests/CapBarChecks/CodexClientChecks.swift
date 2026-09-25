@@ -47,6 +47,68 @@ private struct FixtureCodexTransport: CodexTransport {
         check(launch.environment["CODEX_HOME"] == id.directory, "custom Codex directory is applied to child process")
         check(launch.arguments == ["-s", "read-only", "-a", "never", "app-server"], "child process is read-only and approval-free")
 
+        let runtimeDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: runtimeDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: runtimeDirectory) }
+        let runtimeScript = #"""
+#!/usr/bin/env capbar-test-runtime
+while IFS= read -r line; do
+    case "$line" in
+        *'"id":1'*) printf '%s\n' '{"id":1,"result":{}}' ;;
+        *'"id":2'*) printf '%s\n' '{"id":2,"result":{"account":{"type":"chatgpt","email":null,"planType":"plus"}}}' ;;
+        *'"id":3'*) printf '%s\n' '{"id":3,"result":{"rateLimits":{"primary":{"usedPercent":20,"windowDurationMins":10080,"resetsAt":1800600000}}}}' ;;
+    esac
+done
+"""#
+        func installFakeCodex(in directory: URL) throws -> URL {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try FileManager.default.createSymbolicLink(
+                at: directory.appendingPathComponent("capbar-test-runtime"),
+                withDestinationURL: URL(fileURLWithPath: "/bin/sh")
+            )
+            let executable = directory.appendingPathComponent("codex")
+            try Data(runtimeScript.utf8).write(to: executable)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+            return executable
+        }
+        let runtimeCodex = try installFakeCodex(in: runtimeDirectory.appendingPathComponent("custom-bin"))
+        let guiEnvironment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin"]
+        let guiProcess = CodexProcess(executablePath: runtimeCodex.path, inheritedEnvironment: guiEnvironment, timeoutSeconds: 3)
+        let (_, guiLimits) = try await guiProcess.read(account: AccountID(provider: .codex, directory: runtimeDirectory.path))
+        check(try CodexPayload.decodeRateLimits(guiLimits).first?.remainingPercent == 80,
+              "GUI launch finds the runtime beside Codex even when inherited PATH omits it")
+
+        let standaloneBin = runtimeDirectory.appendingPathComponent(".local/bin")
+        let standaloneCodex = try installFakeCodex(in: standaloneBin)
+        let standaloneEnvironment = ["HOME": runtimeDirectory.path, "PATH": guiEnvironment["PATH"]!]
+        check(CodexProcess.findCodex(in: standaloneEnvironment) == standaloneCodex.path,
+              "official standalone install takes precedence over unrelated system installations")
+        let standaloneProcess = CodexProcess(inheritedEnvironment: standaloneEnvironment, timeoutSeconds: 3)
+        let (_, standaloneLimits) = try await standaloneProcess.read(account: AccountID(provider: .codex, directory: runtimeDirectory.path))
+        check(try CodexPayload.decodeRateLimits(standaloneLimits).first?.remainingPercent == 80,
+              "GUI launch discovers the official standalone install under the user's home")
+
+        let nvmHome = runtimeDirectory.appendingPathComponent("nvm-home")
+        let nvmBin = nvmHome.appendingPathComponent(".nvm/versions/node/v22.1.0/bin")
+        let nvmCodex = try installFakeCodex(in: nvmBin)
+        let nvmEnvironment = ["HOME": nvmHome.path, "PATH": guiEnvironment["PATH"]!]
+        check(CodexProcess.findCodex(in: nvmEnvironment) == nvmCodex.path,
+              "nvm install takes precedence over unrelated system installations")
+        let nvmProcess = CodexProcess(inheritedEnvironment: nvmEnvironment, timeoutSeconds: 3)
+        let (_, nvmLimits) = try await nvmProcess.read(account: AccountID(provider: .codex, directory: runtimeDirectory.path))
+        check(try CodexPayload.decodeRateLimits(nvmLimits).first?.remainingPercent == 80,
+              "GUI launch discovers an npm install managed by nvm")
+
+        let pnpmHome = runtimeDirectory.appendingPathComponent("pnpm-home")
+        let pnpmCodex = try installFakeCodex(in: pnpmHome.appendingPathComponent("Library/pnpm"))
+        let pnpmEnvironment = ["HOME": pnpmHome.path, "PATH": guiEnvironment["PATH"]!]
+        check(CodexProcess.findCodex(in: pnpmEnvironment) == pnpmCodex.path,
+              "GUI launch discovers a pnpm install under the user's Library")
+        let pnpmProcess = CodexProcess(inheritedEnvironment: pnpmEnvironment, timeoutSeconds: 3)
+        let (_, pnpmLimits) = try await pnpmProcess.read(account: AccountID(provider: .codex, directory: runtimeDirectory.path))
+        check(try CodexPayload.decodeRateLimits(pnpmLimits).first?.remainingPercent == 80,
+              "pnpm launcher can find its runtime without the shell PATH")
+
         let client = CodexClient(transport: FixtureCodexTransport(accountData: try fixture("codex-account.json"), limitsData: try fixture("codex-weekly-only.json")), now: { Date(timeIntervalSince1970: 1_800_000_000) })
         let snapshot = try await client.probe(account: id)
         check(snapshot.identity.plan == "team", "probe combines account identity with limits")
