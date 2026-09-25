@@ -165,11 +165,20 @@ struct CapBarSettingsView: View {
                     Text(message).font(.system(size: 10)).foregroundStyle(Color(nsColor: .systemRed))
                         .padding(.top, 7)
                 }
+                line.frame(height: 1).padding(.top, 22)
+                HStack {
+                    Text("关于 CapBar")
+                        .font(.system(size: 11, weight: .semibold))
+                    Spacer()
+                    Link("GitHub 仓库", destination: URL(string: "https://github.com/kikkimo/CapBar")!)
+                        .font(.system(size: 11))
+                }
+                .padding(.top, 13)
                 Button("退出 CapBar") { NSApplication.shared.terminate(nil) }
                     .buttonStyle(.plain)
                     .font(.system(size: 11))
                     .foregroundStyle(secondary)
-                    .padding(.top, 22)
+                    .padding(.top, 13)
             }
             .padding(16)
         }

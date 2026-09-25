@@ -57,6 +57,8 @@ import SwiftUI
     private var viewModel: CapBarViewModel?
     private var statusTimer: Timer?
     private var outsideClickMonitor: Any?
+    private var statusRightClickMonitor: Any?
+    private var contextMenu: StatusContextMenu?
     private var resignActiveObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -78,7 +80,37 @@ import SwiftUI
             button.target = self
             button.action = #selector(togglePopover)
         }
+        installContextMenu()
         Task { await initialize() }
+    }
+
+    private func installContextMenu() {
+        contextMenu = StatusContextMenu(
+            onRefreshAll: { [weak self] in self?.viewModel?.refreshAll() },
+            onOpenSettings: { [weak self] in
+                guard let self, let model = self.viewModel else { return }
+                model.showsSettings = true
+                self.showPopover()
+            },
+            onQuit: { NSApplication.shared.terminate(nil) }
+        )
+        statusRightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
+            guard let self, let button = self.statusItem?.button,
+                  StatusRightClick.shouldShowMenu(
+                    eventType: event.type,
+                    eventWindowNumber: event.windowNumber,
+                    buttonWindowNumber: button.window?.windowNumber,
+                    point: button.convert(event.locationInWindow, from: nil),
+                    bounds: button.bounds
+                  ) else { return event }
+            if self.popover?.isShown == true, self.dismissalController?.shouldClose == true {
+                self.popover?.close()
+            }
+            if let menu = self.contextMenu?.menu {
+                NSMenu.popUpContextMenu(menu, with: event, for: button)
+            }
+            return nil
+        }
     }
 
     private func initialize() async {
@@ -191,6 +223,7 @@ import SwiftUI
     func applicationWillTerminate(_ notification: Notification) {
         statusTimer?.invalidate()
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
+        if let statusRightClickMonitor { NSEvent.removeMonitor(statusRightClickMonitor) }
         if let resignActiveObserver { NotificationCenter.default.removeObserver(resignActiveObserver) }
         viewModel?.closed()
     }
