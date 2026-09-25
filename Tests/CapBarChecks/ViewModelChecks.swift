@@ -39,11 +39,18 @@ import Foundation
         model.editPopoverHeightInput("823")
         model.commitPopoverHeightInput(maximum: 1000)
         check(model.settings.popoverSize.height == 823 && model.popoverHeightInput == "823", "return or focus loss applies an exact height")
-        model.editPopoverWidthInput("731")
-        model.editPopoverHeightInput("851")
+        let pendingWidth = min(731, model.maximumPopoverWidth)
+        let pendingHeight = min(851, model.maximumPopoverHeight)
+        model.editPopoverWidthInput(String(pendingWidth))
+        model.editPopoverHeightInput(String(pendingHeight))
         model.closed()
-        check(model.settings.popoverSize.width == 731 && model.settings.popoverSize.height == 851,
-              "closing the popover commits valid pending size inputs (max=\(model.maximumPopoverWidth)x\(model.maximumPopoverHeight), actual=\(model.settings.popoverSize.width)x\(model.settings.popoverSize.height))")
+        check(model.settings.popoverSize.width == pendingWidth && model.settings.popoverSize.height == pendingHeight,
+              "closing the popover commits pending size inputs within screen bounds")
+        model.editPopoverWidthInput("9999")
+        model.editPopoverHeightInput("9999")
+        model.closed()
+        check(model.settings.popoverSize.width == model.maximumPopoverWidth && model.settings.popoverSize.height == model.maximumPopoverHeight,
+              "closing the popover clamps oversized pending inputs to screen bounds")
 
         var pickerEvents: [String] = []
         model.onFolderPickerWillOpen = { pickerEvents.append("opened") }
