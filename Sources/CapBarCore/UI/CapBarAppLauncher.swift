@@ -50,6 +50,7 @@ import SwiftUI
 }
 
 @MainActor private final class CapBarAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+    private let titleGap = "\u{2009}"
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var dismissalController: PopoverDismissalController?
@@ -73,7 +74,7 @@ import SwiftUI
                 button.image = icon
                 button.imagePosition = .imageLeading
             }
-            button.title = "CapBar"
+            button.title = titleGap + "CapBar"
             button.target = self
             button.action = #selector(togglePopover)
         }
@@ -112,7 +113,7 @@ import SwiftUI
                 Task { @MainActor in model?.updateRows() }
             }
         } catch {
-            statusItem?.button?.title = "CapBar ⚠"
+            statusItem?.button?.title = titleGap + "CapBar ⚠"
             let panel = NSPopover()
             panel.behavior = .transient
             panel.contentSize = NSSize(width: 300, height: 100)
@@ -126,9 +127,9 @@ import SwiftUI
 
     private func updateStatusItem(_ rows: [PopoverAccountRow]) {
         let exhausted = PopoverPresentation.exhaustedCount(rows: rows)
-        statusItem?.button?.title = exhausted > 0
+        statusItem?.button?.title = titleGap + (exhausted > 0
             ? "\(rows.count) 账号 · \(exhausted) 耗尽"
-            : "\(rows.count) 账号"
+            : "\(rows.count) 账号")
     }
 
     private func resizePopover(_ size: PopoverSize) {
