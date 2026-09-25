@@ -42,7 +42,8 @@ import Foundation
         model.editPopoverWidthInput("731")
         model.editPopoverHeightInput("851")
         model.closed()
-        check(model.settings.popoverSize.width == 731 && model.settings.popoverSize.height == 851, "closing the popover commits valid pending size inputs")
+        check(model.settings.popoverSize.width == 731 && model.settings.popoverSize.height == 851,
+              "closing the popover commits valid pending size inputs (max=\(model.maximumPopoverWidth)x\(model.maximumPopoverHeight), actual=\(model.settings.popoverSize.width)x\(model.settings.popoverSize.height))")
 
         var pickerEvents: [String] = []
         model.onFolderPickerWillOpen = { pickerEvents.append("opened") }
