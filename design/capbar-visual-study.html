@@ -3,179 +3,200 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CapBar 视觉设计稿</title>
+  <title>CapBar 视觉设计稿 · 真实账号快照</title>
   <style>
     :root { color-scheme: light dark; }
-    body { margin: 0; padding: 24px; background: light-dark(#f8f9fb, #141821); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
-    .page { max-width: 980px; margin: 0 auto; }
-    .credit { margin: 24px 0 0; color: light-dark(#687183,#a9b2c3); font-size: 12px; line-height: 1.5; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 28px; background: light-dark(#f8f9fb, #141821); color: light-dark(#202736, #eef1f8); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .page { max-width: 1000px; margin: 0 auto; }
+    .study-section + .study-section { margin-top: 34px; }
+    .kicker { color: light-dark(#6b7485, #a9b2c3); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    h2 { margin: 5px 0 15px; font-size: 21px; font-weight: 680; letter-spacing: -.025em; }
+    .gallery { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px; }
+    figure { margin: 0; }
+    figure img { display: block; max-width: 100%; height: auto; }
+    .aibar-menu-img { width: 316px; }
+    .aibar-panel-img { width: 306px; }
+    figcaption, .credit, .concept-caption { color: light-dark(#697285, #a9b2c3); font-size: 12px; line-height: 1.55; }
+    figcaption { margin-top: 7px; }
+    .credit { margin: 25px 0 0; }
     .credit a { color: inherit; }
-    @media (max-width: 600px) { body { padding: 14px; } }
+
+    #capbar-visual-study { --ink: light-dark(#202736, #eef1f8); --sub: light-dark(#697285, #aab3c2); --line: light-dark(#e3e7ee, #3a4050); --surface: light-dark(#fff, #242935); --canvas: light-dark(#f3f5f9, #171b24); --soft: light-dark(#eaf0ff, #303a58); --accent: #6c7df2; --good: #49a785; --warn: #d59543; --danger: #d66165; color: var(--ink); }
+    .stage { display: flex; justify-content: center; padding: 24px; background: var(--canvas); border-radius: 18px; }
+    .desktop { width: 495px; max-width: 100%; }
+    .mac-menu { min-height: 38px; padding: 0 13px; display: flex; align-items: center; gap: 13px; background: light-dark(#e9edf5, #303541); border: 1px solid var(--line); border-radius: 10px 10px 0 0; font-size: 12px; font-weight: 600; }
+    .menu-grow { flex: 1; }
+    .menu-capbar { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+    .capbar-mark { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 5px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 800; }
+    .menu-signal { color: var(--danger); }
+    .popover-anchor { display: flex; justify-content: flex-end; padding-right: 12px; }
+    .popover { width: 438px; max-width: 100%; max-height: min(790px, 86vh); margin-top: 9px; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 14px 38px light-dark(#25304a26, #00000055); }
+    .popover-head { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 15px 17px 12px; }
+    .brand-mark { width: 31px; height: 31px; flex: 0 0 auto; border-radius: 9px; display: grid; place-items: center; background: var(--accent); color: #fff; font-size: 18px; font-weight: 750; }
+    .head-text { min-width: 0; flex: 1; }
+    .app-name { font-size: 15px; font-weight: 700; }
+    .app-meta { margin-top: 2px; color: var(--sub); font-size: 11px; }
+    .refresh-all { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; border: 0; border-radius: 7px; background: var(--soft); color: var(--ink); font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .icon-control, .account-refresh { display: inline-grid; place-items: center; flex: 0 0 auto; padding: 5px; border: 0; border-radius: 7px; background: transparent; color: var(--sub); }
+    .icon-control:hover, .account-refresh:hover { background: var(--soft); color: var(--accent); }
+    #capbar-overview { min-height: 0; overflow: auto; scrollbar-width: thin; }
+    #capbar-overview[hidden], .settings-panel[hidden] { display: none; }
+    .attention { margin: 0 17px 12px; padding: 9px 11px; display: flex; align-items: center; gap: 9px; border-radius: 8px; background: light-dark(#fff0ee, #493033); color: light-dark(#9c3d42, #f2aaaa); font-size: 11px; line-height: 1.4; }
+    .attention strong { font-weight: 750; }
+    .provider-head { display: flex; align-items: center; gap: 7px; padding: 9px 17px 7px; border-top: 1px solid var(--line); font-size: 11px; font-weight: 750; letter-spacing: .04em; }
+    .provider-head .count { margin-left: auto; color: var(--sub); font-weight: 500; letter-spacing: 0; }
+    .provider-dot { width: 8px; height: 8px; border-radius: 50%; background: #db8b65; }
+    .provider-dot.codex { background: #67a995; }
+    .account { padding: 10px 17px 11px; }
+    .account + .account { border-top: 1px solid var(--line); }
+    .account-top { display: flex; align-items: center; gap: 9px; }
+    .identity { min-width: 0; flex: 1; }
+    .account-email { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 700; }
+    .account-meta { display: flex; align-items: center; gap: 7px; margin-top: 3px; min-width: 0; color: var(--sub); font-size: 10px; }
+    .account-meta .path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .account-meta .separator { color: var(--line); }
+    .updated { flex: 0 0 auto; color: var(--sub); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .metrics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 9px; }
+    .metrics-grid.single { grid-template-columns: 1fr; }
+    .metric-card { min-width: 0; }
+    .metric-head { display: flex; justify-content: space-between; align-items: baseline; gap: 5px; font-size: 10px; }
+    .metric-label { color: var(--sub); }
+    .metric-value { font-size: 11px; font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .metric-value.warning { color: var(--warn); }
+    .metric-value.exhausted { color: var(--danger); }
+    .metric-bar { height: 5px; margin-top: 5px; overflow: hidden; border-radius: 8px; background: light-dark(#e9edf5, #414858); }
+    .metric-bar.exhausted { background: light-dark(#f5d9d9, #593b41); }
+    .metric-fill { display: block; width: var(--fill); height: 100%; border-radius: inherit; background: var(--good); }
+    .metric-fill.warning { background: var(--warn); }
+    .metric-reset { margin-top: 5px; color: var(--sub); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .popover-foot { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 17px 12px; border-top: 1px solid var(--line); color: var(--sub); font-size: 10px; }
+    .popover-foot .grow { flex: 1; }
+    .popover-foot button, .settings-head button { padding: 2px; border: 0; background: transparent; color: var(--accent); font-size: 11px; font-weight: 700; }
+    .settings-panel { min-height: 0; padding: 13px 17px 16px; overflow: auto; border-top: 1px solid var(--line); }
+    .settings-head { display: flex; align-items: center; margin-bottom: 10px; font-size: 12px; font-weight: 750; }
+    .settings-head button { margin-left: auto; }
+    .settings-help { margin: 0 0 12px; color: var(--sub); font-size: 11px; line-height: 1.55; }
+    .settings-label { display: flex; flex-direction: column; gap: 5px; margin-top: 11px; color: var(--sub); font-size: 10px; }
+    .settings-label input, .settings-label select { width: 100%; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--ink); font-size: 11px; }
+    .settings-label input[type=number] { max-width: 115px; }
+    .settings-subhead { margin-top: 15px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11px; font-weight: 750; }
+    .settings-account { padding: 7px 0; border-bottom: 1px solid var(--line); }
+    .settings-account strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+    .settings-account span { display: block; margin-top: 2px; color: var(--sub); font-size: 10px; }
+    .settings-grid { display: grid; grid-template-columns: 125px 1fr; gap: 9px; }
+    .config-save { margin-top: 12px; padding: 8px 11px; border: 0; border-radius: 7px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }
+    .concept-caption { margin: 9px 0 0; text-align: center; }
+    .design-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; margin-top: 15px; }
+    .choice { padding: 10px 0; border-top: 1px solid var(--line); }
+    .choice strong { display: block; margin-bottom: 4px; font-size: 12px; }
+    .choice span { display: block; color: var(--sub); font-size: 11px; line-height: 1.5; }
+    @media (max-width: 600px) { body { padding: 14px; } .stage { padding: 12px; } .design-choices { grid-template-columns: 1fr; gap: 0; } .mac-menu { gap: 8px; } }
   </style>
 </head>
 <body>
-<main class="page">
-<section id="capbar-visual-study" aria-label="AIBar 与 CapBar 界面视觉对照">
-  <style>
-    #capbar-visual-study { --ink: light-dark(#1e2533,#eef1f8); --sub: light-dark(#697285,#a9b2c3); --line: light-dark(#e3e7ee,#3a4050); --surface: light-dark(#ffffff,#242935); --canvas: light-dark(#f3f5f9,#171b24); --soft: light-dark(#eaf0ff,#303a58); --accent: #6c7df2; --good: #4eaa8c; --warn: #e39b48; color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
-    #capbar-visual-study * { box-sizing: border-box; }
-    #capbar-visual-study .study-section + .study-section { margin-top: 28px; }
-    #capbar-visual-study .section-kicker { color: var(--sub); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
-    #capbar-visual-study .section-title { margin: 5px 0 14px; font-size: 20px; font-weight: 650; letter-spacing: -.025em; }
-    #capbar-visual-study .aibar-gallery { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px; }
-    #capbar-visual-study figure { margin: 0; }
-    #capbar-visual-study .aibar-menu-img { width: 316px; max-width: 100%; height: auto; display: block; }
-    #capbar-visual-study .aibar-panel-img { width: 306px; max-width: 100%; height: auto; display: block; }
-    #capbar-visual-study figcaption { color: var(--sub); font-size: 12px; margin-top: 7px; }
-    #capbar-visual-study .concept-stage { display: flex; justify-content: center; padding: 23px; background: var(--canvas); border-radius: 18px; }
-    #capbar-visual-study .mac-desktop { width: 475px; max-width: 100%; }
-    #capbar-visual-study .mac-menu { height: 38px; padding: 0 13px; background: light-dark(#e9edf5,#303541); color: var(--ink); border: 1px solid var(--line); border-radius: 10px 10px 0 0; display: flex; align-items: center; gap: 14px; font-size: 12px; font-weight: 600; }
-    #capbar-visual-study .mac-menu .menu-grow { flex: 1; }
-    #capbar-visual-study .menu-capbar { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); white-space: nowrap; }
-    #capbar-visual-study .capbar-mark { width: 16px; height: 16px; border-radius: 5px; display: inline-grid; place-items: center; background: var(--accent); color: #fff; font-size: 11px; font-weight: 750; }
-    #capbar-visual-study .menu-signal { color: var(--warn); font-weight: 700; }
-    #capbar-visual-study .popover-anchor { display: flex; justify-content: flex-end; padding-right: 13px; }
-    #capbar-visual-study .capbar-popover { width: 412px; max-width: 100%; margin-top: 9px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 14px 38px light-dark(#25304a26,#00000055); overflow: hidden; }
-    #capbar-visual-study .popover-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px 12px; }
-    #capbar-visual-study .brand-mark { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); display: grid; place-items: center; color: #fff; font-size: 18px; font-weight: 700; }
-    #capbar-visual-study .head-text { min-width: 0; flex: 1; }
-    #capbar-visual-study .app-name { font-size: 15px; font-weight: 680; letter-spacing: -.02em; }
-    #capbar-visual-study .app-meta { color: var(--sub); font-size: 11px; margin-top: 2px; }
-    #capbar-visual-study .icon-control { border: 0; background: transparent; color: var(--sub); padding: 6px; border-radius: 7px; display: grid; place-items: center; }
-    #capbar-visual-study .icon-control:hover { background: var(--soft); color: var(--ink); }
-    #capbar-visual-study .icon { display: inline-grid; place-items: center; font-weight: 700; line-height: 1; }
-    #capbar-visual-study .icon-control .icon { width: 16px; height: 16px; }
-    #capbar-visual-study .refresh-all { display: inline-flex; align-items: center; gap: 5px; border: 0; background: var(--soft); color: var(--ink); border-radius: 7px; padding: 6px 8px; font: inherit; font-size: 10px; font-weight: 650; white-space: nowrap; }
-    #capbar-visual-study .refresh-all .icon, #capbar-visual-study .account-refresh .icon { width: 13px; height: 13px; }
-    #capbar-visual-study .account-refresh { border: 0; background: transparent; color: var(--sub); padding: 2px; margin-left: 2px; display: inline-grid; place-items: center; border-radius: 5px; }
-    #capbar-visual-study .account-refresh:hover { color: var(--accent); background: var(--soft); }
-    #capbar-visual-study .attention { margin: 0 18px 13px; padding: 9px 11px; border-radius: 8px; background: light-dark(#fff3e6,#433727); color: light-dark(#805018,#f2c38c); display: flex; align-items: center; gap: 8px; font-size: 11px; }
-    #capbar-visual-study .attention .icon { width: 14px; height: 14px; flex: 0 0 auto; }
-    #capbar-visual-study .provider-head { display: flex; align-items: center; gap: 7px; padding: 9px 18px 7px; border-top: 1px solid var(--line); font-size: 11px; font-weight: 700; letter-spacing: .04em; }
-    #capbar-visual-study .provider-head .count { margin-left: auto; color: var(--sub); font-weight: 500; letter-spacing: 0; }
-    #capbar-visual-study .provider-dot { width: 8px; height: 8px; border-radius: 50%; background: #db8b65; }
-    #capbar-visual-study .provider-dot.codex { background: #67a995; }
-    #capbar-visual-study .account { padding: 9px 18px 11px; }
-    #capbar-visual-study .account + .account { border-top: 1px solid var(--line); }
-    #capbar-visual-study .account-top { display: flex; align-items: baseline; gap: 6px; }
-    #capbar-visual-study .account-name { font-size: 12px; font-weight: 650; }
-    #capbar-visual-study .account-plan { font-size: 10px; color: var(--sub); }
-    #capbar-visual-study .account-top .right { margin-left: auto; font-size: 10px; color: var(--sub); }
-    #capbar-visual-study .metric { display: grid; grid-template-columns: 46px 1fr 58px; gap: 8px; align-items: center; margin-top: 8px; font-size: 10px; }
-    #capbar-visual-study .metric-label { color: var(--sub); }
-    #capbar-visual-study .metric-bar { height: 6px; border-radius: 9px; background: light-dark(#e9edf5,#414858); overflow: hidden; }
-    #capbar-visual-study .metric-fill { height: 100%; width: var(--fill); border-radius: inherit; background: var(--good); }
-    #capbar-visual-study .metric-fill.warning { background: var(--warn); }
-    #capbar-visual-study .metric-value { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
-    #capbar-visual-study .metric-reset { margin: 3px 0 0 54px; color: var(--sub); font-size: 10px; }
-    #capbar-visual-study .metric-reset.unknown { font-style: italic; }
-    #capbar-visual-study .popover-foot { border-top: 1px solid var(--line); padding: 10px 18px 13px; display: flex; align-items: center; gap: 8px; color: var(--sub); font-size: 10px; }
-    #capbar-visual-study .popover-foot .foot-right { margin-left: auto; }
-    #capbar-visual-study .popover-foot button { background: transparent; border: 0; color: var(--accent); font: inherit; font-weight: 650; padding: 2px; }
-    #capbar-visual-study .config-panel { border-top: 1px solid var(--line); padding: 13px 18px 17px; }
-    #capbar-visual-study .config-panel[hidden] { display: none; }
-    #capbar-visual-study .config-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 12px; font-weight: 650; }
-    #capbar-visual-study .config-head button { margin-left: auto; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 11px; }
-    #capbar-visual-study .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-    #capbar-visual-study .config-field { display: flex; flex-direction: column; gap: 4px; color: var(--sub); font-size: 10px; }
-    #capbar-visual-study .config-field.wide { grid-column: 1 / -1; }
-    #capbar-visual-study .config-field input, #capbar-visual-study .config-field select { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; background: var(--canvas); color: var(--ink); font: inherit; font-size: 11px; }
-    #capbar-visual-study .config-save { margin-top: 10px; border: 0; background: var(--accent); color: #fff; border-radius: 6px; padding: 7px 10px; font: inherit; font-size: 11px; font-weight: 650; }
-    #capbar-visual-study .concept-caption { color: var(--sub); font-size: 11px; margin: 8px 0 0; text-align: center; }
-    #capbar-visual-study .design-choices { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: 14px; }
-    #capbar-visual-study .choice { padding: 10px 0; border-top: 1px solid var(--line); }
-    #capbar-visual-study .choice strong { display: block; font-size: 12px; font-weight: 650; margin-bottom: 4px; }
-    #capbar-visual-study .choice span { display: block; font-size: 11px; color: var(--sub); line-height: 1.5; }
-    @media (max-width: 600px) { #capbar-visual-study .concept-stage { padding: 12px; } #capbar-visual-study .design-choices { grid-template-columns: 1fr; } #capbar-visual-study .mac-menu .menu-grow { flex: 1; } }
-  </style>
-
+<main class="page" id="capbar-visual-study">
   <section class="study-section" aria-labelledby="aibar-title">
-    <div class="section-kicker">01 · 现有项目</div>
-    <h2 class="section-title" id="aibar-title">AIBar 的实际界面</h2>
-    <div class="aibar-gallery">
-      <figure><img class="aibar-menu-img" src="assets/aibar-menubar.png" alt="AIBar 实际菜单栏截图：Claude 图标、3/0/0、166H，Codex 图标、1、140H"><figcaption>菜单栏：图标 + 紧凑数字 + 周额度重置倒计时</figcaption></figure>
-      <figure><img class="aibar-panel-img" src="assets/aibar-panel.png" alt="AIBar 实际展开面板截图：Claude 与 Codex 两组数据、刷新时间与偏好设置"><figcaption>展开面板：两组平铺数据，宽约 280px</figcaption></figure>
+    <div class="kicker">01 · 现有项目</div>
+    <h2 id="aibar-title">AIBar 的实际界面</h2>
+    <div class="gallery">
+      <figure><img class="aibar-menu-img" src="assets/aibar-menubar.png" alt="AIBar 菜单栏实际截图"><figcaption>菜单栏：图标、紧凑数字与重置倒计时</figcaption></figure>
+      <figure><img class="aibar-panel-img" src="assets/aibar-panel.png" alt="AIBar 展开面板实际截图"><figcaption>展开面板：Claude 与 Codex 的额度数据</figcaption></figure>
     </div>
   </section>
 
   <section class="study-section" aria-labelledby="capbar-title">
-    <div class="section-kicker">02 · 设计提案 · 示意数据</div>
-    <h2 class="section-title" id="capbar-title">CapBar：多账号仍保持菜单栏轻巧</h2>
-    <div class="concept-stage">
-      <div class="mac-desktop" aria-label="CapBar 菜单栏与弹出面板概念图">
-        <div class="mac-menu"><span>◉</span><span>文件</span><span>编辑</span><span class="menu-grow"></span><span class="menu-capbar"><span class="capbar-mark">C</span><span id="capbar-menu-text">4 账号 · 1 提醒</span></span><span>▰</span><span>09:14</span></div>
-        <div class="popover-anchor"><div class="capbar-popover" id="capbar-popover">
-          <div class="popover-head"><div class="brand-mark">C</div><div class="head-text"><div class="app-name">CapBar</div><div class="app-meta">4 个账号 · 刚刚更新</div></div><button class="refresh-all" type="button" id="capbar-refresh"><span class="icon" aria-hidden="true">↻</span>全部刷新</button><button class="icon-control" type="button" aria-label="添加账号预览" id="capbar-add"><span class="icon" aria-hidden="true">+</span></button></div>
-          <div id="capbar-overview">
-          <div class="attention"><span class="icon" aria-hidden="true">⚠</span><span>工作 Claude 的 5 小时额度仅剩 18%</span></div>
-          <div class="provider-head"><span class="provider-dot"></span>CLAUDE<span class="count">2 个账号</span></div>
-          <div class="account"><div class="account-top"><span class="account-name" id="capbar-personal-name">个人</span><span class="account-plan">Max · ~/.claude</span><span class="right">09:14 更新</span><button class="account-refresh" type="button" aria-label="单独刷新个人账号" data-account="个人"><span class="icon" aria-hidden="true">↻</span></button></div><div class="metric"><span class="metric-label">5 小时</span><div class="metric-bar"><div class="metric-fill" style="--fill:78%"></div></div><span class="metric-value">余 78%</span></div><div class="metric-reset">重置：今天 14:07</div><div class="metric"><span class="metric-label">7 天</span><div class="metric-bar"><div class="metric-fill" style="--fill:64%"></div></div><span class="metric-value">余 64%</span></div><div class="metric-reset">重置：9 月 30 日 08:00</div></div>
-          <div class="account"><div class="account-top"><span class="account-name">工作</span><span class="account-plan">Max · ~/accounts/claude-work</span><span class="right">09:13 更新</span><button class="account-refresh" type="button" aria-label="单独刷新工作账号" data-account="工作"><span class="icon" aria-hidden="true">↻</span></button></div><div class="metric"><span class="metric-label">5 小时</span><div class="metric-bar"><div class="metric-fill warning" style="--fill:18%"></div></div><span class="metric-value">余 18%</span></div><div class="metric-reset">重置：今天 11:36</div><div class="metric"><span class="metric-label">7 天</span><div class="metric-bar"><div class="metric-fill" style="--fill:42%"></div></div><span class="metric-value">余 42%</span></div><div class="metric-reset">重置：10 月 1 日 09:00</div></div>
-          <div class="provider-head"><span class="provider-dot codex"></span>CODEX<span class="count">2 个账号</span></div>
-          <div class="account"><div class="account-top"><span class="account-name">主账号</span><span class="account-plan">Pro · ~/.codex</span><span class="right">09:14 更新</span><button class="account-refresh" type="button" aria-label="单独刷新主账号" data-account="主账号"><span class="icon" aria-hidden="true">↻</span></button></div><div class="metric"><span class="metric-label">5 小时</span><div class="metric-bar"><div class="metric-fill" style="--fill:91%"></div></div><span class="metric-value">余 91%</span></div><div class="metric-reset unknown">重置时间未提供</div><div class="metric"><span class="metric-label">7 天</span><div class="metric-bar"><div class="metric-fill" style="--fill:76%"></div></div><span class="metric-value">余 76%</span></div><div class="metric-reset">重置：9 月 29 日 08:00</div></div>
-          <div class="account"><div class="account-top"><span class="account-name">实验</span><span class="account-plan">Pro · ~/accounts/codex-lab</span><span class="right">09:12 更新</span><button class="account-refresh" type="button" aria-label="单独刷新实验账号" data-account="实验"><span class="icon" aria-hidden="true">↻</span></button></div><div class="metric"><span class="metric-label">7 天</span><div class="metric-bar"><div class="metric-fill" style="--fill:57%"></div></div><span class="metric-value">余 57%</span></div><div class="metric-reset">重置：10 月 2 日 18:00</div></div>
-          <div class="popover-foot"><span>剩余额度 · 各账号独立刷新</span><span class="foot-right"></span><button type="button" id="capbar-config">管理账号</button></div>
+    <div class="kicker">02 · CapBar · 2026-09-25 16:01 本机快照</div>
+    <h2 id="capbar-title">真实账号身份，逐账号查看额度</h2>
+    <div class="stage">
+      <div class="desktop" aria-label="CapBar 菜单栏与弹出面板设计">
+        <div class="mac-menu"><span>◉</span><span>文件</span><span>编辑</span><span class="menu-grow"></span><span class="menu-capbar"><span class="capbar-mark">C</span><span id="capbar-menu-text">6 账号 · <span class="menu-signal">1 耗尽</span></span></span><span>▰</span><span>16:01</span></div>
+        <div class="popover-anchor"><div class="popover" id="capbar-popover">
+          <div class="popover-head"><div class="brand-mark">C</div><div class="head-text"><div class="app-name">CapBar</div><div class="app-meta">6 个账号 · 本机快照 16:01</div></div><button class="refresh-all" type="button" id="capbar-refresh">↻ 全部刷新</button><button class="icon-control" type="button" aria-label="添加账号目录" id="capbar-add">＋</button></div>
+          <div id="capbar-overview"><div class="attention"><span aria-hidden="true">●</span><span><strong>1 个账号的 7 天额度已用尽</strong> · 请查看下方账号</span></div><div id="account-groups"></div></div>
+          <div class="settings-panel" id="settings-panel" hidden>
+            <div class="settings-head"><span id="settings-title">账号与刷新</span><button type="button" id="settings-back">返回总览</button></div>
+            <p class="settings-help">邮箱、套餐和组织由 Claude Code / Codex 自动识别；只需指定账号目录。默认目录会自动加入。</p>
+            <label class="settings-label">自动刷新间隔（分钟）<input type="number" id="refresh-interval" min="1" value="5"></label>
+            <div class="settings-subhead">已识别的账号</div><div id="settings-accounts"></div>
+            <div class="settings-subhead">添加目录</div>
+            <div class="settings-grid"><label class="settings-label">服务<select id="account-provider"><option>Claude</option><option>Codex</option></select></label><label class="settings-label">配置目录<input id="account-directory" placeholder="例如 ~/.claude-work"></label></div>
+            <button class="config-save" type="button" id="settings-save">添加目录（交互示意）</button>
           </div>
-          <div class="config-panel" id="account-config-panel" hidden><div class="config-head"><span id="config-title">账号配置</span><button type="button" id="config-back">返回总览</button></div><div class="config-grid"><label class="config-field">显示名称<input id="account-name-field" value="个人" aria-label="账号显示名称"></label><label class="config-field">服务<select id="account-provider-field" aria-label="服务"><option selected>Claude</option><option>Codex</option></select></label><label class="config-field wide">账号目录<input id="account-directory-field" value="~/.claude" aria-label="账号目录"></label></div><button class="config-save" type="button" id="config-save">保存名称示意</button></div>
+          <div class="popover-foot"><span>额度为剩余百分比 · 时间为本地时间</span><span class="grow"></span><button type="button" id="capbar-config">账号与设置</button></div>
         </div></div>
       </div>
     </div>
-    <div class="concept-caption" id="capbar-caption" aria-live="polite">视觉概念稿；数字为示意，不代表本机实际额度</div>
-    <div class="design-choices"><div class="choice"><strong>账号名称</strong><span>个人、工作、主账号是配置时填写的显示名；默认目录也可改显示名。</span></div><div class="choice"><strong>刷新范围</strong><span>顶部全部刷新；每个账号右侧可单独刷新。</span></div><div class="choice"><strong>窗口与重置</strong><span>仅展示接口返回的窗口；每个窗口各显示自己的重置时间。</span></div></div>
+    <p class="concept-caption" id="capbar-caption" aria-live="polite">静态设计稿：数据取自 2026 年 9 月 25 日约 16:01 的本机查询；按钮不发起真实请求。</p>
+    <div class="design-choices"><div class="choice"><strong>账号身份</strong><span>邮箱是主标识；组织、套餐和目录帮助核对身份。无需手填“个人”或“工作”。</span></div><div class="choice"><strong>真实窗口</strong><span>Claude 展示 5 小时与 7 天；本机 Codex 只返回 7 天，因此没有虚构 5 小时进度。</span></div><div class="choice"><strong>刷新状态</strong><span>打开窗口先显示快照；全部与单账号刷新分别更新。失败保留旧值并标记时间。</span></div></div>
   </section>
-  <script>
-    (() => {
-      const root = document.getElementById('capbar-visual-study');
-      const popover = document.getElementById('capbar-popover');
-      const state = { accent: '#6c7df2', density: 'comfortable', menu: 'attention' };
-      function render() {
-        root.style.setProperty('--accent', state.accent);
-        popover.style.setProperty('--row-extra', state.density === 'compact' ? '0px' : '2px');
-        root.querySelectorAll('.account').forEach(el => { el.style.paddingTop = state.density === 'compact' ? '7px' : '9px'; el.style.paddingBottom = state.density === 'compact' ? '8px' : '11px'; });
-        document.getElementById('capbar-menu-text').textContent = state.menu === 'attention' ? '4 账号 · 1 提醒' : '4 账号';
-      }
-      render();
-      if (globalThis.Tweak) {
-        const tweak = new Tweak({ container: popover, onChange: render });
-        tweak.addColorPicker(state, 'accent', { label: '强调色', reference: '--accent' });
-        tweak.addSelect(state, 'density', { label: '面板密度', options: [{ label: '舒展', value: 'comfortable' }, { label: '紧凑', value: 'compact' }] });
-        tweak.addSelect(state, 'menu', { label: '菜单栏摘要', options: [{ label: '显示提醒', value: 'attention' }, { label: '仅账号数', value: 'count' }] });
-      }
-      const caption = document.getElementById('capbar-caption');
-      document.getElementById('capbar-refresh').addEventListener('click', () => { caption.textContent = '全部刷新示意：同时请求四个账号，每个账号分别更新结果。'; });
-      root.querySelectorAll('.account-refresh').forEach(button => button.addEventListener('click', () => { caption.textContent = `单独刷新示意：只请求「${button.dataset.account}」账号。`; }));
-      const overview = document.getElementById('capbar-overview');
-      const config = document.getElementById('account-config-panel');
-      const nameField = document.getElementById('account-name-field');
-      const directoryField = document.getElementById('account-directory-field');
-      const providerField = document.getElementById('account-provider-field');
-      let formMode = 'edit';
-      function showConfig(mode) {
-        formMode = mode;
-        overview.hidden = true; config.hidden = false;
-        document.getElementById('config-title').textContent = mode === 'add' ? '添加账号' : '账号配置';
-        document.getElementById('config-save').textContent = mode === 'add' ? '添加示意' : '保存名称示意';
-        nameField.value = mode === 'add' ? '' : document.getElementById('capbar-personal-name').textContent;
-        directoryField.value = mode === 'add' ? '' : '~/.claude';
-        providerField.value = 'Claude';
-        caption.textContent = '账号名称由你填写；服务和账号目录确定读取对象。';
-      }
-      document.getElementById('capbar-add').addEventListener('click', () => showConfig('add'));
-      document.getElementById('capbar-config').addEventListener('click', () => showConfig('edit'));
-      document.getElementById('config-back').addEventListener('click', () => { config.hidden = true; overview.hidden = false; });
-      document.getElementById('config-save').addEventListener('click', () => {
-        const name = nameField.value.trim();
-        const directory = directoryField.value.trim();
-        if (!name || !directory) { caption.textContent = '请填写显示名称和账号目录。'; return; }
-        if (formMode === 'edit') { document.getElementById('capbar-personal-name').textContent = name; caption.textContent = `显示名称已在视觉稿中改为「${name}」。`; }
-        else { caption.textContent = `添加示意：${providerField.value}「${name}」将读取 ${directory}。`; }
-        config.hidden = true; overview.hidden = false;
-      });
-    })();
-  </script>
-</section>
 
-<p class="credit">AIBar 实际截图来自 <a href="https://github.com/inxight/aibar">inxight/aibar</a>；许可文本见 <a href="assets/AIBar-LICENSE.txt">AIBar-LICENSE.txt</a>。CapBar 区域是设计示意，额度和日期不是实际账户数据。</p>
+  <p class="credit">AIBar 截图来自 <a href="https://github.com/inxight/aibar">inxight/aibar</a>；许可文本见 <a href="assets/AIBar-LICENSE.txt">AIBar-LICENSE.txt</a>。CapBar 区域包含本机账号邮箱和一次性额度快照，页面本身不连接账号。</p>
 </main>
+<script>
+  (() => {
+    const accounts = [
+      { provider: 'Claude', email: 'account3@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude', updated: '16:00', windows: [{ label: '5 小时', remaining: 90, reset: '今天 17:20' }, { label: '7 天', remaining: 77, reset: '9 月 30 日 08:00' }] },
+      { provider: 'Claude', email: 'account5@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-team', updated: '16:00', windows: [{ label: '5 小时', remaining: 100, reset: '今天 20:39' }, { label: '7 天', remaining: 0, reset: '9 月 29 日 11:59' }] },
+      { provider: 'Claude', email: 'account2@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-work', updated: '16:00', windows: [{ label: '5 小时', remaining: 86, reset: '今天 19:49' }, { label: '7 天', remaining: 97, reset: '9 月 26 日 12:59' }] },
+      { provider: 'Claude', email: 'account1@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-review', updated: '16:00', windows: [{ label: '5 小时', remaining: 98, reset: '今天 20:50' }, { label: '7 天', remaining: 21, reset: '9 月 30 日 00:00' }] },
+      { provider: 'Claude', email: 'account4@example.com', plan: 'Team', org: 'Example Team', directory: '~/.claude-shared', updated: '16:00', windows: [{ label: '5 小时', remaining: 65, reset: '今天 18:49' }, { label: '7 天', remaining: 66, reset: '9 月 29 日 16:59' }] },
+      { provider: 'Codex', email: 'account6@example.com', plan: 'Pro', org: null, directory: '~/.codex', updated: '16:01', windows: [{ label: '7 天', remaining: 20, reset: '9 月 27 日 01:44' }] }
+    ];
+    const root = document.getElementById('capbar-visual-study');
+    const popover = document.getElementById('capbar-popover');
+    const caption = document.getElementById('capbar-caption');
+    const state = { accent: '#6c7df2', density: 'comfortable', menu: 'attention' };
+    const escapeHTML = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+    function metric(window) {
+      const level = window.remaining === 0 ? 'exhausted' : window.remaining <= 25 ? 'warning' : '';
+      return `<div class="metric-card"><div class="metric-head"><span class="metric-label">${escapeHTML(window.label)}</span><strong class="metric-value ${level}">余 ${window.remaining}%</strong></div><div class="metric-bar ${level}"><span class="metric-fill ${level}" style="--fill:${window.remaining}%"></span></div><div class="metric-reset">${escapeHTML(window.reset)} 重置</div></div>`;
+    }
+    function accountRow(account) {
+      const identity = [account.org, account.plan].filter(Boolean).join(' · ');
+      return `<div class="account"><div class="account-top"><div class="identity"><span class="account-email" title="${escapeHTML(account.email)}">${escapeHTML(account.email)}</span><span class="account-meta"><span>${escapeHTML(identity)}</span><span class="separator">·</span><span class="path" title="${escapeHTML(account.directory)}">${escapeHTML(account.directory)}</span></span></div><span class="updated">${account.updated}</span><button class="account-refresh" type="button" aria-label="刷新 ${escapeHTML(account.email)}" data-account="${escapeHTML(account.email)}">↻</button></div><div class="metrics-grid ${account.windows.length === 1 ? 'single' : ''}">${account.windows.map(metric).join('')}</div></div>`;
+    }
+    document.getElementById('account-groups').innerHTML = ['Claude', 'Codex'].map(provider => {
+      const group = accounts.filter(account => account.provider === provider);
+      return `<div class="provider-head"><span class="provider-dot ${provider === 'Codex' ? 'codex' : ''}"></span>${provider === 'Claude' ? 'CLAUDE CODE' : 'CODEX'}<span class="count">${group.length} 个账号</span></div>${group.map(accountRow).join('')}`;
+    }).join('');
+    document.getElementById('settings-accounts').innerHTML = accounts.map(account => `<div class="settings-account"><strong>${escapeHTML(account.email)}</strong><span>${escapeHTML(account.provider)} · ${escapeHTML(account.directory)} · ${escapeHTML([account.org, account.plan].filter(Boolean).join(' · '))}</span></div>`).join('');
+    function render() {
+      root.style.setProperty('--accent', state.accent);
+      root.querySelectorAll('.account').forEach(row => { row.style.paddingTop = state.density === 'compact' ? '7px' : '10px'; row.style.paddingBottom = state.density === 'compact' ? '8px' : '11px'; });
+      document.getElementById('capbar-menu-text').innerHTML = state.menu === 'attention' ? '6 账号 · <span class="menu-signal">1 耗尽</span>' : '6 账号';
+    }
+    render();
+    if (globalThis.Tweak) {
+      const tweak = new Tweak({ container: popover, onChange: render });
+      tweak.addColorPicker(state, 'accent', { label: '强调色', reference: '--accent' });
+      tweak.addSelect(state, 'density', { label: '面板密度', options: [{ label: '舒展', value: 'comfortable' }, { label: '紧凑', value: 'compact' }] });
+      tweak.addSelect(state, 'menu', { label: '菜单栏摘要', options: [{ label: '显示提醒', value: 'attention' }, { label: '仅账号数', value: 'count' }] });
+    }
+    document.getElementById('capbar-refresh').addEventListener('click', () => { caption.textContent = '交互示意：全部刷新会分别请求 6 个账号；本页不会发起真实请求。'; });
+    root.querySelectorAll('.account-refresh').forEach(button => button.addEventListener('click', () => { caption.textContent = `交互示意：只刷新 ${button.dataset.account}；本页不会发起真实请求。`; }));
+    const overview = document.getElementById('capbar-overview');
+    const settings = document.getElementById('settings-panel');
+    function showSettings(focusDirectory) {
+      overview.hidden = true; settings.hidden = false;
+      document.getElementById('settings-title').textContent = focusDirectory ? '添加账号目录' : '账号与刷新';
+      if (focusDirectory) document.getElementById('account-directory').focus();
+      caption.textContent = '只需配置服务和目录；邮箱、组织、套餐在读取账号后自动识别。';
+    }
+    document.getElementById('capbar-add').addEventListener('click', () => showSettings(true));
+    document.getElementById('capbar-config').addEventListener('click', () => showSettings(false));
+    document.getElementById('settings-back').addEventListener('click', () => { settings.hidden = true; overview.hidden = false; });
+    document.getElementById('settings-save').addEventListener('click', () => {
+      const directory = document.getElementById('account-directory').value.trim();
+      const interval = Number(document.getElementById('refresh-interval').value);
+      if (!Number.isInteger(interval) || interval < 1) { caption.textContent = '刷新间隔至少为 1 分钟。'; return; }
+      if (!directory) { caption.textContent = '请填写配置目录。'; return; }
+      caption.textContent = `交互示意：添加 ${document.getElementById('account-provider').value} 目录 ${directory}，刷新间隔 ${interval} 分钟。`;
+      settings.hidden = true; overview.hidden = false;
+    });
+  })();
+</script>
 </body>
 </html>
