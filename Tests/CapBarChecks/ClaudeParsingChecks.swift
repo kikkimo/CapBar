@@ -70,9 +70,11 @@ print(json.dumps({'claudeAiOauth': {'accessToken': 'fake-tool-token'}}))
         let sleeper = temporary.appendingPathComponent("fake-slow-security")
         try Data("#!/usr/bin/python3\nimport time\ntime.sleep(5)\n".utf8).write(to: sleeper)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: sleeper.path)
+        let timeoutStarted = Date()
         checkThrows("security command times out") {
             _ = try SecurityCLIReader(executablePath: sleeper.path, timeoutSeconds: 0.1).read(service: "Claude Code-credentials")
         }
+        check(Date().timeIntervalSince(timeoutStarted) < 2, "credential timeout returns without blocking cleanup")
 
 
     } catch {

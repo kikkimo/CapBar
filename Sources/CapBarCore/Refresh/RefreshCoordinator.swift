@@ -4,6 +4,11 @@ protocol UsageProvider: Sendable {
     func probe(account: AccountID) async throws -> UsageSnapshot
 }
 
+struct CoordinatorViewState: Sendable {
+    let records: [AccountID: AccountRecord]
+    let refreshing: Set<AccountID>
+}
+
 actor RefreshCoordinator {
     private let settingsStore: SettingsStore
     private let snapshotStore: SnapshotStore
@@ -12,6 +17,8 @@ actor RefreshCoordinator {
     private let now: @Sendable () -> Date
     private var records: [AccountID: AccountRecord]
     private var refreshing: Set<AccountID> = []
+    private var activeTasks: [AccountID: Task<Void, Never>] = [:]
+    private var shuttingDown = false
 
     init(
         settingsStore: SettingsStore,
@@ -33,10 +40,14 @@ actor RefreshCoordinator {
 
     func state() -> [AccountID: AccountRecord] { records }
 
+    func viewState() -> CoordinatorViewState {
+        CoordinatorViewState(records: records, refreshing: refreshing)
+    }
+
     func isRefreshing(_ id: AccountID) -> Bool { refreshing.contains(id) }
 
     func requestRefresh(_ id: AccountID) async -> Bool {
-        guard !refreshing.contains(id), let provider = providers[id.provider] else { return false }
+        guard !shuttingDown, !refreshing.contains(id), let provider = providers[id.provider] else { return false }
         refreshing.insert(id)
         let previous = records[id]
         var record = previous ?? AccountRecord(id: id, snapshot: nil, lastAttemptAt: nil, lastError: nil)
@@ -50,15 +61,30 @@ actor RefreshCoordinator {
             refreshing.remove(id)
             return false
         }
+        if shuttingDown {
+            refreshing.remove(id)
+            return false
+        }
 
-        Task {
+        activeTasks[id] = Task {
             await self.perform(id, provider: provider)
         }
         return true
     }
 
+    func cancelAll() async {
+        shuttingDown = true
+        let running = Array(activeTasks.values)
+        running.forEach { $0.cancel() }
+        for task in running { await task.value }
+    }
+
     func requestRefreshAll() async -> Int {
         guard let settings = try? await settingsStore.loadOrSeed() else { return 0 }
+        return await requestRefreshAll(settings: settings)
+    }
+
+    func requestRefreshAll(settings: UserSettings) async -> Int {
         var started = 0
         for account in settings.accounts {
             if await requestRefresh(account) { started += 1 }
@@ -99,5 +125,6 @@ actor RefreshCoordinator {
         }
         records[id] = record
         refreshing.remove(id)
+        activeTasks.removeValue(forKey: id)
     }
 }

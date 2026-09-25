@@ -95,7 +95,11 @@ struct CodexProcess: CodexTransport {
             watchdog.cancel()
             try? input.fileHandleForWriting.close()
             owner.terminate()
-            process.waitUntilExit()
+            let deadline = Date().addingTimeInterval(1)
+            while process.isRunning && Date() < deadline {
+                _ = Darwin.usleep(20_000)
+            }
+            if process.isRunning { _ = Darwin.kill(process.processIdentifier, SIGKILL) }
         }
 
         return try await withTaskCancellationHandler {

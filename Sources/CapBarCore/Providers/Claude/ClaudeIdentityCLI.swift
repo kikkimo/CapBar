@@ -63,11 +63,13 @@ struct ClaudeIdentityCLI: ClaudeIdentityQuery {
             process.terminate()
             let grace = Date().addingTimeInterval(0.5)
             while process.isRunning && Date() < grace { Thread.sleep(forTimeInterval: 0.02) }
-            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
-            process.waitUntilExit()
+            if process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+                let killDeadline = Date().addingTimeInterval(0.5)
+                while process.isRunning && Date() < killDeadline { Thread.sleep(forTimeInterval: 0.02) }
+            }
             throw ProbeFailure.transient("Claude identity query timed out")
         }
-        process.waitUntilExit()
         guard process.terminationStatus == 0 else {
             throw ProbeFailure.permanent("Claude is not signed in")
         }

@@ -24,6 +24,11 @@ import Foundation
 @main struct CheckRunner {
     @MainActor static func main() async {
         let arguments = CommandLine.arguments
+        if arguments.contains("--render-popover") {
+            do { try await renderPopoverPreview() }
+            catch { fputs("Popover preview failed: \(error)\n", stderr); exit(1) }
+            return
+        }
         let filter: String?
         if let index = arguments.firstIndex(of: "--filter"), arguments.indices.contains(index + 1) {
             filter = arguments[index + 1]
@@ -41,6 +46,8 @@ import Foundation
         if filter == nil || filter == "ClaudeParsingTests" { runClaudeParsingChecks() }
         if filter == nil || filter == "ClaudeClientTests" { await runClaudeClientChecks() }
         if filter == "ClaudeLiveTests" { await runClaudeLiveChecks() }
+        if filter == "AppIntegrationTests" { await runAppIntegrationChecks() }
+        if filter == nil || filter == "PopoverModelTests" { runPopoverModelChecks() }
         if checksRun == 0 {
             fputs("No checks matched \(filter ?? "all")\n", stderr)
             exit(2)

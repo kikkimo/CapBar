@@ -26,6 +26,15 @@ private actor FailingProvider: UsageProvider {
     }
 }
 
+private actor CancellableProvider: UsageProvider {
+    private(set) var calls = 0
+    func probe(account: AccountID) async throws -> UsageSnapshot {
+        calls += 1
+        try await Task.sleep(for: .seconds(5))
+        return UsageSnapshot(identity: AccountIdentity(email: nil, plan: nil, organization: nil), windows: [], capturedAt: Date())
+    }
+}
+
 @MainActor func runRefreshCoordinatorChecks() async {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: folder) }
@@ -46,6 +55,8 @@ private actor FailingProvider: UsageProvider {
         check(await coordinator.requestRefresh(a), "manual single refresh bypasses threshold")
         check(!(await coordinator.requestRefresh(a)), "busy account rejects another single refresh")
         check(await coordinator.isRefreshing(a), "busy state appears immediately")
+        let viewState = await coordinator.viewState()
+        check(viewState.refreshing.contains(a) && viewState.records[a]?.snapshot?.capturedAt == old.capturedAt, "UI reads loading and previous snapshot together")
         check(await coordinator.requestRefreshAll() == 1, "all refresh skips busy account and starts idle account")
         check(await coordinator.requestRefreshAll() == 0, "repeated all refresh queues nothing while both busy")
         let loading = await coordinator.state()
@@ -102,6 +113,24 @@ private actor FailingProvider: UsageProvider {
         check(await failingProvider.calls == 1, "permanent failure is not retried")
         check(await failed.openedPopover(settings: autoSettings) == 0, "failure remains on auto-open cooldown")
         check(await failed.requestRefresh(a), "manual refresh can bypass failure cooldown")
+
+        let cancellable = CancellableProvider()
+        let shuttingDown = try await RefreshCoordinator(settingsStore: settingsStore, snapshotStore: snapshotStore, providers: [.claude: cancellable], policy: ProbePolicy.bundled(), now: { now }, pause: { _ in })
+        check(await shuttingDown.requestRefresh(a), "shutdown scenario starts a refresh")
+        for _ in 0..<100 {
+            if await cancellable.calls > 0 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        await shuttingDown.cancelAll()
+        check(!(await shuttingDown.isRefreshing(a)), "shutdown waits for active probe cleanup")
+        check(await cancellable.calls == 1, "shutdown does not start a retry")
+
+        let newlyAdded = AccountID(provider: .claude, directory: "~/.claude-new")
+        let unsavedSettings = UserSettings(accounts: [newlyAdded], defaultsSeeded: true, autoRefreshOnOpen: false, refreshThresholdMinutes: 5)
+        let addedProvider = CancellableProvider()
+        let addedCoordinator = try await RefreshCoordinator(settingsStore: settingsStore, snapshotStore: snapshotStore, providers: [.claude: addedProvider], policy: ProbePolicy.bundled(), now: { now }, pause: { _ in })
+        check(await addedCoordinator.requestRefreshAll(settings: unsavedSettings) == 1, "all refresh includes newly added account before settings save finishes")
+        await addedCoordinator.cancelAll()
     } catch {
         check(false, "coordinator setup should succeed: \(error)")
     }

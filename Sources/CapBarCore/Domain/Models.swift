@@ -111,7 +111,7 @@ struct ProbePolicy: Codable, Sendable {
     }
 
     static func bundled() throws -> ProbePolicy {
-        guard let url = Bundle.module.url(forResource: "ProbePolicy", withExtension: "json") else {
+        guard let url = CapBarResources.url(forResource: "ProbePolicy", withExtension: "json") else {
             throw ModelValidationError.invalidProbePolicy
         }
         return try JSONDecoder().decode(ProbePolicy.self, from: Data(contentsOf: url))

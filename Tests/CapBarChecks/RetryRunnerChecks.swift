@@ -19,6 +19,15 @@ private actor DelayLog {
     func append(_ delay: Double) { delays.append(delay) }
 }
 
+private actor CancellationProbe {
+    var calls = 0
+    func wait() async throws -> Int {
+        calls += 1
+        try await Task.sleep(for: .seconds(5))
+        return calls
+    }
+}
+
 @MainActor func runRetryRunnerChecks() async {
     let policy = ProbePolicy(maxAttempts: 3, attemptTimeoutSeconds: 45, retryDelayMinSeconds: 10, retryDelayMaxSeconds: 20)
     let probe = RetryProbe()
@@ -53,4 +62,14 @@ private actor DelayLog {
     } catch {
         check(true, "attempt timeout interrupts the provider")
     }
+
+    let cancellationProbe = CancellationProbe()
+    let cancellationDelays = DelayLog()
+    let cancellationRunner = RetryRunner(policy: policy, pause: { await cancellationDelays.append($0) })
+    let task = Task { try await cancellationRunner.run { try await cancellationProbe.wait() } }
+    try? await Task.sleep(for: .milliseconds(50))
+    task.cancel()
+    _ = try? await task.value
+    check(await cancellationProbe.calls == 1, "app shutdown cancellation does not start another probe")
+    check(await cancellationDelays.delays.isEmpty, "app shutdown cancellation does not schedule a retry")
 }

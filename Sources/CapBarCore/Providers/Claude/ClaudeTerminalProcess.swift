@@ -141,9 +141,17 @@ actor ClaudeTerminalProcess: ClaudeTerminalSession {
             while process.isRunning && Date() < deadline {
                 try? await Task.sleep(for: .milliseconds(50))
             }
-            if process.isRunning { _ = Darwin.kill(process.processIdentifier, SIGKILL) }
+            if process.isRunning {
+                _ = Darwin.kill(process.processIdentifier, SIGKILL)
+                let killDeadline = Date().addingTimeInterval(0.5)
+                while process.isRunning && Date() < killDeadline {
+                    try? await Task.sleep(for: .milliseconds(50))
+                }
+            }
         }
-        process?.waitUntilExit()
+        // Foundation's waitUntilExit can block indefinitely for a process attached
+        // to a PTY, even after SIGKILL. The bounded isRunning polls above let
+        // shutdown and cancellation finish without stalling the app.
         process = nil
         if masterFD >= 0 { close(masterFD); masterFD = -1 }
         if let workspace { try? FileManager.default.removeItem(at: workspace) }

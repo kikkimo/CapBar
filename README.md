@@ -1,5 +1,25 @@
 # CapBar
 
-CapBar 是规划中的 macOS 菜单栏工具，用于查看多个 Claude Code 和 Codex 账号的额度与重置时间。账号通过本地配置目录分别管理，邮箱、套餐和组织信息由对应服务识别。
+CapBar 是 macOS 菜单栏应用，在一个弹窗中查看多个 Claude Code 和 Codex 账号的剩余额度、重置时间和采集时间。账号按各自的本地配置目录管理；邮箱、套餐和组织由服务识别。
 
-目前已有[视觉设计稿](design/capbar-visual-study.html)、[v1 规格](design/spec.md)和[实施计划](design/implementation-plan.md)；应用尚未实现。
+## 安装与使用
+
+运行下文构建命令后，本机测试安装包位于 `dist/CapBar-0.1.0.pkg`。双击安装后，从“应用程序”启动 CapBar；它只显示在菜单栏，不显示 Dock 图标。当前安装包未经 Apple Developer ID 签名和公证，尚不适合分发给其他 Mac。
+
+首次启动会加入默认的 `~/.claude` 和 `~/.codex` 目录。其他账号在“账号与设置”中添加配置目录。默认只读取上次快照；点“全部刷新”会刷新所有空闲账号，账号行的按钮只刷新该账号。可选开启“打开弹窗时自动刷新”，默认阈值为 5 分钟，按账号分别判断。弹窗关闭后，正在进行的刷新仍会完成并保存结果。
+
+每个账号独立显示采集时间：3 分钟内为“刚刚”，60 分钟内为“X 分钟前”，之后显示本地日期和时间。刷新中保留旧快照；失败时也保留旧值并标记失败。快照和设置保存在 `~/Library/Application Support/CapBar/` 下的 JSON 文件中。
+
+Claude 刷新会发起一次受限的最短交互会话以取得新的 statusline，同时读取系统钥匙串中该配置目录已有的 OAuth 凭据，向 Anthropic 额度接口查询。两条渠道有任意一条有效即可成功；同一额度窗口选取观测时间较新的结果。CapBar 不保存令牌，也不把令牌写进日志。Codex 通过本机只读 app-server 查询，不发送对话。
+
+## 从源码构建
+
+需要 macOS 14 或更新版本、Swift 6 工具链和系统自带的 `pkgbuild`、`iconutil`。运行：
+
+```sh
+./scripts/package-installer.sh
+```
+
+脚本运行项目检查，生成并验证 `dist/CapBar.app`，再制作 `dist/CapBar-0.1.0.pkg`。单独运行检查：`swift run CapBarChecks`。
+
+设计与行为约定见 [视觉设计稿](design/capbar-visual-study.html) 和 [规格](design/spec.md)。

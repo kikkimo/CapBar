@@ -22,11 +22,15 @@ struct RetryRunner: Sendable {
 
     func run<Value: Sendable>(_ operation: @escaping @Sendable () async throws -> Value) async throws -> Value {
         for attempt in 1...policy.maxAttempts {
+            try Task.checkCancellation()
             do {
                 return try await attemptWithTimeout(operation)
             } catch ProbeFailure.permanent(let message) {
                 throw ProbeFailure.permanent(message)
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
+                try Task.checkCancellation()
                 if attempt == policy.maxAttempts { throw error }
                 let delay = chooseDelay(policy.retryDelayMinSeconds...policy.retryDelayMaxSeconds)
                 await pause(min(max(delay, policy.retryDelayMinSeconds), policy.retryDelayMaxSeconds))
