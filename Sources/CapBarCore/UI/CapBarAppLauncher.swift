@@ -12,8 +12,8 @@ import SwiftUI
 
     var shouldClose: Bool { !isChoosingDirectory }
 
-    func shouldDismissOutsideClick(isShown: Bool, pointerInsidePopover: Bool) -> Bool {
-        isShown && shouldClose && !pointerInsidePopover
+    func shouldDismissOutsideClick(isShown: Bool) -> Bool {
+        isShown && shouldClose
     }
 
     func beginDirectorySelection() {
@@ -146,9 +146,8 @@ import SwiftUI
     private func installFocusDismissal() {
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
-        ) { [weak self] event in
-            let point = event.locationInWindow
-            Task { @MainActor [weak self] in self?.dismissForOutsideClick(at: point) }
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.dismissForOutsideClick() }
         }
         resignActiveObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didResignActiveNotification,
@@ -159,12 +158,9 @@ import SwiftUI
         }
     }
 
-    private func dismissForOutsideClick(at screenPoint: NSPoint) {
+    private func dismissForOutsideClick() {
         guard let popover,
-              dismissalController?.shouldDismissOutsideClick(
-                isShown: popover.isShown,
-                pointerInsidePopover: popover.contentViewController?.view.window?.frame.contains(screenPoint) == true
-              ) == true else { return }
+              dismissalController?.shouldDismissOutsideClick(isShown: popover.isShown) == true else { return }
         popover.close()
     }
 
