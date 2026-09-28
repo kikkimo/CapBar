@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CapBar · 7 日用量走势设计稿</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 38px 18px 58px; background: light-dark(#eeeeF2, #19191d); color: light-dark(#202126, #f3f3f5); }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: default; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #0a84ff; outline-offset: 2px; }
+    .page { max-width: 960px; margin: auto; }
+    .eyebrow { margin: 0 0 7px; color: light-dark(#667078, #a8afb8); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(24px, 4vw, 32px); font-weight: 720; letter-spacing: -.045em; }
+    .intro { max-width: 680px; margin: 10px 0 24px; color: light-dark(#626a72, #aeb4bc); font-size: 13px; line-height: 1.65; }
+    .stage { min-height: 690px; display: grid; place-items: start center; padding: 27px 12px 32px; border: 1px solid light-dark(#d7d9de, #383940); border-radius: 17px; background: radial-gradient(circle at 18% 14%, light-dark(#dce8f7, #263349), transparent 42%), light-dark(#e3e5eb, #25262b); }
+    .desktop { width: 516px; max-width: 100%; }
+    .menubar { height: 33px; display: flex; align-items: center; gap: 15px; padding: 0 13px; border: 1px solid light-dark(#cfd1d8, #4a4b51); border-radius: 10px 10px 0 0; background: light-dark(#ffffff9c, #ffffff17); backdrop-filter: blur(24px); font-size: 12px; }
+    .menubar .grow { flex: 1; }
+    .menu-app { display: flex; align-items: center; gap: 8px; padding: 3px 7px; border-radius: 5px; background: light-dark(#ffffffae, #ffffff22); font-size: 11px; font-weight: 610; white-space: nowrap; }
+    .menu-icon { display: inline-grid; place-items: center; width: 17px; height: 17px; border: 1.5px solid currentColor; border-radius: 5px; font-size: 10px; font-weight: 800; }
+    .anchor { display: flex; justify-content: flex-end; padding-right: 8px; }
+    .popover { width: 448px; max-width: 100%; height: 620px; display: flex; flex-direction: column; margin-top: 7px; overflow: hidden; border: 1px solid light-dark(#cdd0d8, #54565f); border-radius: 11px; background: light-dark(#f9f9fbeF, #292a30ef); box-shadow: 0 20px 50px #0004; backdrop-filter: blur(28px); }
+    .header, .footer { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: light-dark(#f6f6f9dc, #36373ddc); }
+    .header { border-bottom: 1px solid light-dark(#dbdde2, #494b52); }
+    .footer { min-height: 47px; margin-top: auto; border-top: 1px solid light-dark(#dbdde2, #494b52); }
+    .brand-icon { width: 28px; height: 28px; display: grid; place-items: center; flex: none; border: 1px solid light-dark(#d2d5dc, #64656e); border-radius: 7px; background: light-dark(#fff, #46474e); font-size: 16px; font-weight: 760; }
+    .brand { min-width: 0; flex: 1; }
+    .brand strong { display: block; font-size: 13px; }
+    .brand small { display: block; margin-top: 2px; color: light-dark(#6f767f, #adb2bb); font-size: 10px; }
+    .all-refresh { flex: none; padding: 6px 9px; border: 1px solid light-dark(#d5d8df, #5a5c65); border-radius: 6px; background: light-dark(#fff, #4a4b53); color: inherit; font-size: 11px; font-weight: 650; }
+    .add { width: 25px; height: 25px; padding: 0; border: 0; background: transparent; color: light-dark(#505861, #c1c6cf); font-size: 19px; }
+    .body { min-height: 0; flex: 1; overflow-y: auto; scrollbar-width: thin; }
+    .group-title { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid light-dark(#e0e1e6, #44464e); background: light-dark(#eff0f4, #34353b); font-size: 10px; font-weight: 740; letter-spacing: .06em; }
+    .group-title small { margin-left: auto; color: light-dark(#78808a, #9fa6af); font-size: 10px; font-weight: 500; letter-spacing: 0; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #be7957; }
+    .dot.codex { background: #57a985; }
+    .account { margin: 0 16px; padding: 11px 0 12px; border-bottom: 1px solid light-dark(#e0e1e6, #44464e); }
+    .account:last-child { border-bottom: 0; }
+    .account-head { display: flex; align-items: flex-start; gap: 7px; min-height: 34px; }
+    .identity { min-width: 0; flex: 1; }
+    .identity strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 650; }
+    .identity small { display: block; overflow: hidden; margin-top: 4px; color: light-dark(#717881, #a5abb4); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .timestamp { display: inline-flex; align-items: center; gap: 4px; flex: none; margin-top: 1px; padding: 4px 6px; border-radius: 999px; background: color-mix(in srgb, var(--age), transparent 86%); color: var(--age); font-size: 10px; font-weight: 680; white-space: nowrap; }
+    .timestamp.fresh { --age: light-dark(#25845d, #65cf9b); }
+    .timestamp.mid { --age: light-dark(#a26c09, #e5ba59); }
+    .timestamp.old { --age: light-dark(#b84f42, #f18b79); }
+    .refresh-one { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: light-dark(#555e68, #c1c7d0); font-size: 16px; }
+    .refresh-one:disabled { opacity: .45; }
+    .loading-label { color: light-dark(#2479d1, #81b8ff); font-size: 10px; font-weight: 620; white-space: nowrap; }
+    .spinner { display: inline-block; width: 11px; height: 11px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; border-right-color: currentColor; } }
+    .account-content { height: 84px; margin-top: 8px; }
+    .metrics { display: flex; height: 84px; }
+    .metric { min-width: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .metric + .metric { margin-left: 14px; padding-left: 14px; border-left: 1px solid light-dark(#dbdde3, #50525a); }
+    .metric-top { display: flex; justify-content: space-between; gap: 5px; align-items: baseline; }
+    .metric-top small { color: light-dark(#6c737d, #aab1ba); font-size: 11px; }
+    .metric-top strong { color: #44b88b; font-size: 16px; white-space: nowrap; }
+    .metric-top strong.warn { color: #efac4e; }
+    .bar { height: 5px; margin-top: 10px; overflow: hidden; border-radius: 4px; background: light-dark(#dfe2e7, #4b4d54); }
+    .bar span { display: block; height: 100%; border-radius: inherit; background: #4ab991; }
+    .bar span.warn { background: #efaa4b; }
+    .metric p { margin: 9px 0 0; color: light-dark(#6f7680, #a6adb6); font-size: 10px; white-space: nowrap; }
+    .popover.stats-off .account-content, .popover.stats-off .metrics { height: 60px; }
+    .plot { position: relative; height: 84px; }
+    .plot svg { display: block; width: 100%; height: 84px; overflow: visible; }
+    .plot .grid { stroke: light-dark(#d9dce2, #4b4d55); stroke-width: .8; }
+    .plot .grid.mid { opacity: .55; }
+    .plot .line { fill: none; stroke: light-dark(#2479d1, #81b8ff); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .plot .line.dash { stroke-dasharray: 3.5 3; opacity: .88; }
+    .plot .axis { fill: light-dark(#7a818b, #9fa7b0); font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 8px; font-weight: 550; }
+    .plot .fill { fill: light-dark(#5a9de51a, #80b7ff14); }
+    .plot .crosshair { stroke: light-dark(#477fb8, #a4cbff); stroke-width: 1; stroke-dasharray: 2 2; opacity: 0; }
+    .plot .hover-dot { fill: light-dark(#2479d1, #81b8ff); stroke: light-dark(#f9f9fb, #292a30); stroke-width: 1.5; opacity: 0; }
+    .plot.is-active .crosshair, .plot.is-active .hover-dot { opacity: 1; }
+    .plot.is-missing .hover-dot { opacity: 0; }
+    .chart-tooltip { position: absolute; z-index: 5; top: -76px; width: 166px; display: none; padding: 7px 9px; border: 1px solid light-dark(#c6cbd3, #646873); border-radius: 8px; background: light-dark(#ffffffee, #3b3d45f5); box-shadow: 0 7px 20px #0004; backdrop-filter: blur(18px); pointer-events: none; font-variant-numeric: tabular-nums; }
+    .plot.is-active .chart-tooltip { display: block; }
+    .chart-tooltip .tip-time { margin-bottom: 4px; color: light-dark(#59636d, #c5cbd3); font-size: 10px; font-weight: 660; }
+    .chart-tooltip .tip-line { display: flex; justify-content: space-between; gap: 8px; line-height: 1.45; font-size: 10px; white-space: nowrap; }
+    .chart-tooltip .tip-line span { color: light-dark(#69727c, #aeb6c0); }
+    .chart-tooltip .tip-line strong { font-size: 11px; }
+    .chart-tooltip .tip-line.quota strong { color: light-dark(#2479d1, #8fc2ff); }
+    .chart-tooltip .tip-source { margin-top: 3px; color: light-dark(#7b838c, #a2aab4); font-size: 9px; }
+    .empty-chart { display: grid; place-items: center; height: 84px; border: 1px dashed light-dark(#cbd0da, #5b5e68); border-radius: 6px; color: light-dark(#68717c, #b5bbc4); font-size: 10px; text-align: center; }
+    .empty-chart small { display: block; margin-top: 3px; color: light-dark(#8a929b, #8f98a3); font-size: 9px; }
+    .segmented { display: flex; gap: 1px; padding: 2px; border: 1px solid light-dark(#d4d7de, #5a5d65); border-radius: 7px; background: light-dark(#e8eaf0, #44464d); }
+    .segmented[hidden], .footnote[hidden] { display: none; }
+    .segmented button { padding: 4px 8px; border: 0; border-radius: 5px; background: transparent; color: light-dark(#626b75, #b1b7c0); font-size: 11px; font-weight: 650; }
+    .segmented button.active { background: light-dark(#fff, #60626b); color: light-dark(#1f2933, #fff); box-shadow: 0 1px 3px #0002; }
+    .footer .grow { flex: 1; }
+    .footnote { color: light-dark(#737b85, #a4abb4); font-size: 10px; }
+    .link-button { border: 0; background: none; color: light-dark(#006cd0, #7db8ff); font-size: 11px; font-weight: 650; white-space: nowrap; }
+    .exit { color: light-dark(#737b85, #aeb4bc); }
+    .divider { width: 1px; height: 13px; background: light-dark(#d6d9e0, #555760); }
+    .settings { display: none; padding: 16px; }
+    .settings h2 { margin: 0 0 9px; font-size: 14px; }
+    .settings p { margin: 0; color: light-dark(#68717b, #a8b0ba); font-size: 11px; line-height: 1.55; }
+    .settings section { margin-top: 18px; padding-top: 14px; border-top: 1px solid light-dark(#dddfe6, #4c4e56); }
+    .settings h3 { margin: 0 0 10px; font-size: 11px; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 11px 0; font-size: 12px; font-weight: 610; }
+    .setting-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #0a84ff; }
+    .warning { margin-top: 7px !important; color: light-dark(#b54437, #f28d82) !important; font-size: 11px !important; font-weight: 650; }
+    .stepper { display: flex; align-items: center; gap: 0; overflow: hidden; border: 1px solid light-dark(#ced3dd, #5b5e67); border-radius: 6px; }
+    .stepper span { min-width: 51px; padding: 5px 7px; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .stepper button { width: 25px; height: 24px; border: 0; background: light-dark(#eef0f4, #454750); color: inherit; font-size: 13px; }
+    .stepper button:disabled { opacity: .35; }
+    .schedule { margin-top: 7px !important; font-variant-numeric: tabular-nums; }
+    .section-note { margin-top: 18px; padding: 12px 14px; border: 1px solid light-dark(#d7dce5, #4b5260); border-radius: 9px; background: light-dark(#f8f9fc, #303640); }
+    .section-note strong { display: block; margin-bottom: 6px; font-size: 11px; }
+    .section-note p { margin: 0; color: light-dark(#69727c, #aeb6c0); font-size: 11px; line-height: 1.55; }
+    .notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+    .notes article { padding-top: 11px; border-top: 1px solid light-dark(#ccd0d8, #42454d); }
+    .notes strong { display: block; margin-bottom: 5px; font-size: 12px; }
+    .notes p { margin: 0; color: light-dark(#65707a, #aab2bc); font-size: 11px; line-height: 1.6; }
+    @media (max-width: 660px) { body { padding: 22px 11px 40px; } .stage { padding: 13px 5px 22px; } .notes { grid-template-columns: 1fr; gap: 10px; } .menubar { gap: 8px; } .menubar .optional { display: none; } }
+  </style>
+</head>
+<body>
+<main class="page">
+  <p class="eyebrow">CapBar / Design study / 7-day usage</p>
+  <h1>每两小时，实际用了多少</h1>
+  <p class="intro">可交互的视觉设计稿。底部“额度｜走势”同时切换所有账号；每张走势图占用原额度区域的高度。为展示走势图，本页将统计开关预置为开启；正式产品默认关闭。这里全部使用虚构账号和示例数据，不连接 Claude 或 Codex。</p>
+  <div class="stage">
+    <div class="desktop">
+      <div class="menubar"><span>◉</span><span class="optional">文件</span><span class="optional">编辑</span><span class="grow"></span><span class="menu-app"><span class="menu-icon">C</span> 4 账号</span><span class="optional">▰</span></div>
+      <div class="anchor">
+        <div class="popover" id="capbar-popover" role="group" aria-label="CapBar 弹窗示意">
+          <div class="header"><div class="brand-icon">C</div><div class="brand"><strong>CapBar</strong><small id="header-subtitle">4 个账号 · 用量统计已开启</small></div><button class="all-refresh" id="refresh-all" type="button">↻ 全部刷新</button><button class="add" id="add" type="button" aria-label="账号与设置">＋</button></div>
+          <div class="body" id="overview"><div id="account-groups"></div></div>
+          <div class="body settings" id="settings">
+            <h2>账号与设置</h2><p>账号身份仍由 Claude Code 和 Codex 自动识别。用量统计是独立于“打开弹窗时自动刷新”的功能。</p>
+            <section><h3>刷新行为</h3><label class="setting-row">打开弹窗时自动刷新 <input type="checkbox" id="auto-on-open"></label><p>此选项默认关闭。开启后仍按每账号刷新阈值判断。</p></section>
+            <section><h3>7 日用量统计</h3><label class="setting-row">开启用量统计 <input type="checkbox" id="stats-enabled" checked></label><p class="warning" id="sampling-warning"></p>
+              <div class="setting-row"><span>定时采样间隔</span><div class="stepper"><button type="button" id="interval-down" aria-label="缩短采样间隔">−</button><span id="interval-value">4 小时</span><button type="button" id="interval-up" aria-label="延长采样间隔">＋</button></div></div>
+              <p>统计功能默认关闭。采样间隔仅可选 1、2、3、4、6、8 小时，默认 4 小时；没有单独的采样开关。</p><p class="schedule" id="schedule-example"></p>
+            </section>
+            <div class="section-note"><strong>首次开启与重置附近</strong><p id="reset-schedule-note"></p></div>
+          </div>
+          <div class="footer"><div class="segmented" id="view-switch" role="group" aria-label="显示内容"><button id="mode-quota" type="button">额度</button><button id="mode-chart" type="button" class="active">走势</button></div><span class="footnote" id="footer-note" hidden>额度为剩余百分比</span><span class="grow"></span><button class="link-button" id="settings-toggle" type="button">账号与设置</button><span class="divider"></span><button class="link-button exit" id="exit-demo" type="button">退出</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="notes">
+    <article><strong>每个点的含义</strong><p>一个点是该账号在对应两小时内消耗的 7 日额度百分点。横轴只标本地日期；纵轴由当前 7 日最大用量动态计算。</p></article>
+    <article><strong>线段语义</strong><p>普通区间用柔和实线；跨重置与缺测区间用虚线。曲线穿过实际数据点，不产生超出相邻点的视觉峰值。</p></article>
+    <article><strong>同一条刷新流程</strong><p>人工刷新和定时采样都更新历史；最新一次成功采集覆盖该账号的 JSON 快照。采样中单账号按钮禁用，全局刷新跳过忙碌账号。</p></article>
+  </div>
+</main>
+<script>
+  (() => {
+    const intervals = [1, 2, 3, 4, 6, 8];
+    const state = { mode: "chart", statsEnabled: true, intervalIndex: 3, settings: false, busy: new Set(["work-b"]), updated: {} };
+    const accounts = [
+      { id: "work-a", provider: "Claude Code", name: "team-a@example.com", meta: "Team · Example Studio · ~/.claude-team", age: "刚刚", ageClass: "fresh", five: 72, seven: 63, type: "normal" },
+      { id: "work-b", provider: "Claude Code", name: "team-b@example.com", meta: "Team · Example Studio · ~/.claude-second", age: "12 分钟前", ageClass: "mid", five: 43, seven: 81, type: "loading" },
+      { id: "new", provider: "Claude Code", name: "new-user@example.com", meta: "Pro · ~/.claude-new", age: "刚刚", ageClass: "fresh", five: 100, seven: 100, type: "empty" },
+      { id: "codex", provider: "Codex", name: "codex-user@example.com", meta: "Pro · ~/.codex-demo", age: "2 小时前", ageClass: "old", seven: 29, type: "reset" }
+    ];
+    const byId = id => document.getElementById(id);
+    const esc = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    function makeValues(account) {
+      const values = Array.from({ length: 84 }, (_, i) => {
+        const wave = Math.abs(Math.sin((i + (account.id === "codex" ? 7 : 2)) * .41));
+        const daily = Math.abs(Math.sin(i * .17 + 1.4));
+        return Math.round(4 + 19 * wave * daily + ((i % 17 === 0) ? 12 : 0));
+      });
+      if (account.id === "work-a") { values[43] = 54; for (let i = 18; i <= 22; i++) values[i] = null; }
+      if (account.id === "work-b") { values[58] = 74; values[59] = 49; }
+      if (account.id === "codex") { values[61] = 200; values[62] = 27; for (let i = 28; i <= 31; i++) values[i] = null; }
+      return values;
+    }
+    function axisMax(values) { return Math.max(10, Math.ceil(Math.max(...values.filter(v => v !== null)) / 10) * 10); }
+    function plotSvg(account) {
+      const values = makeValues(account), top = axisMax(values), x0 = 25, x1 = 386, y0 = 8, y1 = 63;
+      const yTicks = top % 30 === 0 ? [0, top / 3, top * 2 / 3, top] : [0, top / 2, top];
+      const yGrid = yTicks.map((value, index) => {
+        const y = y1 - value / top * (y1 - y0);
+        const middle = index > 0 && index < yTicks.length - 1;
+        return `<line class="grid${middle ? " mid" : ""}" x1="${x0}" x2="${x1}" y1="${y}" y2="${y}"/><text class="axis" x="21" y="${(y + 2.7).toFixed(1)}" text-anchor="end">${value}%</text>`;
+      }).join("");
+      const pt = i => [x0 + (x1 - x0) * i / 83, y1 - values[i] / top * (y1 - y0)];
+      const curve = (a, b) => { const [ax, ay] = pt(a), [bx, by] = pt(b), dx = bx - ax; return `M ${ax.toFixed(2)} ${ay.toFixed(2)} C ${(ax + dx * .42).toFixed(2)} ${ay.toFixed(2)}, ${(bx - dx * .42).toFixed(2)} ${by.toFixed(2)}, ${bx.toFixed(2)} ${by.toFixed(2)}`; };
+      const paths = [];
+      for (let i = 0; i < 83; i++) {
+        if (values[i] === null) continue;
+        let j = i + 1;
+        while (j < 84 && values[j] === null) j++;
+        if (j >= 84) break;
+        const dashed = j !== i + 1 || (account.id === "codex" && i === 60) || (account.id === "work-b" && i === 57);
+        paths.push(`<path class="line${dashed ? " dash" : ""}" d="${curve(i, j)}"/>`);
+        i = j - 1;
+      }
+      const end = Math.floor(Date.now() / 7200000) * 7200000;
+      const ticks = [0, 12, 24, 36, 48, 60, 72, 83].map((i, n) => {
+        const date = new Date(end - (83 - i) * 7200000);
+        const label = date.getDate();
+        return `<text class="axis" x="${(x0 + (x1 - x0) * i / 83).toFixed(1)}" y="80" text-anchor="${n === 0 ? "start" : n === 7 ? "end" : "middle"}">${label}</text>`;
+      }).join("");
+      return `<div class="plot" data-account="${account.id}" aria-label="鼠标移入可查看附近时刻的 7 天剩余额度和两小时用量"><svg viewBox="0 0 390 84" role="img" aria-label="${esc(account.name)}：7 日用量走势图，纵轴刻度 ${yTicks.join("、")}%">${yGrid}${paths.join("")}<line class="crosshair" y1="${y0}" y2="${y1}"/><circle class="hover-dot" r="3"/>${ticks}</svg><div class="chart-tooltip"><div class="tip-time"></div><div class="tip-line quota"><span>7 天额度剩余</span><strong class="tip-quota"></strong></div><div class="tip-line"><span>这 2 小时用量</span><strong class="tip-use"></strong></div><div class="tip-source"></div></div></div>`;
+    }
+    function showPlotTooltip(event) {
+      const plot = event.currentTarget, svg = plot.querySelector("svg"), account = accounts.find(a => a.id === plot.dataset.account);
+      const box = svg.getBoundingClientRect(), values = makeValues(account), top = axisMax(values);
+      const svgX = (event.clientX - box.left) * 390 / box.width;
+      const index = Math.max(0, Math.min(83, Math.round((svgX - 25) * 83 / 361)));
+      const x = 25 + 361 * index / 83, value = values[index];
+      const crosshair = plot.querySelector(".crosshair"), dot = plot.querySelector(".hover-dot"), tooltip = plot.querySelector(".chart-tooltip");
+      crosshair.setAttribute("x1", x); crosshair.setAttribute("x2", x);
+      if (value !== null) { dot.setAttribute("cx", x); dot.setAttribute("cy", 63 - value / top * 55); }
+      plot.classList.add("is-active"); plot.classList.toggle("is-missing", value === null);
+      const end = Math.floor(Date.now() / 7200000) * 7200000;
+      const time = new Date(end - (83 - index) * 7200000);
+      plot.querySelector(".tip-time").textContent = time.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) + " · 本地时间";
+      const crossesReset = account.id === "codex" && index === 61;
+      const remaining = Math.min(100, Math.round(account.seven + (83 - index) * .32));
+      plot.querySelector(".tip-quota").textContent = value === null || crossesReset ? "—" : `${remaining}%`;
+      plot.querySelector(".tip-use").textContent = value === null ? "—" : `${value}%`;
+      plot.querySelector(".tip-source").textContent = value === null ? "缺测区间，额度未知" : crossesReset ? "跨重置区间，剩余额度不可可靠估算" : index % 2 === 0 ? "采样值 · 示例数据" : "线性估算 · 示例数据";
+      const pixelX = x * box.width / 390;
+      tooltip.style.left = `${Math.max(0, Math.min(plot.clientWidth - 166, pixelX - 83))}px`;
+    }
+    function metric(label, value) {
+      const warn = value <= 20;
+      const reset = new Date(Date.now() + (label === "5 小时" ? 1 + value % 5 : 36 + value % 96) * 3600000);
+      const resetLabel = reset.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+      return `<div class="metric"><div class="metric-top"><small>${label}</small><strong class="${warn ? "warn" : ""}">余 ${value}%</strong></div><div class="bar"><span class="${warn ? "warn" : ""}" style="width:${value}%"></span></div><p>${resetLabel} 重置</p></div>`;
+    }
+    function accountHtml(a) {
+      const busy = state.busy.has(a.id), age = state.updated[a.id] ? "刚刚" : a.age;
+      let content;
+      if (state.mode === "chart") content = a.type === "empty" ? `<div class="empty-chart"><div>数据不足，等待下一个采样点<small>没有观测的数据不会记作 0% 用量</small></div></div>` : plotSvg(a);
+      else content = `<div class="metrics">${a.five !== undefined ? metric("5 小时", a.five) : ""}${metric("7 天", a.seven)}</div>`;
+      return `<div class="account"><div class="account-head"><div class="identity"><strong>${esc(a.name)}</strong><small>${esc(a.meta)}</small></div><span class="timestamp ${state.updated[a.id] ? "fresh" : a.ageClass}">◷ ${age}</span>${busy ? '<span class="loading-label">采样中</span>' : ""}<button class="refresh-one" type="button" data-refresh="${a.id}" aria-label="刷新 ${esc(a.name)}" title="${busy ? "采样中，刷新不可用" : "手动刷新"}" ${busy ? "disabled" : ""}>${busy ? '<span class="spinner" aria-hidden="true"></span>' : "↻"}</button></div><div class="account-content">${content}</div></div>`;
+    }
+    function render() {
+      byId("account-groups").innerHTML = ["Claude Code", "Codex"].map(provider => {
+        const group = accounts.filter(a => a.provider === provider);
+        return `<div class="group-title"><span class="dot ${provider === "Codex" ? "codex" : ""}"></span>${provider.toUpperCase()}<small>${group.length} 个账号</small></div>${group.map(accountHtml).join("")}`;
+      }).join("");
+      byId("overview").style.display = state.settings ? "none" : "block";
+      byId("settings").style.display = state.settings ? "block" : "none";
+      byId("settings-toggle").textContent = state.settings ? "返回总览" : "账号与设置";
+      byId("view-switch").hidden = !state.statsEnabled || state.settings;
+      byId("footer-note").hidden = state.statsEnabled && !state.settings;
+      byId("footer-note").textContent = state.settings ? "设置" : "额度为剩余百分比";
+      byId("mode-quota").classList.toggle("active", state.mode === "quota");
+      byId("mode-chart").classList.toggle("active", state.mode === "chart");
+      byId("stats-enabled").checked = state.statsEnabled;
+      byId("header-subtitle").textContent = `4 个账号 · 用量统计${state.statsEnabled ? "已开启" : "未开启"}`;
+      byId("capbar-popover").classList.toggle("stats-off", !state.statsEnabled);
+      byId("interval-value").textContent = `${intervals[state.intervalIndex]} 小时`;
+      byId("sampling-warning").textContent = `开启后，CapBar 运行期间会定时探测各账号额度；从 7 日重置前 ${intervals[state.intervalIndex]} 小时起每小时采样。退出 CapBar 后停止。探测可能消耗少量额度。`;
+      byId("reset-schedule-note").textContent = `首次采样从下一个符合间隔的 UTC 整点开始。已知周重置时间时，从重置前 ${intervals[state.intervalIndex]} 小时开始每小时采样；与常规采样重合时只执行一次，重置后恢复所选间隔。`;
+      byId("interval-down").disabled = !state.statsEnabled || state.intervalIndex === 0;
+      byId("interval-up").disabled = !state.statsEnabled || state.intervalIndex === intervals.length - 1;
+      const now = new Date(), interval = intervals[state.intervalIndex], next = new Date(now);
+      next.setUTCMinutes(0, 0, 0);
+      next.setUTCHours(Math.floor(now.getUTCHours() / interval) * interval + interval);
+      byId("schedule-example").textContent = state.statsEnabled ? `下一个常规采样点：${next.toISOString().slice(11, 16)} UTC · 显示日期按本地时区` : "统计关闭，定时采样已停止。再次开启后从下一个符合间隔的 UTC 整点开始。";
+      byId("sampling-warning").style.opacity = state.statsEnabled ? "1" : ".68";
+      document.querySelectorAll(".plot").forEach(plot => {
+        plot.addEventListener("pointermove", showPlotTooltip);
+        plot.addEventListener("pointerleave", () => plot.classList.remove("is-active", "is-missing"));
+      });
+    }
+    document.addEventListener("click", event => {
+      const refresh = event.target.closest("[data-refresh]");
+      if (refresh) { startRefresh(refresh.dataset.refresh); return; }
+      if (event.target.id === "refresh-all") { accounts.forEach(a => startRefresh(a.id)); return; }
+      if (event.target.id === "mode-quota" || event.target.id === "mode-chart") { if (state.statsEnabled) { state.mode = event.target.id === "mode-chart" ? "chart" : "quota"; render(); } return; }
+      if (["settings-toggle", "add"].includes(event.target.id)) { state.settings = event.target.id === "add" ? true : !state.settings; render(); return; }
+      if (event.target.id === "interval-up") { state.intervalIndex = Math.min(intervals.length - 1, state.intervalIndex + 1); render(); return; }
+      if (event.target.id === "interval-down") { state.intervalIndex = Math.max(0, state.intervalIndex - 1); render(); return; }
+      if (event.target.id === "exit-demo") alert("设计稿演示：真实 CapBar 会退出，并停止定时采样。");
+    });
+    byId("stats-enabled").addEventListener("change", event => { state.statsEnabled = event.target.checked; if (!state.statsEnabled) state.mode = "quota"; render(); });
+    function startRefresh(id) {
+      if (state.busy.has(id)) return;
+      state.busy.add(id); render();
+      setTimeout(() => { state.busy.delete(id); state.updated[id] = true; render(); }, 1800);
+    }
+    function chartClockKey() {
+      const now = new Date();
+      return `${Math.floor(now.getTime() / 7200000)}:${now.toDateString()}`;
+    }
+    let shownClockKey = chartClockKey();
+    function updateRollingWindow() {
+      const currentKey = chartClockKey();
+      if (currentKey === shownClockKey) return;
+      shownClockKey = currentKey;
+      if (state.statsEnabled && state.mode === "chart" && !state.settings) render();
+    }
+    setInterval(updateRollingWindow, 30000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) updateRollingWindow(); });
+    render();
+  })();
+</script>
+</body>
+</html>

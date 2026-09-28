@@ -5,7 +5,9 @@ import Foundation
 @MainActor final class CapBarViewModel: ObservableObject {
     @Published var settings: UserSettings
     @Published private(set) var rows: [PopoverAccountRow] = []
+    @Published private(set) var trends: [AccountID: UsageTrendSeries] = [:]
     @Published var showsSettings = false
+    @Published private(set) var showsTrend = false
     @Published var selectedProvider: Provider = .claude
     @Published var directoryInput = ""
     @Published var popoverWidthInput: String
@@ -14,13 +16,21 @@ import Foundation
 
     let settingsStore: SettingsStore
     let coordinator: RefreshCoordinator
+    let historyStore: UsageHistoryStore?
     var onRowsChange: (([PopoverAccountRow]) -> Void)?
     var onPopoverSizeChange: ((PopoverSize) -> Void)?
     var onFolderPickerWillOpen: (() -> Void)?
     var onFolderPickerFinished: (() -> Void)?
+    var onSamplingSettingsChange: ((UserSettings) -> Void)?
 
     private var timer: Timer?
     private var saveTask: Task<Void, Never>?
+    private struct TrendKey: Equatable {
+        let capturedAt: Date?
+        let gridEnd: TimeInterval
+        let intervalHours: Int
+    }
+    private var trendKeys: [AccountID: TrendKey] = [:]
 
     var maximumPopoverWidth: Int {
         max(PopoverSize.minimumWidth, Int(NSScreen.main?.visibleFrame.width ?? 1200) - 32)
@@ -30,12 +40,13 @@ import Foundation
         max(PopoverSize.minimumHeight, Int(NSScreen.main?.visibleFrame.height ?? 900) - 24)
     }
 
-    init(settings: UserSettings, settingsStore: SettingsStore, coordinator: RefreshCoordinator) {
+    init(settings: UserSettings, settingsStore: SettingsStore, coordinator: RefreshCoordinator, historyStore: UsageHistoryStore? = nil) {
         self.settings = settings
         self.popoverWidthInput = String(settings.popoverSize.width)
         self.popoverHeightInput = String(settings.popoverSize.height)
         self.settingsStore = settingsStore
         self.coordinator = coordinator
+        self.historyStore = historyStore
     }
 
     func opened() {
@@ -66,6 +77,7 @@ import Foundation
         let state = await coordinator.viewState()
         rows = PopoverPresentation.rows(settings: settings, state: state, now: Date(), calendar: .current)
         onRowsChange?(rows)
+        if showsTrend && settings.usageStatisticsEnabled { await reloadTrends() }
     }
 
     func refreshAll() {
@@ -77,10 +89,67 @@ import Foundation
     }
 
     func refresh(_ account: AccountID) {
+        let recordHistory = settings.usageStatisticsEnabled
         Task {
-            _ = await coordinator.requestRefresh(account)
+            _ = await coordinator.requestRefresh(account, recordHistory: recordHistory)
             await reloadRows()
         }
+    }
+
+    func setTrendMode(_ enabled: Bool) {
+        showsTrend = enabled && settings.usageStatisticsEnabled
+        if showsTrend { Task { await reloadTrends() } }
+    }
+
+    func setUsageStatisticsEnabled(_ enabled: Bool, now: Date = Date()) {
+        guard settings.usageStatisticsEnabled != enabled else { return }
+        settings.usageStatisticsEnabled = enabled
+        settings.samplingScheduleStartedAt = enabled ? now : nil
+        if !enabled {
+            showsTrend = false
+            trends.removeAll()
+            trendKeys.removeAll()
+        }
+        onSamplingSettingsChange?(settings)
+        enqueueSave()
+    }
+
+    func setSamplingInterval(_ hours: Int, now: Date = Date()) {
+        guard SamplingInterval.isValid(hours), settings.samplingIntervalHours != hours else { return }
+        settings.samplingIntervalHours = hours
+        if settings.usageStatisticsEnabled { settings.samplingScheduleStartedAt = now }
+        trendKeys.removeAll()
+        if showsTrend { Task { await reloadTrends() } }
+        onSamplingSettingsChange?(settings)
+        enqueueSave()
+    }
+
+    func reloadTrends(endingAt now: Date = Date()) async {
+        guard settings.usageStatisticsEnabled, showsTrend, let historyStore else { return }
+        let gridEnd = floor(now.timeIntervalSince1970 / 7_200) * 7_200
+        let records = await coordinator.viewState().records
+        let accounts = settings.accounts
+        let intervalHours = settings.samplingIntervalHours
+        var result = trends.filter { accounts.contains($0.key) }
+        for account in accounts {
+            let key = TrendKey(
+                capturedAt: records[account]?.snapshot?.capturedAt,
+                gridEnd: gridEnd,
+                intervalHours: intervalHours
+            )
+            if trendKeys[account] == key { continue }
+            let start = Date(timeIntervalSince1970: gridEnd - 84 * 7_200 - Double(intervalHours) * 3_600 - 900)
+            do {
+                let samples = try await historyStore.samples(account: account, from: start, through: now)
+                result[account] = UsageTrendCalculator.calculate(
+                    samples: samples, intervalHours: intervalHours, endingAt: now
+                )
+                trendKeys[account] = key
+            } catch {
+                result.removeValue(forKey: account)
+            }
+        }
+        if settings.usageStatisticsEnabled && showsTrend { trends = result }
     }
 
     func setAutoRefresh(_ enabled: Bool) {
@@ -165,6 +234,7 @@ import Foundation
         settings.accounts.append(account)
         directoryInput = ""
         settingsMessage = nil
+        onSamplingSettingsChange?(settings)
         enqueueSave()
         updateRows()
     }
@@ -173,6 +243,7 @@ import Foundation
         guard !rows.contains(where: { $0.account == account && $0.isRefreshing }) else { return }
         settings.accounts.removeAll { $0 == account }
         settingsMessage = nil
+        onSamplingSettingsChange?(settings)
         enqueueSave()
         updateRows()
     }

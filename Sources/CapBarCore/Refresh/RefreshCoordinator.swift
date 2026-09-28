@@ -12,6 +12,7 @@ struct CoordinatorViewState: Sendable {
 actor RefreshCoordinator {
     private let settingsStore: SettingsStore
     private let snapshotStore: SnapshotStore
+    private let historyStore: UsageHistoryStore?
     private let providers: [Provider: any UsageProvider]
     private let runner: RetryRunner
     private let now: @Sendable () -> Date
@@ -23,6 +24,7 @@ actor RefreshCoordinator {
     init(
         settingsStore: SettingsStore,
         snapshotStore: SnapshotStore,
+        historyStore: UsageHistoryStore? = nil,
         providers: [Provider: any UsageProvider],
         policy: ProbePolicy,
         now: @escaping @Sendable () -> Date = Date.init,
@@ -32,6 +34,7 @@ actor RefreshCoordinator {
         try policy.validate()
         self.settingsStore = settingsStore
         self.snapshotStore = snapshotStore
+        self.historyStore = historyStore
         self.providers = providers
         self.runner = RetryRunner(policy: policy, pause: pause, chooseDelay: chooseDelay)
         self.now = now
@@ -46,7 +49,7 @@ actor RefreshCoordinator {
 
     func isRefreshing(_ id: AccountID) -> Bool { refreshing.contains(id) }
 
-    func requestRefresh(_ id: AccountID) async -> Bool {
+    func requestRefresh(_ id: AccountID, recordHistory: Bool = false) async -> Bool {
         guard !shuttingDown, !refreshing.contains(id), let provider = providers[id.provider] else { return false }
         refreshing.insert(id)
         let previous = records[id]
@@ -67,7 +70,7 @@ actor RefreshCoordinator {
         }
 
         activeTasks[id] = Task {
-            await self.perform(id, provider: provider)
+            await self.perform(id, provider: provider, recordHistory: recordHistory)
         }
         return true
     }
@@ -87,7 +90,7 @@ actor RefreshCoordinator {
     func requestRefreshAll(settings: UserSettings) async -> Int {
         var started = 0
         for account in settings.accounts {
-            if await requestRefresh(account) { started += 1 }
+            if await requestRefresh(account, recordHistory: settings.usageStatisticsEnabled) { started += 1 }
         }
         return started
     }
@@ -101,17 +104,20 @@ actor RefreshCoordinator {
                now().timeIntervalSince(last) < Double(settings.refreshThresholdMinutes * 60) {
                 continue
             }
-            if await requestRefresh(account) { started += 1 }
+            if await requestRefresh(account, recordHistory: settings.usageStatisticsEnabled) { started += 1 }
         }
         return started
     }
 
-    private func perform(_ id: AccountID, provider: any UsageProvider) async {
+    private func perform(_ id: AccountID, provider: any UsageProvider, recordHistory: Bool) async {
         var record = records[id] ?? AccountRecord(id: id, snapshot: nil, lastAttemptAt: now(), lastError: nil)
+        let previousSnapshot = record.snapshot
+        var successfulSnapshot: UsageSnapshot?
         do {
             let result = try await runner.run { try await provider.probe(account: id) }
             record.snapshot = result
             record.lastError = nil
+            successfulSnapshot = result
         } catch ProbeFailure.permanent {
             record.lastError = "账号不可用，请检查登录或目录"
         } catch {
@@ -121,7 +127,18 @@ actor RefreshCoordinator {
         do {
             try await snapshotStore.update(record)
         } catch {
+            record.snapshot = previousSnapshot
             record.lastError = "无法保存探测结果"
+            successfulSnapshot = nil
+        }
+        if recordHistory, let successfulSnapshot {
+            do {
+                guard let historyStore else { throw UsageHistoryError.database("History store unavailable") }
+                _ = try await historyStore.append(account: id, snapshot: successfulSnapshot)
+            } catch {
+                record.lastError = "历史记录未能保存"
+                try? await snapshotStore.update(record)
+            }
         }
         records[id] = record
         refreshing.remove(id)

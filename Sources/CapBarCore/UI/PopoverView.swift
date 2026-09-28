@@ -33,7 +33,7 @@ struct CapBarPopoverView: View {
                 .overlay(RoundedRectangle(cornerRadius: 7).stroke(line))
             VStack(alignment: .leading, spacing: 2) {
                 Text("CapBar").font(.system(size: 13, weight: .semibold))
-                Text("\(model.rows.count) 个账号 · \(model.settings.autoRefreshOnOpen ? "打开时按需刷新" : "仅手动刷新")")
+                Text("\(model.rows.count) 个账号 · \(model.settings.usageStatisticsEnabled ? "用量统计已开启" : model.settings.autoRefreshOnOpen ? "打开时按需刷新" : "仅手动刷新")")
                     .font(.system(size: 10)).foregroundStyle(secondary)
             }
             Spacer(minLength: 8)
@@ -113,7 +113,12 @@ struct CapBarPopoverView: View {
             .background(Color(nsColor: .controlBackgroundColor).opacity(0.72))
             .overlay(alignment: .bottom) { line.frame(height: 1) }
             ForEach(rows, id: \.account) { row in
-                CapBarAccountRow(row: row, width: model.settings.popoverSize.width) { model.refresh(row.account) }
+                CapBarAccountRow(
+                    row: row, width: model.settings.popoverSize.width,
+                    statisticsEnabled: model.settings.usageStatisticsEnabled,
+                    showsTrend: model.showsTrend,
+                    trend: model.trends[row.account]
+                ) { model.refresh(row.account) }
                     .padding(.horizontal, 16)
                 if row.account != rows.last?.account {
                     line.frame(height: 1).padding(.horizontal, 16)
@@ -124,8 +129,22 @@ struct CapBarPopoverView: View {
 
     private var footer: some View {
         HStack {
-            Text("额度为剩余百分比 · 时间为本地时间")
-                .font(.system(size: 10)).foregroundStyle(secondary)
+            if model.settings.usageStatisticsEnabled && !model.showsSettings {
+                Picker("显示内容", selection: Binding(
+                    get: { model.showsTrend },
+                    set: { model.setTrendMode($0) }
+                )) {
+                    Text("额度").tag(false)
+                    Text("走势").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 112)
+                .controlSize(.small)
+            } else {
+                Text("额度为剩余百分比 · 时间为本地时间")
+                    .font(.system(size: 10)).foregroundStyle(secondary)
+            }
             Spacer()
             Button(model.showsSettings ? "返回总览" : "账号与设置") {
                 model.showsSettings.toggle()
@@ -133,12 +152,14 @@ struct CapBarPopoverView: View {
             .buttonStyle(.plain)
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(Color.accentColor)
-            line.frame(width: 1, height: 12).padding(.horizontal, 5)
-            Button("退出") { NSApplication.shared.terminate(nil) }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(secondary)
-                .accessibilityLabel("退出 CapBar")
+            if !model.showsSettings {
+                line.frame(width: 1, height: 12).padding(.horizontal, 5)
+                Button("退出") { NSApplication.shared.terminate(nil) }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(secondary)
+                    .accessibilityLabel("退出 CapBar")
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.58))
@@ -149,6 +170,9 @@ struct CapBarPopoverView: View {
 private struct CapBarAccountRow: View {
     let row: PopoverAccountRow
     let width: Int
+    let statisticsEnabled: Bool
+    let showsTrend: Bool
+    let trend: UsageTrendSeries?
     let refresh: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -171,7 +195,7 @@ private struct CapBarAccountRow: View {
                         }
                     }
                     .frame(width: max(240, min(360, CGFloat(width) * 0.35)), alignment: .leading)
-                    metrics.frame(maxWidth: .infinity)
+                    content.frame(maxWidth: .infinity)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 10) {
@@ -184,7 +208,7 @@ private struct CapBarAccountRow: View {
                         }
                         refreshButton
                     }
-                    metrics
+                    content
                 }
             }
         }
@@ -276,15 +300,24 @@ private struct CapBarAccountRow: View {
             HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(row.windows.enumerated()), id: \.offset) { index, window in
                     if index > 0 { line.frame(width: 1).padding(.horizontal, 14) }
-                    CapBarMetric(window: window).frame(maxWidth: .infinity)
+                    CapBarMetric(window: window, expanded: statisticsEnabled).frame(maxWidth: .infinity)
                 }
             }
+        }
+    }
+
+    @ViewBuilder private var content: some View {
+        if showsTrend {
+            UsageTrendChart(series: trend)
+        } else {
+            metrics.frame(height: statisticsEnabled ? 84 : nil, alignment: .center)
         }
     }
 }
 
 private struct CapBarMetric: View {
     let window: QuotaWindow
+    let expanded: Bool
 
     private var color: Color {
         if window.remainingPercent == 0 { return Color(nsColor: .systemRed) }
@@ -306,13 +339,13 @@ private struct CapBarMetric: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: expanded ? 8 : 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(window.kind == .fiveHour ? "5 小时" : "7 天")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer(minLength: 4)
                 Text("余 \(percentage)%")
-                    .font(.system(size: 15, weight: .bold)).monospacedDigit()
+                    .font(.system(size: expanded ? 16 : 15, weight: .bold)).monospacedDigit()
                     .foregroundStyle(color)
             }
             GeometryReader { geometry in
@@ -322,7 +355,7 @@ private struct CapBarMetric: View {
                             .frame(width: max(0, geometry.size.width * window.remainingPercent / 100))
                     }
             }
-            .frame(height: 4)
+            .frame(height: expanded ? 5 : 4)
             Text(reset).font(.system(size: 11)).foregroundStyle(.secondary)
                 .monospacedDigit().lineLimit(1)
         }

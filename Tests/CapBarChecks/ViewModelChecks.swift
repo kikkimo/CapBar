@@ -65,6 +65,49 @@ import Foundation
         model.prepareDirectorySelection()
         model.finishDirectorySelection(nil)
         check(returned == 2 && model.showsSettings, "cancelling the picker also restores normal popover behavior")
+
+        let enabledAt = Date(timeIntervalSince1970: 1_800_000_000)
+        var samplingChanges: [UserSettings] = []
+        model.onSamplingSettingsChange = { samplingChanges.append($0) }
+        check(!model.settings.usageStatisticsEnabled && !model.showsTrend, "statistics and trend view start disabled")
+        model.setUsageStatisticsEnabled(true, now: enabledAt)
+        check(model.settings.usageStatisticsEnabled && model.settings.samplingScheduleStartedAt == enabledAt, "enabling statistics records first-schedule time")
+        model.setTrendMode(true)
+        check(model.showsTrend, "trend mode is available while statistics are enabled")
+        model.setSamplingInterval(6, now: enabledAt.addingTimeInterval(60))
+        check(model.settings.samplingIntervalHours == 6, "six-hour sampling choice applies")
+        check(model.settings.samplingScheduleStartedAt == enabledAt.addingTimeInterval(60), "interval change realigns first UTC sample")
+        model.setSamplingInterval(5, now: enabledAt.addingTimeInterval(120))
+        check(model.settings.samplingIntervalHours == 6, "unsupported stepper value is ignored")
+        model.setUsageStatisticsEnabled(false, now: enabledAt.addingTimeInterval(180))
+        check(!model.showsTrend && !model.settings.usageStatisticsEnabled, "disabling statistics returns to quota view")
+        check(samplingChanges.count == 3, "only accepted settings changes notify scheduler")
+        await model.flushSettings()
+        let usageSaved = try await SettingsStore(url: root.appendingPathComponent("settings.json")).loadOrSeed()
+        check(!usageSaved.usageStatisticsEnabled && usageSaved.samplingIntervalHours == 6, "statistics choice and interval persist")
+
+        let historyStore = UsageHistoryStore(url: root.appendingPathComponent("trend-history.sqlite3"))
+        let account = AccountID(provider: .claude, directory: root.appendingPathComponent("trend-account").path)
+        let chartEnd = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970 / 7_200) * 7_200)
+        let initial = UsageSnapshot(
+            identity: AccountIdentity(email: "chart@example.com", plan: nil, organization: nil),
+            windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 70, resetsAt: chartEnd.addingTimeInterval(86_400))],
+            capturedAt: chartEnd.addingTimeInterval(-7_200)
+        )
+        let latest = UsageSnapshot(
+            identity: initial.identity,
+            windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 60, resetsAt: chartEnd.addingTimeInterval(86_400))],
+            capturedAt: chartEnd
+        )
+        _ = try await historyStore.append(account: account, snapshot: initial)
+        _ = try await historyStore.append(account: account, snapshot: latest)
+        try await snapshotStore.update(AccountRecord(id: account, snapshot: latest, lastAttemptAt: chartEnd, lastError: nil))
+        let trendCoordinator = try await RefreshCoordinator(settingsStore: settingsStore, snapshotStore: snapshotStore, providers: [:], policy: ProbePolicy.bundled())
+        let trendSettings = UserSettings(accounts: [account], defaultsSeeded: true, autoRefreshOnOpen: false, refreshThresholdMinutes: 5, usageStatisticsEnabled: true)
+        let trendModel = CapBarViewModel(settings: trendSettings, settingsStore: settingsStore, coordinator: trendCoordinator, historyStore: historyStore)
+        trendModel.setTrendMode(true)
+        await trendModel.reloadTrends(endingAt: chartEnd)
+        check(trendModel.trends[account]?.points.last?.usedPercent == 10, "view model loads the latest two-hour usage from SQLite")
     } catch {
         check(false, "view model checks setup succeeds: \(error)")
     }

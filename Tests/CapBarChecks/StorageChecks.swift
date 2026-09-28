@@ -15,6 +15,10 @@ import Foundation
         check(settings.autoRefreshOnOpen == false, "auto refresh defaults off")
         check(settings.refreshThresholdMinutes == 5, "shared threshold defaults to 5 minutes")
         check(settings.popoverSize.width == 448 && settings.popoverSize.height == 620, "popover defaults to the current minimum size")
+        let initialFile = try JSONSerialization.jsonObject(with: Data(contentsOf: settingsURL)) as? [String: Any]
+        let initialValues = initialFile?["settings"] as? [String: Any]
+        check(initialValues?["usageStatisticsEnabled"] as? Bool == false, "usage statistics default off in saved settings")
+        check(initialValues?["samplingIntervalHours"] as? Int == 4, "sampling interval defaults to four hours")
         settings.popoverSize = PopoverSize(width: 720, height: 780)
         settings.accounts.removeAll { $0.provider == .claude }
         try await firstSettingsStore.save(settings)
@@ -27,8 +31,30 @@ import Foundation
         try Data(legacy.utf8).write(to: settingsURL, options: .atomic)
         let migrated = try await SettingsStore(url: settingsURL).loadOrSeed()
         check(migrated.popoverSize.width == 448 && migrated.popoverSize.height == 620, "existing settings without dimensions migrate to defaults")
+        try await SettingsStore(url: settingsURL).save(migrated)
+        let migratedFile = try JSONSerialization.jsonObject(with: Data(contentsOf: settingsURL)) as? [String: Any]
+        let migratedValues = migratedFile?["settings"] as? [String: Any]
+        check(migratedValues?["usageStatisticsEnabled"] as? Bool == false, "legacy settings migrate with statistics off")
+        check(migratedValues?["samplingIntervalHours"] as? Int == 4, "legacy settings migrate with four-hour interval")
         let mode = try FileManager.default.attributesOfItem(atPath: settingsURL.path)[.posixPermissions] as? NSNumber
         check(mode?.intValue == 0o600, "settings file is private to current user")
+
+        let activation = #"{"schemaVersion":1,"settings":{"accounts":[],"defaultsSeeded":true,"autoRefreshOnOpen":false,"refreshThresholdMinutes":5,"usageStatisticsEnabled":true,"samplingIntervalHours":3,"samplingScheduleStartedAt":"2026-09-28T12:00:00Z"}}"#
+        try Data(activation.utf8).write(to: settingsURL, options: .atomic)
+        let activeSettings = try await SettingsStore(url: settingsURL).loadOrSeed()
+        try await SettingsStore(url: settingsURL).save(activeSettings)
+        let activeFile = try JSONSerialization.jsonObject(with: Data(contentsOf: settingsURL)) as? [String: Any]
+        let activeValues = activeFile?["settings"] as? [String: Any]
+        check(activeValues?["samplingScheduleStartedAt"] as? String == "2026-09-28T12:00:00Z", "sampling activation survives restart before first scheduled probe")
+
+        let invalid = #"{"schemaVersion":1,"settings":{"accounts":[],"defaultsSeeded":true,"autoRefreshOnOpen":false,"refreshThresholdMinutes":5,"usageStatisticsEnabled":true,"samplingIntervalHours":5}}"#
+        try Data(invalid.utf8).write(to: settingsURL, options: .atomic)
+        do {
+            _ = try await SettingsStore(url: settingsURL).loadOrSeed()
+            check(false, "unsupported five-hour interval must be rejected")
+        } catch {
+            check(true, "unsupported sampling interval is rejected")
+        }
     } catch {
         check(false, "settings round trip should succeed: \(error)")
     }
