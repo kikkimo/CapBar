@@ -14,4 +14,9 @@ import AppKit
     dismissal.endDirectorySelection()
     check(popover.behavior == .transient && dismissal.shouldClose, "selecting or cancelling restores normal focus dismissal")
     check(dismissal.shouldDismissOutsideClick(isShown: true), "outside click dismisses again after folder selection")
+
+    let folderPanel = NSOpenPanel()
+    let popupLevel = NSWindow.Level(rawValue: folderPanel.level.rawValue + 10)
+    DirectoryPickerWindowOrder.place(folderPanel, above: popupLevel)
+    check(folderPanel.level > popupLevel, "folder picker is stacked above the CapBar popover")
 }

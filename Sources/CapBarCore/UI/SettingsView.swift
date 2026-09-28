@@ -211,9 +211,13 @@ struct CapBarSettingsView: View {
                             .textFieldStyle(.roundedBorder)
                     }
                     Button { model.chooseDirectory() } label: {
-                        Image(systemName: "folder").frame(width: 22, height: 22)
+                        Image(systemName: "folder")
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain).help("选择配置目录")
+                    .buttonStyle(.plain)
+                    .help("选择配置目录")
+                    .accessibilityLabel("选择配置目录")
                 }
                 Button("添加目录") { model.addAccount() }
                     .buttonStyle(.borderedProminent)
