@@ -2,6 +2,13 @@ import AppKit
 import Combine
 import Foundation
 
+@MainActor enum DirectoryPickerWindowOrder {
+    static func place(_ panel: NSOpenPanel, above popoverLevel: NSWindow.Level?) {
+        guard let popoverLevel, panel.level <= popoverLevel else { return }
+        panel.level = NSWindow.Level(rawValue: popoverLevel.rawValue + 1)
+    }
+}
+
 @MainActor final class CapBarViewModel: ObservableObject {
     @Published var settings: UserSettings
     @Published private(set) var rows: [PopoverAccountRow] = []
@@ -21,14 +28,15 @@ import Foundation
     var historySampleLoader: (@Sendable (AccountID, Date, Date) async throws -> [UsageHistorySample])?
     var onRowsChange: (([PopoverAccountRow]) -> Void)?
     var onPopoverSizeChange: ((PopoverSize) -> Void)?
-    var onFolderPickerWillOpen: (() -> Void)?
+    var onFolderPickerWillOpen: (() -> NSWindow.Level?)?
     var onFolderPickerFinished: (() -> Void)?
     var activateForDirectoryPicker: () -> Void = { NSApplication.shared.activate() }
-    var presentDirectoryPicker: (@escaping (URL?) -> Void) -> Void = { completion in
+    var presentDirectoryPicker: (NSWindow.Level?, @escaping (URL?) -> Void) -> Void = { popoverLevel, completion in
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
+        DirectoryPickerWindowOrder.place(panel, above: popoverLevel)
         panel.begin { response in
             completion(response == .OK ? panel.url : nil)
         }
@@ -294,16 +302,16 @@ import Foundation
     }
 
     func chooseDirectory() {
-        prepareDirectorySelection()
+        let popoverLevel = prepareDirectorySelection()
         activateForDirectoryPicker()
-        presentDirectoryPicker { [weak self] chosenURL in
+        presentDirectoryPicker(popoverLevel) { [weak self] chosenURL in
             Task { @MainActor [weak self] in
                 self?.finishDirectorySelection(chosenURL)
             }
         }
     }
 
-    func prepareDirectorySelection() {
+    func prepareDirectorySelection() -> NSWindow.Level? {
         onFolderPickerWillOpen?()
     }
 

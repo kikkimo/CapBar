@@ -78,26 +78,31 @@ private actor GatedTrendLoader {
               "closing the popover clamps oversized pending inputs to screen bounds")
 
         var pickerEvents: [String] = []
-        model.onFolderPickerWillOpen = { pickerEvents.append("opened") }
+        model.onFolderPickerWillOpen = { pickerEvents.append("opened"); return .popUpMenu }
         var returned = 0
         model.onFolderPickerFinished = { returned += 1 }
         var completePicker: ((URL?) -> Void)?
         model.activateForDirectoryPicker = { pickerEvents.append("activated") }
-        model.presentDirectoryPicker = { completion in
+        model.presentDirectoryPicker = { popoverLevel, completion in
             pickerEvents.append("presented")
+            check(popoverLevel == .popUpMenu, "folder picker receives the visible popover window level")
             completePicker = completion
         }
         model.showsSettings = true
         model.chooseDirectory()
         check(pickerEvents == ["opened", "activated", "presented"],
               "folder picker activates the menu bar app before presenting its window")
-        completePicker?(URL(fileURLWithPath: "/tmp/example-claude"))
-        await Task.yield()
+        await withCheckedContinuation { continuation in
+            model.onFolderPickerFinished = { returned += 1; continuation.resume() }
+            completePicker?(URL(fileURLWithPath: "/tmp/example-claude"))
+        }
         check(model.directoryInput == "/tmp/example-claude", "chosen folder fills the directory field")
         check(model.showsSettings && returned == 1, "folder picker returns to the settings popover")
         model.chooseDirectory()
-        completePicker?(nil)
-        await Task.yield()
+        await withCheckedContinuation { continuation in
+            model.onFolderPickerFinished = { returned += 1; continuation.resume() }
+            completePicker?(nil)
+        }
         check(returned == 2 && model.showsSettings, "cancelling the picker also restores normal popover behavior")
 
         let enabledAt = Date(timeIntervalSince1970: 1_800_000_000)

@@ -139,7 +139,10 @@ import SwiftUI
             )
             model.onRowsChange = { [weak self] rows in self?.updateStatusItem(rows) }
             model.onPopoverSizeChange = { [weak self] size in self?.resizePopover(size) }
-            model.onFolderPickerWillOpen = { [weak self] in self?.dismissalController?.beginDirectorySelection() }
+            model.onFolderPickerWillOpen = { [weak self] in
+                self?.dismissalController?.beginDirectorySelection()
+                return self?.popover?.contentViewController?.view.window?.level
+            }
             model.onFolderPickerFinished = { [weak self] in self?.dismissalController?.endDirectorySelection() }
             model.onSamplingSettingsChange = { [weak self] changed in
                 Task { @MainActor [weak self] in
