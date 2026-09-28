@@ -73,6 +73,11 @@ enum UsageTrendChartLayout {
         let fraction = min(1, max(0, value / max(1, axisMaximum)))
         return floorY - CGFloat(fraction) * (floorY - top)
     }
+
+    static func standalonePointIndex(points: [UsageTrendPoint]) -> Int? {
+        let validIndices = points.indices.filter { points[$0].usedPercent != nil }
+        return validIndices.count == 1 ? validIndices[0] : nil
+    }
 }
 
 struct UsageTrendChart: View {
@@ -152,6 +157,20 @@ struct UsageTrendChart: View {
                     lineWidth: 1.8, lineCap: .round, lineJoin: .round,
                     dash: segment.dashed ? [3.5, 3] : []
                 ))
+            }
+            if let index = UsageTrendChartLayout.standalonePointIndex(points: series.points),
+               let usage = series.points[index].usedPercent {
+                let point = coordinate(for: index, points: series.points, size: size, maximum: series.axisMaximum)
+                Circle()
+                    .fill(Color.accentColor)
+                    .strokeBorder(Color(nsColor: .windowBackgroundColor), lineWidth: 1.5)
+                    .frame(width: 8, height: 8)
+                    .position(point)
+                Text(percent(usage))
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .position(x: max(UsageTrendChartLayout.leading + 16, point.x - 18),
+                              y: max(UsageTrendChartLayout.top + 6, point.y - 13))
             }
             ForEach(UsageTrendChartLayout.dateLabels(points: series.points, calendar: calendar), id: \.index) { label in
                 Text(label.text)

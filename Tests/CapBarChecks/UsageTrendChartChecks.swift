@@ -26,4 +26,25 @@ import Foundation
           == "预计明天 00:00 自动采样；也可手动刷新", "next sampling time follows the local date")
     check(UsageTrendEmptyState.lines(sampleCount: 1, nextSampleAt: nil, now: now, calendar: calendar)[2]
           == "等待下次定时采样；也可手动刷新", "missing scheduler time avoids inventing a sampling hour")
+
+    let hour: TimeInterval = 3_600
+    let singleSeries = UsageTrendCalculator.calculate(
+        samples: [
+            UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 3.62 * hour), usedPercent: 26, resetsAt: Date(timeIntervalSince1970: 80 * hour)),
+            UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 4.01 * hour), usedPercent: 26, resetsAt: Date(timeIntervalSince1970: 80 * hour)),
+            UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 4.4 * hour), usedPercent: 27, resetsAt: Date(timeIntervalSince1970: 80 * hour)),
+            UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 6.03 * hour), usedPercent: 28, resetsAt: Date(timeIntervalSince1970: 80 * hour))
+        ], intervalHours: 4, endingAt: Date(timeIntervalSince1970: 6.05 * hour)
+    )
+    check(singleSeries.points.compactMap(\.usedPercent).count == 1, "first completed two-hour interval yields exactly one usage point")
+    check(UsageTrendChartLayout.standalonePointIndex(points: singleSeries.points) == 83,
+          "chart marks a valid usage point even before there is a second point to connect")
+    check(UsageTrendChartLayout.standalonePointIndex(points: series.points) == nil,
+          "empty chart has no standalone usage marker")
+    let twoPoints = singleSeries.points + [UsageTrendPoint(
+        endAt: Date(timeIntervalSince1970: 8 * hour), usedPercent: 0,
+        remainingPercent: 72, crossesReset: false, isEstimated: false
+    )]
+    check(UsageTrendChartLayout.standalonePointIndex(points: twoPoints) == nil,
+          "two valid points use their connecting line, including a zero-usage point")
 }
