@@ -14,6 +14,8 @@ struct UsageTrendSeries: Sendable {
     let points: [UsageTrendPoint]
     let axisMaximum: Double
     let axisTicks: [Double]
+    let sampleCount: Int
+    var nextSampleAt: Date? = nil
 }
 
 enum UsageTrendCalculator {
@@ -53,7 +55,10 @@ enum UsageTrendCalculator {
         let ticks = Int(maximum) % 30 == 0
             ? [0, maximum / 3, maximum * 2 / 3, maximum]
             : [0, maximum / 2, maximum]
-        return UsageTrendSeries(points: points, axisMaximum: maximum, axisTicks: ticks)
+        let sampleCount = ordered.filter {
+            $0.capturedAt >= now.addingTimeInterval(-7 * 86_400) && $0.capturedAt <= now
+        }.count
+        return UsageTrendSeries(points: points, axisMaximum: maximum, axisTicks: ticks, sampleCount: sampleCount)
     }
 
     private static func consumption(

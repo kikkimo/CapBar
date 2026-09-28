@@ -129,10 +129,19 @@ private actor GatedTrendLoader {
         try await snapshotStore.update(AccountRecord(id: account, snapshot: latest, lastAttemptAt: chartEnd, lastError: nil))
         let trendCoordinator = try await RefreshCoordinator(settingsStore: settingsStore, snapshotStore: snapshotStore, providers: [:], policy: ProbePolicy.bundled())
         let trendSettings = UserSettings(accounts: [account], defaultsSeeded: true, autoRefreshOnOpen: false, refreshThresholdMinutes: 5, usageStatisticsEnabled: true)
-        let trendModel = CapBarViewModel(settings: trendSettings, settingsStore: settingsStore, coordinator: trendCoordinator, historyStore: historyStore)
+        let sampler = UsageSamplingController(coordinator: trendCoordinator, now: { chartEnd })
+        await sampler.start(settings: trendSettings)
+        let trendModel = CapBarViewModel(
+            settings: trendSettings, settingsStore: settingsStore, coordinator: trendCoordinator,
+            historyStore: historyStore, samplingController: sampler
+        )
         trendModel.setTrendMode(true, reload: false)
         await trendModel.reloadTrends(endingAt: chartEnd)
         check(trendModel.trends[account]?.points.last?.usedPercent == 10, "view model loads the latest two-hour usage from SQLite")
+        check(trendModel.trends[account]?.sampleCount == 2, "view model exposes the stored sample count")
+        let due = await sampler.nextDue(for: account)
+        check(trendModel.trends[account]?.nextSampleAt == due,
+              "empty-state hint uses the account's actual scheduled sampling time")
 
         let gated = GatedTrendLoader(samples: [
             UsageHistorySample(capturedAt: initial.capturedAt, usedPercent: 30, resetsAt: chartEnd.addingTimeInterval(86_400)),

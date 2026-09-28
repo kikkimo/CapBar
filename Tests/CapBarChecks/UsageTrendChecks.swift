@@ -24,12 +24,18 @@ import Foundation
     let series = UsageTrendCalculator.calculate(samples: samples, intervalHours: 4, endingAt: Date(timeIntervalSince1970: 8 * hour))
     let last = Array(series.points.suffix(4))
     check(series.points.count == 84, "rolling week has eighty-four two-hour bins")
+    check(series.sampleCount == 4, "trend reports real samples within the rolling seven days")
     check(near(last[0].usedPercent, 10) && near(last[1].usedPercent, 10), "0-to-4-hour samples interpolate two ten-point bins")
     check(near(last[2].usedPercent, 40), "manual six-hour sample makes a forty-point bin")
     check(near(last[3].usedPercent, 15), "reset computes one hundred minus ninety plus five")
     check(last[3].crossesReset && !last[2].crossesReset, "only reset-crossing bin is dashed")
     check(near(last[3].remainingPercent, 95), "tooltip has post-reset weekly remainder")
     check(series.points.last?.endAt == Date(timeIntervalSince1970: 8 * hour), "chart end uses UTC two-hour grid")
+    let withOldSample = UsageTrendCalculator.calculate(
+        samples: [sample(-169, used: 10, reset: 7)] + samples,
+        intervalHours: 4, endingAt: Date(timeIntervalSince1970: 8 * hour)
+    )
+    check(withOldSample.sampleCount == 4, "sample count excludes records older than the rolling seven days")
 
     let high = UsageTrendCalculator.calculate(
         samples: [sample(6, used: 90, reset: 7), sample(8, used: 95, reset: 175)],
@@ -64,6 +70,7 @@ import Foundation
     check(peak.axisMaximum == 60 && peak.axisTicks == [0, 20, 40, 60], "fifty-four-point peak gets sixty-point four-tick axis")
 
     let empty = UsageTrendCalculator.calculate(samples: [], intervalHours: 4, endingAt: Date(timeIntervalSince1970: 9 * hour))
+    check(empty.sampleCount == 0, "empty trend reports zero recorded samples")
     check(empty.points.allSatisfy { $0.usedPercent == nil }, "no history renders missing points without fabricated usage")
     check(empty.points.last?.endAt == Date(timeIntervalSince1970: 8 * hour), "incomplete current bin is not drawn")
 }

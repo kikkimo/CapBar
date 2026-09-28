@@ -121,6 +121,35 @@ private actor PreviewHangingProvider: UsageProvider {
     trendModel.showsSettings = true
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-usage-settings.png"))
 
+    let shortHistory = UsageHistoryStore(url: folder.appendingPathComponent("preview-short-history.sqlite3"))
+    let shortAccount = accounts[1]
+    let shortSnapshot = snapshots[1]
+    for (minutesAgo, used) in [(50, 20.0), (25, 25.0), (0, 30.0)] {
+        let sample = UsageSnapshot(
+            identity: shortSnapshot.identity,
+            windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 100 - used, resetsAt: now.addingTimeInterval(4 * 86_400))],
+            capturedAt: now.addingTimeInterval(-Double(minutesAgo) * 60)
+        )
+        _ = try await shortHistory.append(account: shortAccount, snapshot: sample)
+    }
+    let shortSettings = UserSettings(
+        accounts: [shortAccount], defaultsSeeded: true, autoRefreshOnOpen: false,
+        refreshThresholdMinutes: 5, usageStatisticsEnabled: true
+    )
+    let shortSampler = UsageSamplingController(coordinator: coordinator, now: { now })
+    await shortSampler.start(settings: shortSettings)
+    let shortModel = CapBarViewModel(
+        settings: shortSettings, settingsStore: settingsStore, coordinator: coordinator,
+        historyStore: shortHistory, samplingController: shortSampler
+    )
+    shortModel.updateRows()
+    for _ in 0..<100 where shortModel.rows.count != 1 {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    shortModel.setTrendMode(true, reload: false)
+    await shortModel.reloadTrends(endingAt: now)
+    try render(model: shortModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-empty.png"))
+
     let stateStore = SnapshotStore(url: folder.appendingPathComponent("state-snapshots.json"))
     try await stateStore.update(AccountRecord(id: accounts[0], snapshot: snapshots[0], lastAttemptAt: now, lastError: nil))
     try await stateStore.update(AccountRecord(id: accounts[1], snapshot: snapshots[1], lastAttemptAt: now, lastError: "探测失败，请手动重试"))
@@ -134,7 +163,7 @@ private actor PreviewHangingProvider: UsageProvider {
     }
     try render(model: stateModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-states.png"))
     await stateCoordinator.cancelAll()
-    print("Rendered /tmp/capbar-preview-{light,dark,settings,wide,settings-wide,states,trend-light,trend-dark,quota-expanded,usage-settings}.png")
+    print("Rendered /tmp/capbar-preview-{light,dark,settings,wide,settings-wide,states,trend-light,trend-dark,trend-empty,quota-expanded,usage-settings}.png")
 }
 
 @MainActor private func render(model: CapBarViewModel, appearance: NSAppearance.Name, to url: URL) throws {

@@ -17,6 +17,7 @@ import Foundation
     let settingsStore: SettingsStore
     let coordinator: RefreshCoordinator
     let historyStore: UsageHistoryStore?
+    let samplingController: UsageSamplingController?
     var historySampleLoader: (@Sendable (AccountID, Date, Date) async throws -> [UsageHistorySample])?
     var onRowsChange: (([PopoverAccountRow]) -> Void)?
     var onPopoverSizeChange: ((PopoverSize) -> Void)?
@@ -42,13 +43,17 @@ import Foundation
         max(PopoverSize.minimumHeight, Int(NSScreen.main?.visibleFrame.height ?? 900) - 24)
     }
 
-    init(settings: UserSettings, settingsStore: SettingsStore, coordinator: RefreshCoordinator, historyStore: UsageHistoryStore? = nil) {
+    init(
+        settings: UserSettings, settingsStore: SettingsStore, coordinator: RefreshCoordinator,
+        historyStore: UsageHistoryStore? = nil, samplingController: UsageSamplingController? = nil
+    ) {
         self.settings = settings
         self.popoverWidthInput = String(settings.popoverSize.width)
         self.popoverHeightInput = String(settings.popoverSize.height)
         self.settingsStore = settingsStore
         self.coordinator = coordinator
         self.historyStore = historyStore
+        self.samplingController = samplingController
     }
 
     func opened() {
@@ -141,6 +146,11 @@ import Foundation
         var result = trends.filter { accounts.contains($0.key) }
         var newKeys = trendKeys.filter { accounts.contains($0.key) }
         for account in accounts {
+            let nextSampleAt = await samplingController?.nextDue(for: account)
+            if var existing = result[account] {
+                existing.nextSampleAt = nextSampleAt
+                result[account] = existing
+            }
             let key = TrendKey(
                 capturedAt: records[account]?.snapshot?.capturedAt,
                 gridEnd: gridEnd,
@@ -157,9 +167,11 @@ import Foundation
                 } else {
                     return
                 }
-                result[account] = UsageTrendCalculator.calculate(
+                var series = UsageTrendCalculator.calculate(
                     samples: samples, intervalHours: intervalHours, endingAt: now
                 )
+                series.nextSampleAt = nextSampleAt
+                result[account] = series
                 newKeys[account] = key
             } catch {
                 result.removeValue(forKey: account)

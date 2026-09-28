@@ -12,4 +12,18 @@ import Foundation
     check(UsageTrendChartLayout.nearestPointIndex(at: 408, width: 416, count: 84) == 83, "hover at right edge picks latest point")
     check(abs(UsageTrendChartLayout.yPosition(value: 0, axisMaximum: 60, height: 84) - 63) < 0.01, "zero usage is at graph baseline")
     check(abs(UsageTrendChartLayout.yPosition(value: 60, axisMaximum: 60, height: 84) - 8) < 0.01, "axis maximum is at graph top")
+
+    let now = ISO8601DateFormatter().date(from: "2026-09-28T04:25:00Z")!
+    let next = ISO8601DateFormatter().date(from: "2026-09-28T08:00:00Z")!
+    let pending = UsageTrendEmptyState.lines(sampleCount: 3, nextSampleAt: next, now: now, calendar: calendar)
+    check(pending == [
+        "近 7 日已采样 3 次",
+        "尚未覆盖完整的 2 小时区间",
+        "预计今天 16:00 自动采样；也可手动刷新"
+    ], "empty chart explains three recorded samples and the next local sampling time")
+    let tomorrow = ISO8601DateFormatter().date(from: "2026-09-28T16:00:00Z")!
+    check(UsageTrendEmptyState.lines(sampleCount: 0, nextSampleAt: tomorrow, now: now, calendar: calendar)[2]
+          == "预计明天 00:00 自动采样；也可手动刷新", "next sampling time follows the local date")
+    check(UsageTrendEmptyState.lines(sampleCount: 1, nextSampleAt: nil, now: now, calendar: calendar)[2]
+          == "等待下次定时采样；也可手动刷新", "missing scheduler time avoids inventing a sampling hour")
 }

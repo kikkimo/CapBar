@@ -1,5 +1,35 @@
 import SwiftUI
 
+enum UsageTrendEmptyState {
+    static func lines(sampleCount: Int, nextSampleAt: Date?, now: Date, calendar: Calendar) -> [String] {
+        let count = "近 7 日已采样 \(sampleCount) 次"
+        let reason = sampleCount == 0 ? "尚无历史采样记录" : "尚未覆盖完整的 2 小时区间"
+        guard let nextSampleAt else {
+            return [count, reason, "等待下次定时采样；也可手动刷新"]
+        }
+        guard nextSampleAt > now else {
+            return [count, reason, "定时采样即将执行；也可手动刷新"]
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "HH:mm"
+        let day: String
+        if calendar.isDate(nextSampleAt, inSameDayAs: now) {
+            day = "今天"
+        } else if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
+                  calendar.isDate(nextSampleAt, inSameDayAs: tomorrow) {
+            day = "明天"
+        } else {
+            formatter.dateFormat = "M月d日"
+            day = formatter.string(from: nextSampleAt)
+            formatter.dateFormat = "HH:mm"
+        }
+        return [count, reason, "预计\(day) \(formatter.string(from: nextSampleAt)) 自动采样；也可手动刷新"]
+    }
+}
+
 struct UsageTrendDateLabel {
     let index: Int
     let text: String
@@ -68,16 +98,23 @@ struct UsageTrendChart: View {
                             hoveredIndex = nil
                         }
                     }
-            } else {
-                VStack(spacing: 3) {
-                    Text("数据不足，等待下一个采样点")
-                        .font(.system(size: 10, weight: .medium))
-                    Text("没有观测的数据不会记作 0% 用量")
-                        .font(.system(size: 9))
+            } else if let series {
+                let lines = UsageTrendEmptyState.lines(
+                    sampleCount: series.sampleCount, nextSampleAt: series.nextSampleAt,
+                    now: Date(), calendar: calendar
+                )
+                VStack(spacing: 5) {
+                    Text(lines[0]).font(.system(size: 11, weight: .semibold))
+                    Text(lines[1]).font(.system(size: 10)).foregroundStyle(secondary)
+                    Text(lines[2]).font(.system(size: 10, weight: .medium)).foregroundStyle(Color.accentColor)
                 }
-                .foregroundStyle(secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(secondary.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+            } else {
+                Text("正在读取历史采样记录…")
+                    .font(.system(size: 10)).foregroundStyle(secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(secondary.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
             }
         }
         .frame(height: chartHeight)

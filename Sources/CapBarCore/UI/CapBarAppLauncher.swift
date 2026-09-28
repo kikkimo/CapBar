@@ -135,7 +135,7 @@ import SwiftUI
             samplingController = sampler
             let model = CapBarViewModel(
                 settings: settings, settingsStore: settingsStore,
-                coordinator: coordinator, historyStore: historyStore
+                coordinator: coordinator, historyStore: historyStore, samplingController: sampler
             )
             model.onRowsChange = { [weak self] rows in self?.updateStatusItem(rows) }
             model.onPopoverSizeChange = { [weak self] size in self?.resizePopover(size) }
