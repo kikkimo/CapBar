@@ -1,6 +1,31 @@
 import Foundation
 @testable import CapBarCore
 
+private actor GatedTrendLoader {
+    let samples: [UsageHistorySample]
+    let laterSamples: [UsageHistorySample]?
+    private var waiter: CheckedContinuation<Void, Never>?
+    private(set) var calls = 0
+
+    init(samples: [UsageHistorySample], laterSamples: [UsageHistorySample]? = nil) {
+        self.samples = samples
+        self.laterSamples = laterSamples
+    }
+
+    func load(account: AccountID, from: Date, through: Date) async -> [UsageHistorySample] {
+        calls += 1
+        if calls == 1 {
+            await withCheckedContinuation { waiter = $0 }
+        }
+        return calls == 1 ? samples : laterSamples ?? samples
+    }
+
+    func release() {
+        waiter?.resume()
+        waiter = nil
+    }
+}
+
 @MainActor func runViewModelChecks() async {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
@@ -65,6 +90,141 @@ import Foundation
         model.prepareDirectorySelection()
         model.finishDirectorySelection(nil)
         check(returned == 2 && model.showsSettings, "cancelling the picker also restores normal popover behavior")
+
+        let enabledAt = Date(timeIntervalSince1970: 1_800_000_000)
+        var samplingChanges: [UserSettings] = []
+        model.onSamplingSettingsChange = { samplingChanges.append($0) }
+        check(!model.settings.usageStatisticsEnabled && !model.showsTrend, "statistics and trend view start disabled")
+        model.setUsageStatisticsEnabled(true, now: enabledAt)
+        check(model.settings.usageStatisticsEnabled && model.settings.samplingScheduleStartedAt == enabledAt, "enabling statistics records first-schedule time")
+        model.setTrendMode(true)
+        check(model.showsTrend, "trend mode is available while statistics are enabled")
+        model.setSamplingInterval(6, now: enabledAt.addingTimeInterval(60))
+        check(model.settings.samplingIntervalHours == 6, "six-hour sampling choice applies")
+        check(model.settings.samplingScheduleStartedAt == enabledAt.addingTimeInterval(60), "interval change realigns first UTC sample")
+        model.setSamplingInterval(5, now: enabledAt.addingTimeInterval(120))
+        check(model.settings.samplingIntervalHours == 6, "unsupported stepper value is ignored")
+        model.setUsageStatisticsEnabled(false, now: enabledAt.addingTimeInterval(180))
+        check(!model.showsTrend && !model.settings.usageStatisticsEnabled, "disabling statistics returns to quota view")
+        check(samplingChanges.count == 3, "only accepted settings changes notify scheduler")
+        await model.flushSettings()
+        let usageSaved = try await SettingsStore(url: root.appendingPathComponent("settings.json")).loadOrSeed()
+        check(!usageSaved.usageStatisticsEnabled && usageSaved.samplingIntervalHours == 6, "statistics choice and interval persist")
+
+        let historyStore = UsageHistoryStore(url: root.appendingPathComponent("trend-history.sqlite3"))
+        let account = AccountID(provider: .claude, directory: root.appendingPathComponent("trend-account").path)
+        let chartEnd = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970 / 7_200) * 7_200)
+        let initial = UsageSnapshot(
+            identity: AccountIdentity(email: "chart@example.com", plan: nil, organization: nil),
+            windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 70, resetsAt: chartEnd.addingTimeInterval(86_400))],
+            capturedAt: chartEnd.addingTimeInterval(-7_200)
+        )
+        let latest = UsageSnapshot(
+            identity: initial.identity,
+            windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 60, resetsAt: chartEnd.addingTimeInterval(86_400))],
+            capturedAt: chartEnd
+        )
+        _ = try await historyStore.append(account: account, snapshot: initial)
+        _ = try await historyStore.append(account: account, snapshot: latest)
+        try await snapshotStore.update(AccountRecord(id: account, snapshot: latest, lastAttemptAt: chartEnd, lastError: nil))
+        let trendCoordinator = try await RefreshCoordinator(settingsStore: settingsStore, snapshotStore: snapshotStore, providers: [:], policy: ProbePolicy.bundled())
+        let trendSettings = UserSettings(
+            accounts: [account], defaultsSeeded: true, autoRefreshOnOpen: false,
+            refreshThresholdMinutes: 5, usageStatisticsEnabled: true, samplingIntervalHours: 2
+        )
+        let sampler = UsageSamplingController(coordinator: trendCoordinator, now: { chartEnd })
+        await sampler.start(settings: trendSettings)
+        let trendModel = CapBarViewModel(
+            settings: trendSettings, settingsStore: settingsStore, coordinator: trendCoordinator,
+            historyStore: historyStore, samplingController: sampler
+        )
+        trendModel.setTrendMode(true, reload: false)
+        await trendModel.reloadTrends(endingAt: chartEnd)
+        check(trendModel.trends[account]?.points.last?.usedPercent == 10, "view model loads the latest two-hour usage from SQLite")
+        check(trendModel.trends[account]?.sampleCount == 2, "view model exposes the stored sample count")
+        let due = await sampler.nextDue(for: account)
+        check(trendModel.trends[account]?.nextSampleAt == due,
+              "empty-state hint uses the account's actual scheduled sampling time")
+
+        let gated = GatedTrendLoader(samples: [
+            UsageHistorySample(capturedAt: initial.capturedAt, usedPercent: 30, resetsAt: chartEnd.addingTimeInterval(86_400)),
+            UsageHistorySample(capturedAt: latest.capturedAt, usedPercent: 40, resetsAt: chartEnd.addingTimeInterval(86_400))
+        ])
+        let gatedModel = CapBarViewModel(
+            settings: trendSettings, settingsStore: settingsStore,
+            coordinator: trendCoordinator, historyStore: historyStore
+        )
+        gatedModel.historySampleLoader = { account, start, end in
+            await gated.load(account: account, from: start, through: end)
+        }
+        gatedModel.setTrendMode(true, reload: false)
+        let firstLoad = Task { await gatedModel.reloadTrends(endingAt: chartEnd) }
+        for _ in 0..<100 {
+            if await gated.calls > 0 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        gatedModel.setTrendMode(false)
+        await gated.release()
+        await firstLoad.value
+        gatedModel.setTrendMode(true, reload: false)
+        await gatedModel.reloadTrends(endingAt: chartEnd)
+        check(gatedModel.trends[account]?.points.last?.usedPercent == 10,
+              "turning trend mode back on reloads after an earlier load was discarded")
+
+        let oldSamples = [
+            UsageHistorySample(capturedAt: initial.capturedAt, usedPercent: 30, resetsAt: chartEnd.addingTimeInterval(86_400)),
+            UsageHistorySample(capturedAt: latest.capturedAt, usedPercent: 40, resetsAt: chartEnd.addingTimeInterval(86_400))
+        ]
+        let newSamples = [
+            oldSamples[0],
+            UsageHistorySample(capturedAt: latest.capturedAt, usedPercent: 50, resetsAt: chartEnd.addingTimeInterval(86_400))
+        ]
+        let overlapLoader = GatedTrendLoader(samples: oldSamples, laterSamples: newSamples)
+        let overlapModel = CapBarViewModel(
+            settings: trendSettings, settingsStore: settingsStore,
+            coordinator: trendCoordinator, historyStore: historyStore
+        )
+        overlapModel.historySampleLoader = { account, start, end in
+            await overlapLoader.load(account: account, from: start, through: end)
+        }
+        overlapModel.setTrendMode(true, reload: false)
+        let olderLoad = Task { await overlapModel.reloadTrends(endingAt: chartEnd) }
+        for _ in 0..<100 {
+            if await overlapLoader.calls > 0 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        await overlapModel.reloadTrends(endingAt: chartEnd)
+        check(overlapModel.trends[account]?.points.last?.usedPercent == 20,
+              "newer overlapping trend load publishes its result")
+        await overlapLoader.release()
+        await olderLoad.value
+        check(overlapModel.trends[account]?.points.last?.usedPercent == 20,
+              "older overlapping trend load cannot overwrite the newer result")
+
+        let gridHistory = UsageHistoryStore(url: root.appendingPathComponent("three-hour-history.sqlite3"))
+        let gridReset = Date(timeIntervalSince1970: 80 * 3_600)
+        for (at, remaining) in [(0.0, 90.0), (3.0, 70.0)] {
+            let sample = UsageSnapshot(
+                identity: initial.identity,
+                windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: remaining, resetsAt: gridReset)],
+                capturedAt: Date(timeIntervalSince1970: at * 3_600)
+            )
+            _ = try await gridHistory.append(account: account, snapshot: sample)
+        }
+        let gridSettings = UserSettings(
+            accounts: [account], defaultsSeeded: true, autoRefreshOnOpen: false,
+            refreshThresholdMinutes: 5, usageStatisticsEnabled: true, samplingIntervalHours: 3
+        )
+        let gridModel = CapBarViewModel(
+            settings: gridSettings, settingsStore: settingsStore,
+            coordinator: trendCoordinator, historyStore: gridHistory
+        )
+        gridModel.setTrendMode(true, reload: false)
+        await gridModel.reloadTrends(endingAt: Date(timeIntervalSince1970: 2.5 * 3_600))
+        await gridModel.reloadTrends(endingAt: Date(timeIntervalSince1970: 3.5 * 3_600))
+        check(gridModel.trends[account]?.points.last?.endAt == Date(timeIntervalSince1970: 3 * 3_600)
+              && gridModel.trends[account]?.points.last?.usedPercent == 20,
+              "three-hour chart reloads at its own UTC boundary even when the old two-hour cache key is unchanged")
     } catch {
         check(false, "view model checks setup succeeds: \(error)")
     }

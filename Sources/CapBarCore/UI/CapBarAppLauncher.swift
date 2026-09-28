@@ -56,6 +56,9 @@ import SwiftUI
     private var dismissalController: PopoverDismissalController?
     private var viewModel: CapBarViewModel?
     private var statusTimer: Timer?
+    private var samplingTimer: Timer?
+    private var samplingController: UsageSamplingController?
+    private var wakeObserver: NSObjectProtocol?
     private var outsideClickMonitor: Any?
     private var statusRightClickMonitor: Any?
     private var contextMenu: StatusContextMenu?
@@ -118,18 +121,32 @@ import SwiftUI
         do {
             let settingsStore = SettingsStore()
             let snapshotStore = SnapshotStore()
+            let historyStore = UsageHistoryStore()
             let settings = try await settingsStore.loadOrSeed()
             let coordinator = try await RefreshCoordinator(
                 settingsStore: settingsStore,
                 snapshotStore: snapshotStore,
+                historyStore: historyStore,
                 providers: [.claude: ClaudeClient(), .codex: CodexClient()],
                 policy: ProbePolicy.bundled()
             )
-            let model = CapBarViewModel(settings: settings, settingsStore: settingsStore, coordinator: coordinator)
+            let sampler = UsageSamplingController(coordinator: coordinator)
+            await sampler.start(settings: settings)
+            samplingController = sampler
+            let model = CapBarViewModel(
+                settings: settings, settingsStore: settingsStore,
+                coordinator: coordinator, historyStore: historyStore, samplingController: sampler
+            )
             model.onRowsChange = { [weak self] rows in self?.updateStatusItem(rows) }
             model.onPopoverSizeChange = { [weak self] size in self?.resizePopover(size) }
             model.onFolderPickerWillOpen = { [weak self] in self?.dismissalController?.beginDirectorySelection() }
             model.onFolderPickerFinished = { [weak self] in self?.dismissalController?.endDirectorySelection() }
+            model.onSamplingSettingsChange = { [weak self] changed in
+                Task { @MainActor [weak self] in
+                    guard let sampler = self?.samplingController else { return }
+                    await sampler.update(settings: changed)
+                }
+            }
             viewModel = model
 
             let panel = NSPopover()
@@ -145,6 +162,21 @@ import SwiftUI
             statusTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak model] _ in
                 Task { @MainActor in model?.updateRows() }
             }
+            samplingTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let sampler = self?.samplingController else { return }
+                    _ = await sampler.tick()
+                }
+            }
+            wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let sampler = self?.samplingController else { return }
+                    _ = await sampler.tick()
+                }
+            }
+            _ = await sampler.tick()
         } catch {
             statusItem?.button?.title = titleGap + "CapBar ⚠"
             let panel = NSPopover()
@@ -223,6 +255,8 @@ import SwiftUI
 
     func applicationWillTerminate(_ notification: Notification) {
         statusTimer?.invalidate()
+        samplingTimer?.invalidate()
+        if let wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver) }
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
         if let statusRightClickMonitor { NSEvent.removeMonitor(statusRightClickMonitor) }
         if let resignActiveObserver { NotificationCenter.default.removeObserver(resignActiveObserver) }
@@ -232,9 +266,11 @@ import SwiftUI
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let coordinator = viewModel?.coordinator else { return .terminateNow }
         statusTimer?.invalidate()
+        samplingTimer?.invalidate()
         viewModel?.closed()
         Task {
             await viewModel?.flushSettings()
+            await samplingController?.stop()
             await coordinator.cancelAll()
             sender.reply(toApplicationShouldTerminate: true)
         }

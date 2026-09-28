@@ -9,5 +9,7 @@ mkdir -p "$CAPBAR_IMAGES"
 cp /tmp/capbar-preview-dark.png "$CAPBAR_IMAGES/overview-dark.png"
 cp /tmp/capbar-preview-light.png "$CAPBAR_IMAGES/overview-light.png"
 cp /tmp/capbar-preview-settings.png "$CAPBAR_IMAGES/settings.png"
+cp /tmp/capbar-preview-trend-dark.png "$CAPBAR_IMAGES/trend-dark.png"
+cp /tmp/capbar-preview-trend-light.png "$CAPBAR_IMAGES/trend-light.png"
 
 print "README screenshots ready in $CAPBAR_IMAGES"

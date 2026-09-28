@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [.executable(name: "CapBar", targets: ["CapBar"])],
     targets: [
-        .target(name: "CapBarCore", resources: [.process("Resources")]),
+        .target(name: "CapBarCore", resources: [.process("Resources")], linkerSettings: [.linkedLibrary("sqlite3")]),
         .executableTarget(name: "CapBar", dependencies: ["CapBarCore"]),
         .executableTarget(name: "CapBarChecks", dependencies: ["CapBarCore"], path: "Tests/CapBarChecks"),
     ]

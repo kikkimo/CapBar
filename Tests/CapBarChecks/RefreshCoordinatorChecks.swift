@@ -131,6 +131,55 @@ private actor CancellableProvider: UsageProvider {
         let addedCoordinator = try await RefreshCoordinator(settingsStore: settingsStore, snapshotStore: snapshotStore, providers: [.claude: addedProvider], policy: ProbePolicy.bundled(), now: { now }, pause: { _ in })
         check(await addedCoordinator.requestRefreshAll(settings: unsavedSettings) == 1, "all refresh includes newly added account before settings save finishes")
         await addedCoordinator.cancelAll()
+
+        let historyStore = UsageHistoryStore(url: folder.appendingPathComponent("usage-history.sqlite3"))
+        let historicalProvider = HoldingProvider()
+        let historicalCoordinator = try await RefreshCoordinator(
+            settingsStore: settingsStore, snapshotStore: snapshotStore,
+            historyStore: historyStore, providers: [.claude: historicalProvider],
+            policy: ProbePolicy.bundled(), now: { now }, pause: { _ in }
+        )
+        let weekly = try QuotaWindow(kind: .sevenDay, remainingPercent: 67, resetsAt: now.addingTimeInterval(86_400))
+        let historicalSnapshot = UsageSnapshot(identity: old.identity, windows: [weekly], capturedAt: now)
+        check(await historicalCoordinator.requestRefresh(a, recordHistory: true), "statistics-enabled manual refresh starts")
+        for _ in 0..<100 {
+            if await historicalProvider.callCount(a) > 0 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        await historicalProvider.finish(a, snapshot: historicalSnapshot)
+        for _ in 0..<100 {
+            if await !historicalCoordinator.isRefreshing(a) { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let savedSamples = try await historyStore.samples(account: a, from: now.addingTimeInterval(-1), through: now.addingTimeInterval(1))
+        check(savedSamples.count == 1 && savedSamples.first?.usedPercent == 33, "successful refresh appends weekly history")
+        check((await historicalCoordinator.state())[a]?.snapshot?.capturedAt == now, "same refresh replaces latest JSON snapshot")
+        check(await historicalCoordinator.requestRefresh(b, recordHistory: false), "statistics-disabled manual refresh still starts")
+        for _ in 0..<100 {
+            if await historicalProvider.callCount(b) > 0 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        await historicalProvider.finish(b, snapshot: historicalSnapshot)
+        for _ in 0..<100 {
+            if await !historicalCoordinator.isRefreshing(b) { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let disabledSamples = try await historyStore.samples(account: b, from: now.addingTimeInterval(-1), through: now.addingTimeInterval(1))
+        check(disabledSamples.isEmpty, "statistics-disabled refresh does not append history")
+
+        let failedHistoryProvider = FailingProvider()
+        let failedHistory = try await RefreshCoordinator(
+            settingsStore: settingsStore, snapshotStore: snapshotStore,
+            historyStore: historyStore, providers: [.claude: failedHistoryProvider],
+            policy: ProbePolicy.bundled(), now: { now.addingTimeInterval(60) }, pause: { _ in }
+        )
+        check(await failedHistory.requestRefresh(newlyAdded, recordHistory: true), "failed historical refresh begins")
+        for _ in 0..<100 {
+            if await !failedHistory.isRefreshing(newlyAdded) { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let failedSamples = try await historyStore.samples(account: newlyAdded, from: now, through: now.addingTimeInterval(120))
+        check(failedSamples.isEmpty, "failed probe does not create a history point")
     } catch {
         check(false, "coordinator setup should succeed: \(error)")
     }

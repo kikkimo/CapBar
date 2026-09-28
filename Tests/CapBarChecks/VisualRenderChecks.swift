@@ -64,6 +64,139 @@ private actor PreviewHangingProvider: UsageProvider {
     model.showsSettings = true
     try render(model: model, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-settings-wide.png"))
 
+    let historyStore = UsageHistoryStore(url: folder.appendingPathComponent("preview-history.sqlite3"))
+    let gridEnd = floor(now.timeIntervalSince1970 / (2 * 3_600)) * (2 * 3_600)
+    func weightedUsed(_ index: Int, count: Int, start: Double, end: Double, spike: Int) -> Double {
+        let weights = (1...count).map { step in
+            step == spike ? 22.0 : step % 12 == 0 ? 5.0 : step % 5 == 0 ? 2.5 : 0.6
+        }
+        let completed = weights.prefix(index).reduce(0, +)
+        return start + (end - start) * completed / weights.reduce(0, +)
+    }
+    for (account, snapshot) in zip(accounts, snapshots) {
+        guard let weekly = snapshot.windows.first(where: { $0.kind == .sevenDay }) else { continue }
+        let currentUsed = 100 - weekly.remainingPercent
+        let hasReset = account == accounts[1]
+        let resetAt = Date(timeIntervalSince1970: gridEnd - 60 * 3_600)
+        for index in 0...84 {
+            if account == accounts[2] && (27...32).contains(index) { continue }
+            let used: Double
+            let nextReset: Date
+            if hasReset && index < 54 {
+                used = weightedUsed(index, count: 53, start: 12, end: 90, spike: 37)
+                nextReset = resetAt
+            } else if hasReset {
+                used = weightedUsed(index - 54, count: 30, start: 2, end: currentUsed, spike: 22)
+                nextReset = resetAt.addingTimeInterval(7 * 86_400)
+            } else {
+                used = weightedUsed(index, count: 84, start: 0, end: currentUsed, spike: 38)
+                nextReset = weekly.resetsAt ?? now.addingTimeInterval(4 * 86_400)
+            }
+            let historySnapshot = UsageSnapshot(
+                identity: snapshot.identity,
+                windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 100 - used, resetsAt: nextReset)],
+                capturedAt: Date(timeIntervalSince1970: gridEnd - Double(84 - index) * 2 * 3_600)
+            )
+            _ = try await historyStore.append(account: account, snapshot: historySnapshot)
+        }
+    }
+    let trendSettings = UserSettings(
+        accounts: accounts, defaultsSeeded: true, autoRefreshOnOpen: false,
+        refreshThresholdMinutes: 5, usageStatisticsEnabled: true
+    )
+    let trendSnapshotStore = SnapshotStore(url: folder.appendingPathComponent("trend-snapshots.json"))
+    for (index, account) in accounts.enumerated() {
+        let snapshot = snapshots[index]
+        let displaySnapshot: UsageSnapshot
+        if index == 0 {
+            displaySnapshot = UsageSnapshot(
+                identity: snapshot.identity,
+                windows: [try QuotaWindow(kind: .fiveHour, remainingPercent: 72, resetsAt: snapshot.windows[0].resetsAt),
+                          snapshot.windows[1]],
+                capturedAt: snapshot.capturedAt
+            )
+        } else {
+            displaySnapshot = snapshot
+        }
+        try await trendSnapshotStore.update(AccountRecord(
+            id: account, snapshot: displaySnapshot, lastAttemptAt: displaySnapshot.capturedAt, lastError: nil
+        ))
+    }
+    let trendCoordinator = try await RefreshCoordinator(
+        settingsStore: settingsStore, snapshotStore: trendSnapshotStore,
+        providers: [:], policy: ProbePolicy.bundled()
+    )
+    let trendModel = CapBarViewModel(
+        settings: trendSettings, settingsStore: settingsStore,
+        coordinator: trendCoordinator, historyStore: historyStore
+    )
+    trendModel.updateRows()
+    for _ in 0..<100 where trendModel.rows.count != accounts.count {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    trendModel.setTrendMode(true, reload: false)
+    await trendModel.reloadTrends()
+    try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-light.png"))
+    try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-dark.png"))
+    trendModel.setTrendMode(false)
+    try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-quota-expanded.png"))
+    trendModel.showsSettings = true
+    try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-usage-settings.png"))
+
+    let shortHistory = UsageHistoryStore(url: folder.appendingPathComponent("preview-short-history.sqlite3"))
+    let shortAccount = accounts[1]
+    let shortSnapshot = snapshots[1]
+    for (minutesAgo, used) in [(50, 20.0), (25, 25.0), (0, 30.0)] {
+        let sample = UsageSnapshot(
+            identity: shortSnapshot.identity,
+            windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 100 - used, resetsAt: now.addingTimeInterval(4 * 86_400))],
+            capturedAt: now.addingTimeInterval(-Double(minutesAgo) * 60)
+        )
+        _ = try await shortHistory.append(account: shortAccount, snapshot: sample)
+    }
+    let shortSettings = UserSettings(
+        accounts: [shortAccount], defaultsSeeded: true, autoRefreshOnOpen: false,
+        refreshThresholdMinutes: 5, usageStatisticsEnabled: true
+    )
+    let shortSampler = UsageSamplingController(coordinator: coordinator, now: { now })
+    await shortSampler.start(settings: shortSettings)
+    let shortModel = CapBarViewModel(
+        settings: shortSettings, settingsStore: settingsStore, coordinator: coordinator,
+        historyStore: shortHistory, samplingController: shortSampler
+    )
+    shortModel.updateRows()
+    for _ in 0..<100 where shortModel.rows.count != 1 {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    shortModel.setTrendMode(true, reload: false)
+    await shortModel.reloadTrends(endingAt: now)
+    try render(model: shortModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-empty.png"))
+
+    let singleHistory = UsageHistoryStore(url: folder.appendingPathComponent("preview-single-history.sqlite3"))
+    let singleGridEnd = floor(now.timeIntervalSince1970 / (4 * 3_600)) * (4 * 3_600)
+    let singleEnd = Date(timeIntervalSince1970: singleGridEnd + 5 * 60)
+    let singleReset = Date(timeIntervalSince1970: singleGridEnd + 4 * 86_400)
+    for (offset, used) in [(-4 * 3_600 - 23 * 60, 26.0), (-4 * 3_600 + 20, 26.0),
+                           (-3_600 - 37 * 60, 27.0), (2 * 60, 28.0)] {
+        let sample = UsageSnapshot(
+            identity: shortSnapshot.identity,
+            windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 100 - used, resetsAt: singleReset)],
+            capturedAt: Date(timeIntervalSince1970: singleGridEnd + Double(offset))
+        )
+        _ = try await singleHistory.append(account: shortAccount, snapshot: sample)
+    }
+    let singleModel = CapBarViewModel(
+        settings: shortSettings, settingsStore: settingsStore, coordinator: coordinator,
+        historyStore: singleHistory
+    )
+    singleModel.updateRows()
+    for _ in 0..<100 where singleModel.rows.count != 1 {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    singleModel.setTrendMode(true, reload: false)
+    await singleModel.reloadTrends(endingAt: singleEnd)
+    try render(model: singleModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-single.png"))
+
     let stateStore = SnapshotStore(url: folder.appendingPathComponent("state-snapshots.json"))
     try await stateStore.update(AccountRecord(id: accounts[0], snapshot: snapshots[0], lastAttemptAt: now, lastError: nil))
     try await stateStore.update(AccountRecord(id: accounts[1], snapshot: snapshots[1], lastAttemptAt: now, lastError: "探测失败，请手动重试"))
@@ -77,7 +210,7 @@ private actor PreviewHangingProvider: UsageProvider {
     }
     try render(model: stateModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-states.png"))
     await stateCoordinator.cancelAll()
-    print("Rendered /tmp/capbar-preview-{light,dark,settings,wide,settings-wide,states}.png")
+    print("Rendered /tmp/capbar-preview-{light,dark,settings,wide,settings-wide,states,trend-light,trend-dark,trend-empty,trend-single,quota-expanded,usage-settings}.png")
 }
 
 @MainActor private func render(model: CapBarViewModel, appearance: NSAppearance.Name, to url: URL) throws {

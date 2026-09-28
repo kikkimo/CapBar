@@ -34,7 +34,7 @@ struct CapBarSettingsView: View {
                 .font(.system(size: 12, weight: .medium))
                 .toggleStyle(.switch)
                 .padding(.top, 10)
-                Text("关闭时只显示上次快照，不在后台定时刷新。")
+                Text("关闭时打开弹窗只显示上次快照；下方用量统计的定时采样独立运行。")
                     .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
                 HStack(spacing: 12) {
                     Text("刷新阈值（分钟）").font(.system(size: 11, weight: .medium))
@@ -51,6 +51,36 @@ struct CapBarSettingsView: View {
                 }
                 .padding(.top, 13)
                 Text("开启后逐账号判断：距上次探测超过阈值才刷新。")
+                    .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
+
+                sectionTitle("7 日用量统计").padding(.top, 20)
+                Toggle("开启用量统计", isOn: Binding(
+                    get: { model.settings.usageStatisticsEnabled },
+                    set: { model.setUsageStatisticsEnabled($0) }
+                ))
+                .font(.system(size: 12, weight: .medium))
+                .toggleStyle(.switch)
+                .padding(.top, 10)
+                Text("开启后，CapBar 运行期间会定时探测各账号额度；从 7 日重置前 \(model.settings.samplingIntervalHours) 小时起每小时采样。退出 CapBar 后停止。探测可能消耗少量额度。")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(nsColor: .systemRed))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 5)
+                HStack(spacing: 12) {
+                    Text("定时采样间隔").font(.system(size: 11, weight: .medium))
+                    Spacer()
+                    Stepper(value: Binding(
+                        get: { SamplingInterval.allowedHours.firstIndex(of: model.settings.samplingIntervalHours) ?? 3 },
+                        set: { model.setSamplingInterval(SamplingInterval.allowedHours[$0]) }
+                    ), in: 0...(SamplingInterval.allowedHours.count - 1)) {
+                        Text("\(model.settings.samplingIntervalHours) 小时")
+                            .font(.system(size: 12)).monospacedDigit()
+                    }
+                    .frame(width: 118)
+                    .disabled(!model.settings.usageStatisticsEnabled)
+                }
+                .padding(.top, 13)
+                Text("仅可选 1、2、3、4、6、8 小时，默认 4 小时。走势图按所选间隔分组；1 小时采样时按 2 小时绘图。关闭统计也会停止定时采样。")
                     .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
 
                 sectionTitle("启动").padding(.top, 20)
