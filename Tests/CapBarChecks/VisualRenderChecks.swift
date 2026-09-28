@@ -151,14 +151,15 @@ private actor PreviewHangingProvider: UsageProvider {
     try render(model: shortModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-empty.png"))
 
     let singleHistory = UsageHistoryStore(url: folder.appendingPathComponent("preview-single-history.sqlite3"))
-    let singleEnd = Date(timeIntervalSince1970: gridEnd + 5 * 60)
-    let singleReset = Date(timeIntervalSince1970: gridEnd + 4 * 86_400)
-    for (offset, used) in [(-2 * 3_600 - 23 * 60, 26.0), (-2 * 3_600 + 20, 26.0),
+    let singleGridEnd = floor(now.timeIntervalSince1970 / (4 * 3_600)) * (4 * 3_600)
+    let singleEnd = Date(timeIntervalSince1970: singleGridEnd + 5 * 60)
+    let singleReset = Date(timeIntervalSince1970: singleGridEnd + 4 * 86_400)
+    for (offset, used) in [(-4 * 3_600 - 23 * 60, 26.0), (-4 * 3_600 + 20, 26.0),
                            (-3_600 - 37 * 60, 27.0), (2 * 60, 28.0)] {
         let sample = UsageSnapshot(
             identity: shortSnapshot.identity,
             windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 100 - used, resetsAt: singleReset)],
-            capturedAt: Date(timeIntervalSince1970: gridEnd + Double(offset))
+            capturedAt: Date(timeIntervalSince1970: singleGridEnd + Double(offset))
         )
         _ = try await singleHistory.append(account: shortAccount, snapshot: sample)
     }

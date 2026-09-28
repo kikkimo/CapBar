@@ -128,7 +128,10 @@ private actor GatedTrendLoader {
         _ = try await historyStore.append(account: account, snapshot: latest)
         try await snapshotStore.update(AccountRecord(id: account, snapshot: latest, lastAttemptAt: chartEnd, lastError: nil))
         let trendCoordinator = try await RefreshCoordinator(settingsStore: settingsStore, snapshotStore: snapshotStore, providers: [:], policy: ProbePolicy.bundled())
-        let trendSettings = UserSettings(accounts: [account], defaultsSeeded: true, autoRefreshOnOpen: false, refreshThresholdMinutes: 5, usageStatisticsEnabled: true)
+        let trendSettings = UserSettings(
+            accounts: [account], defaultsSeeded: true, autoRefreshOnOpen: false,
+            refreshThresholdMinutes: 5, usageStatisticsEnabled: true, samplingIntervalHours: 2
+        )
         let sampler = UsageSamplingController(coordinator: trendCoordinator, now: { chartEnd })
         await sampler.start(settings: trendSettings)
         let trendModel = CapBarViewModel(
@@ -197,6 +200,31 @@ private actor GatedTrendLoader {
         await olderLoad.value
         check(overlapModel.trends[account]?.points.last?.usedPercent == 20,
               "older overlapping trend load cannot overwrite the newer result")
+
+        let gridHistory = UsageHistoryStore(url: root.appendingPathComponent("three-hour-history.sqlite3"))
+        let gridReset = Date(timeIntervalSince1970: 80 * 3_600)
+        for (at, remaining) in [(0.0, 90.0), (3.0, 70.0)] {
+            let sample = UsageSnapshot(
+                identity: initial.identity,
+                windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: remaining, resetsAt: gridReset)],
+                capturedAt: Date(timeIntervalSince1970: at * 3_600)
+            )
+            _ = try await gridHistory.append(account: account, snapshot: sample)
+        }
+        let gridSettings = UserSettings(
+            accounts: [account], defaultsSeeded: true, autoRefreshOnOpen: false,
+            refreshThresholdMinutes: 5, usageStatisticsEnabled: true, samplingIntervalHours: 3
+        )
+        let gridModel = CapBarViewModel(
+            settings: gridSettings, settingsStore: settingsStore,
+            coordinator: trendCoordinator, historyStore: gridHistory
+        )
+        gridModel.setTrendMode(true, reload: false)
+        await gridModel.reloadTrends(endingAt: Date(timeIntervalSince1970: 2.5 * 3_600))
+        await gridModel.reloadTrends(endingAt: Date(timeIntervalSince1970: 3.5 * 3_600))
+        check(gridModel.trends[account]?.points.last?.endAt == Date(timeIntervalSince1970: 3 * 3_600)
+              && gridModel.trends[account]?.points.last?.usedPercent == 20,
+              "three-hour chart reloads at its own UTC boundary even when the old two-hour cache key is unchanged")
     } catch {
         check(false, "view model checks setup succeeds: \(error)")
     }

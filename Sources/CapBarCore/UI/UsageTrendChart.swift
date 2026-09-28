@@ -1,9 +1,13 @@
 import SwiftUI
 
+enum UsageTrendChartText {
+    static func intervalUsageLabel(binHours: Int) -> String { "这 \(binHours) 小时用量" }
+}
+
 enum UsageTrendEmptyState {
-    static func lines(sampleCount: Int, nextSampleAt: Date?, now: Date, calendar: Calendar) -> [String] {
+    static func lines(sampleCount: Int, binHours: Int, nextSampleAt: Date?, now: Date, calendar: Calendar) -> [String] {
         let count = "近 7 日已采样 \(sampleCount) 次"
-        let reason = sampleCount == 0 ? "尚无历史采样记录" : "尚未覆盖完整的 2 小时区间"
+        let reason = sampleCount == 0 ? "尚无历史采样记录" : "尚未覆盖完整的 \(binHours) 小时区间"
         guard let nextSampleAt else {
             return [count, reason, "等待下次定时采样；也可手动刷新"]
         }
@@ -41,10 +45,11 @@ enum UsageTrendChartLayout {
     static let top: CGFloat = 8
     static let bottomInset: CGFloat = 21
 
-    static func dateLabels(points: [UsageTrendPoint], calendar: Calendar) -> [UsageTrendDateLabel] {
+    static func dateLabels(points: [UsageTrendPoint], binHours: Int, calendar: Calendar) -> [UsageTrendDateLabel] {
         var groups: [(day: DateComponents, first: Int, last: Int)] = []
         for (index, point) in points.enumerated() {
-            let day = calendar.dateComponents([.era, .year, .month, .day], from: point.endAt)
+            let midpoint = point.endAt.addingTimeInterval(-Double(binHours) * 1_800)
+            let day = calendar.dateComponents([.era, .year, .month, .day], from: midpoint)
             if let last = groups.indices.last, groups[last].day == day {
                 groups[last].last = index
             } else {
@@ -105,7 +110,7 @@ struct UsageTrendChart: View {
                     }
             } else if let series {
                 let lines = UsageTrendEmptyState.lines(
-                    sampleCount: series.sampleCount, nextSampleAt: series.nextSampleAt,
+                    sampleCount: series.sampleCount, binHours: series.binHours, nextSampleAt: series.nextSampleAt,
                     now: Date(), calendar: calendar
                 )
                 VStack(spacing: 5) {
@@ -172,7 +177,7 @@ struct UsageTrendChart: View {
                     .position(x: max(UsageTrendChartLayout.leading + 16, point.x - 18),
                               y: max(UsageTrendChartLayout.top + 6, point.y - 13))
             }
-            ForEach(UsageTrendChartLayout.dateLabels(points: series.points, calendar: calendar), id: \.index) { label in
+            ForEach(UsageTrendChartLayout.dateLabels(points: series.points, binHours: series.binHours, calendar: calendar), id: \.index) { label in
                 Text(label.text)
                     .font(.system(size: 8, weight: .medium))
                     .foregroundStyle(secondary)
@@ -196,7 +201,7 @@ struct UsageTrendChart: View {
                         .frame(width: 7, height: 7)
                         .position(x: x, y: UsageTrendChartLayout.yPosition(value: usage, axisMaximum: series.axisMaximum, height: size.height))
                 }
-                tooltip(for: point)
+                tooltip(for: point, series: series)
                     .frame(width: 166)
                     .position(x: min(max(83, x), max(83, size.width - 83)), y: -29)
                     .zIndex(3)
@@ -205,7 +210,7 @@ struct UsageTrendChart: View {
         .frame(width: size.width, height: size.height)
     }
 
-    private func tooltip(for point: UsageTrendPoint) -> some View {
+    private func tooltip(for point: UsageTrendPoint, series: UsageTrendSeries) -> some View {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
@@ -223,7 +228,7 @@ struct UsageTrendChart: View {
                     .fontWeight(.bold)
             }
             HStack {
-                Text("这 2 小时用量").foregroundStyle(secondary)
+                Text(UsageTrendChartText.intervalUsageLabel(binHours: series.binHours)).foregroundStyle(secondary)
                 Spacer(minLength: 4)
                 Text(point.usedPercent.map(percent) ?? "—").fontWeight(.bold)
             }

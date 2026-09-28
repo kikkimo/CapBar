@@ -12,6 +12,7 @@ struct UsageTrendPoint: Sendable {
 
 struct UsageTrendSeries: Sendable {
     let points: [UsageTrendPoint]
+    let binHours: Int
     let axisMaximum: Double
     let axisTicks: [Double]
     let sampleCount: Int
@@ -19,7 +20,6 @@ struct UsageTrendSeries: Sendable {
 }
 
 enum UsageTrendCalculator {
-    private static let binSeconds: TimeInterval = 2 * 3_600
     private static let epsilon: TimeInterval = 0.000_001
 
     static func calculate(
@@ -31,9 +31,12 @@ enum UsageTrendCalculator {
         let spans = zip(ordered, ordered.dropFirst()).map {
             Span(first: $0.0, last: $0.1, intervalHours: max(1, intervalHours))
         }
+        let binHours = max(2, intervalHours)
+        let binSeconds = Double(binHours) * 3_600
+        let pointCount = 7 * 24 / binHours
         let gridEnd = floor(now.timeIntervalSince1970 / binSeconds) * binSeconds
-        let firstEnd = gridEnd - Double(83) * binSeconds
-        let points = (0..<84).map { index in
+        let firstEnd = gridEnd - Double(pointCount - 1) * binSeconds
+        let points = (0..<pointCount).map { index in
             let end = firstEnd + Double(index) * binSeconds
             let start = end - binSeconds
             guard let usage = consumption(from: start, to: end, spans: spans) else {
@@ -58,7 +61,7 @@ enum UsageTrendCalculator {
         let sampleCount = ordered.filter {
             $0.capturedAt >= now.addingTimeInterval(-7 * 86_400) && $0.capturedAt <= now
         }.count
-        return UsageTrendSeries(points: points, axisMaximum: maximum, axisTicks: ticks, sampleCount: sampleCount)
+        return UsageTrendSeries(points: points, binHours: binHours, axisMaximum: maximum, axisTicks: ticks, sampleCount: sampleCount)
     }
 
     private static func consumption(

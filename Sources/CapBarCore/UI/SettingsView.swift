@@ -80,7 +80,7 @@ struct CapBarSettingsView: View {
                     .disabled(!model.settings.usageStatisticsEnabled)
                 }
                 .padding(.top, 13)
-                Text("仅可选 1、2、3、4、6、8 小时，默认 4 小时；关闭统计也会停止定时采样。")
+                Text("仅可选 1、2、3、4、6、8 小时，默认 4 小时。走势图按所选间隔分组；1 小时采样时按 2 小时绘图。关闭统计也会停止定时采样。")
                     .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
 
                 sectionTitle("启动").padding(.top, 20)

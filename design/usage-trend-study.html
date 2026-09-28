@@ -124,7 +124,7 @@
 <body>
 <main class="page">
   <p class="eyebrow">CapBar / Design study / 7-day usage</p>
-  <h1>每两小时，实际用了多少</h1>
+  <h1>每个采样区间，实际用了多少</h1>
   <p class="intro">可交互的视觉设计稿。底部“额度｜走势”同时切换所有账号；每张走势图占用原额度区域的高度。为展示走势图，本页将统计开关预置为开启；正式产品默认关闭。这里全部使用虚构账号和示例数据，不连接 Claude 或 Codex。</p>
   <div class="stage">
     <div class="desktop">
@@ -138,7 +138,7 @@
             <section><h3>刷新行为</h3><label class="setting-row">打开弹窗时自动刷新 <input type="checkbox" id="auto-on-open"></label><p>此选项默认关闭。开启后仍按每账号刷新阈值判断。</p></section>
             <section><h3>7 日用量统计</h3><label class="setting-row">开启用量统计 <input type="checkbox" id="stats-enabled" checked></label><p class="warning" id="sampling-warning"></p>
               <div class="setting-row"><span>定时采样间隔</span><div class="stepper"><button type="button" id="interval-down" aria-label="缩短采样间隔">−</button><span id="interval-value">4 小时</span><button type="button" id="interval-up" aria-label="延长采样间隔">＋</button></div></div>
-              <p>统计功能默认关闭。采样间隔仅可选 1、2、3、4、6、8 小时，默认 4 小时；没有单独的采样开关。</p><p class="schedule" id="schedule-example"></p>
+              <p>统计功能默认关闭。采样间隔仅可选 1、2、3、4、6、8 小时，默认 4 小时；走势图按所选间隔分组，1 小时档按 2 小时绘图。没有单独的采样开关。</p><p class="schedule" id="schedule-example"></p>
             </section>
             <div class="section-note"><strong>首次开启与重置附近</strong><p id="reset-schedule-note"></p></div>
           </div>
@@ -148,7 +148,7 @@
     </div>
   </div>
   <div class="notes">
-    <article><strong>每个点的含义</strong><p>一个点是该账号在对应两小时内消耗的 7 日额度百分点。横轴只标本地日期；纵轴由当前 7 日最大用量动态计算。</p></article>
+    <article><strong>每个点的含义</strong><p>一个点是该账号在对应绘图区间内消耗的 7 日额度百分点。采样设为 1 小时时仍画两小时点；其余档位按所选间隔绘制。横轴只标本地日期。</p></article>
     <article><strong>线段语义</strong><p>普通区间用柔和实线；跨重置与缺测区间用虚线。曲线穿过实际数据点，不产生超出相邻点的视觉峰值。</p></article>
     <article><strong>同一条刷新流程</strong><p>人工刷新和定时采样都更新历史；最新一次成功采集覆盖该账号的 JSON 快照。采样中单账号按钮禁用，全局刷新跳过忙碌账号。</p></article>
   </div>
@@ -165,61 +165,73 @@
     ];
     const byId = id => document.getElementById(id);
     const esc = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    function chartGrid() {
+      const hours = Math.max(2, intervals[state.intervalIndex]);
+      const milliseconds = hours * 3600000;
+      return { hours, milliseconds, count: 168 / hours, end: Math.floor(Date.now() / milliseconds) * milliseconds };
+    }
     function makeValues(account) {
-      const values = Array.from({ length: 84 }, (_, i) => {
+      const { count } = chartGrid();
+      const at = fraction => Math.round((count - 1) * fraction);
+      const values = Array.from({ length: count }, (_, i) => {
         const wave = Math.abs(Math.sin((i + (account.id === "codex" ? 7 : 2)) * .41));
         const daily = Math.abs(Math.sin(i * .17 + 1.4));
         return Math.round(4 + 19 * wave * daily + ((i % 17 === 0) ? 12 : 0));
       });
-      if (account.id === "work-a") { values[43] = 54; for (let i = 18; i <= 22; i++) values[i] = null; }
-      if (account.id === "work-b") { values[58] = 74; values[59] = 49; }
-      if (account.id === "codex") { values[61] = 200; values[62] = 27; for (let i = 28; i <= 31; i++) values[i] = null; }
+      if (account.id === "work-a") { values[at(.52)] = 54; for (let i = at(.22); i <= at(.27); i++) values[i] = null; }
+      if (account.id === "work-b") { values[at(.70)] = 74; values[at(.72)] = 49; }
+      if (account.id === "codex") { values[at(.74)] = 200; values[at(.76)] = 27; for (let i = at(.34); i <= at(.38); i++) values[i] = null; }
       return values;
     }
     function axisMax(values) { return Math.max(10, Math.ceil(Math.max(...values.filter(v => v !== null)) / 10) * 10); }
     function plotSvg(account) {
       const values = makeValues(account), top = axisMax(values), x0 = 25, x1 = 386, y0 = 8, y1 = 63;
+      const grid = chartGrid(), last = grid.count - 1;
       const yTicks = top % 30 === 0 ? [0, top / 3, top * 2 / 3, top] : [0, top / 2, top];
       const yGrid = yTicks.map((value, index) => {
         const y = y1 - value / top * (y1 - y0);
         const middle = index > 0 && index < yTicks.length - 1;
         return `<line class="grid${middle ? " mid" : ""}" x1="${x0}" x2="${x1}" y1="${y}" y2="${y}"/><text class="axis" x="21" y="${(y + 2.7).toFixed(1)}" text-anchor="end">${value}%</text>`;
       }).join("");
-      const pt = i => [x0 + (x1 - x0) * i / 83, y1 - values[i] / top * (y1 - y0)];
+      const pt = i => [x0 + (x1 - x0) * i / last, y1 - values[i] / top * (y1 - y0)];
       const curve = (a, b) => { const [ax, ay] = pt(a), [bx, by] = pt(b), dx = bx - ax; return `M ${ax.toFixed(2)} ${ay.toFixed(2)} C ${(ax + dx * .42).toFixed(2)} ${ay.toFixed(2)}, ${(bx - dx * .42).toFixed(2)} ${by.toFixed(2)}, ${bx.toFixed(2)} ${by.toFixed(2)}`; };
       const paths = [];
-      for (let i = 0; i < 83; i++) {
+      for (let i = 0; i < last; i++) {
         if (values[i] === null) continue;
         let j = i + 1;
-        while (j < 84 && values[j] === null) j++;
-        if (j >= 84) break;
-        const dashed = j !== i + 1 || (account.id === "codex" && i === 60) || (account.id === "work-b" && i === 57);
+        while (j < grid.count && values[j] === null) j++;
+        if (j >= grid.count) break;
+        const dashed = j !== i + 1 || (account.id === "codex" && i === Math.round(last * .73)) || (account.id === "work-b" && i === Math.round(last * .69));
         paths.push(`<path class="line${dashed ? " dash" : ""}" d="${curve(i, j)}"/>`);
         i = j - 1;
       }
-      const end = Math.floor(Date.now() / 7200000) * 7200000;
-      const ticks = [0, 12, 24, 36, 48, 60, 72, 83].map((i, n) => {
-        const date = new Date(end - (83 - i) * 7200000);
-        const label = date.getDate();
-        return `<text class="axis" x="${(x0 + (x1 - x0) * i / 83).toFixed(1)}" y="80" text-anchor="${n === 0 ? "start" : n === 7 ? "end" : "middle"}">${label}</text>`;
+      const days = [];
+      for (let i = 0; i < grid.count; i++) {
+        const date = new Date(grid.end - (last - i) * grid.milliseconds - grid.milliseconds / 2);
+        const key = date.toDateString();
+        if (days.at(-1)?.key === key) days.at(-1).last = i;
+        else days.push({ key, label: date.getDate(), first: i, last: i });
+      }
+      const ticks = days.map((day, n) => {
+        const i = (day.first + day.last) / 2;
+        return `<text class="axis" x="${(x0 + (x1 - x0) * i / last).toFixed(1)}" y="80" text-anchor="${n === 0 ? "start" : n === days.length - 1 ? "end" : "middle"}">${day.label}</text>`;
       }).join("");
-      return `<div class="plot" data-account="${account.id}" aria-label="鼠标移入可查看附近时刻的 7 天剩余额度和两小时用量"><svg viewBox="0 0 390 84" role="img" aria-label="${esc(account.name)}：7 日用量走势图，纵轴刻度 ${yTicks.join("、")}%">${yGrid}${paths.join("")}<line class="crosshair" y1="${y0}" y2="${y1}"/><circle class="hover-dot" r="3"/>${ticks}</svg><div class="chart-tooltip"><div class="tip-time"></div><div class="tip-line quota"><span>7 天额度剩余</span><strong class="tip-quota"></strong></div><div class="tip-line"><span>这 2 小时用量</span><strong class="tip-use"></strong></div><div class="tip-source"></div></div></div>`;
+      return `<div class="plot" data-account="${account.id}" aria-label="鼠标移入可查看附近时刻的 7 天剩余额度和${grid.hours}小时用量"><svg viewBox="0 0 390 84" role="img" aria-label="${esc(account.name)}：7 日用量走势图，纵轴刻度 ${yTicks.join("、")}%">${yGrid}${paths.join("")}<line class="crosshair" y1="${y0}" y2="${y1}"/><circle class="hover-dot" r="3"/>${ticks}</svg><div class="chart-tooltip"><div class="tip-time"></div><div class="tip-line quota"><span>7 天额度剩余</span><strong class="tip-quota"></strong></div><div class="tip-line"><span>这 ${grid.hours} 小时用量</span><strong class="tip-use"></strong></div><div class="tip-source"></div></div></div>`;
     }
     function showPlotTooltip(event) {
       const plot = event.currentTarget, svg = plot.querySelector("svg"), account = accounts.find(a => a.id === plot.dataset.account);
-      const box = svg.getBoundingClientRect(), values = makeValues(account), top = axisMax(values);
+      const box = svg.getBoundingClientRect(), values = makeValues(account), top = axisMax(values), grid = chartGrid(), last = grid.count - 1;
       const svgX = (event.clientX - box.left) * 390 / box.width;
-      const index = Math.max(0, Math.min(83, Math.round((svgX - 25) * 83 / 361)));
-      const x = 25 + 361 * index / 83, value = values[index];
+      const index = Math.max(0, Math.min(last, Math.round((svgX - 25) * last / 361)));
+      const x = 25 + 361 * index / last, value = values[index];
       const crosshair = plot.querySelector(".crosshair"), dot = plot.querySelector(".hover-dot"), tooltip = plot.querySelector(".chart-tooltip");
       crosshair.setAttribute("x1", x); crosshair.setAttribute("x2", x);
       if (value !== null) { dot.setAttribute("cx", x); dot.setAttribute("cy", 63 - value / top * 55); }
       plot.classList.add("is-active"); plot.classList.toggle("is-missing", value === null);
-      const end = Math.floor(Date.now() / 7200000) * 7200000;
-      const time = new Date(end - (83 - index) * 7200000);
+      const time = new Date(grid.end - (last - index) * grid.milliseconds);
       plot.querySelector(".tip-time").textContent = time.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) + " · 本地时间";
-      const crossesReset = account.id === "codex" && index === 61;
-      const remaining = Math.min(100, Math.round(account.seven + (83 - index) * .32));
+      const crossesReset = account.id === "codex" && index === Math.round(last * .74);
+      const remaining = Math.min(100, Math.round(account.seven + (last - index) * .32));
       plot.querySelector(".tip-quota").textContent = value === null || crossesReset ? "—" : `${remaining}%`;
       plot.querySelector(".tip-use").textContent = value === null ? "—" : `${value}%`;
       plot.querySelector(".tip-source").textContent = value === null ? "缺测区间，额度未知" : crossesReset ? "跨重置区间，剩余额度不可可靠估算" : index % 2 === 0 ? "采样值 · 示例数据" : "线性估算 · 示例数据";
@@ -235,7 +247,7 @@
     function accountHtml(a) {
       const busy = state.busy.has(a.id), age = state.updated[a.id] ? "刚刚" : a.age;
       let content;
-      if (state.mode === "chart") content = a.type === "empty" ? `<div class="empty-chart"><div>数据不足，等待下一个采样点<small>没有观测的数据不会记作 0% 用量</small></div></div>` : plotSvg(a);
+      if (state.mode === "chart") content = a.type === "empty" ? `<div class="empty-chart"><div>尚未覆盖完整的 ${chartGrid().hours} 小时区间<small>没有观测的数据不会记作 0% 用量</small></div></div>` : plotSvg(a);
       else content = `<div class="metrics">${a.five !== undefined ? metric("5 小时", a.five) : ""}${metric("7 天", a.seven)}</div>`;
       return `<div class="account"><div class="account-head"><div class="identity"><strong>${esc(a.name)}</strong><small>${esc(a.meta)}</small></div><span class="timestamp ${state.updated[a.id] ? "fresh" : a.ageClass}">◷ ${age}</span>${busy ? '<span class="loading-label">采样中</span>' : ""}<button class="refresh-one" type="button" data-refresh="${a.id}" aria-label="刷新 ${esc(a.name)}" title="${busy ? "采样中，刷新不可用" : "手动刷新"}" ${busy ? "disabled" : ""}>${busy ? '<span class="spinner" aria-hidden="true"></span>' : "↻"}</button></div><div class="account-content">${content}</div></div>`;
     }
@@ -288,7 +300,8 @@
     }
     function chartClockKey() {
       const now = new Date();
-      return `${Math.floor(now.getTime() / 7200000)}:${now.toDateString()}`;
+      const grid = chartGrid();
+      return `${grid.hours}:${grid.end}:${now.toDateString()}`;
     }
     let shownClockKey = chartClockKey();
     function updateRollingWindow() {

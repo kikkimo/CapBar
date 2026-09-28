@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task by task. Steps use checkbox syntax for tracking.
 
-**Goal:** 在 CapBar 中提供可关闭的 7 日用量统计、UTC 定时采样、SQLite 历史和逐账号两小时用量走势图。
+**Goal:** 在 CapBar 中提供可关闭的 7 日用量统计、UTC 定时采样、SQLite 历史和逐账号用量走势图。绘图按采样设置采用 2、3、4、6 或 8 小时网格，1 小时采样时仍绘制两小时网格。
 
-**Architecture:** 继续使用 `RefreshCoordinator` 作为唯一探测入口，成功结果写最新 JSON，并在统计开启时追加 7 日额度历史。独立的调度器只决定何时调用刷新，不自行调用 Claude/Codex。纯计算模块从真实采样点生成两小时用量和图表状态，SwiftUI 只负责绘制与悬停。
+**Architecture:** 继续使用 `RefreshCoordinator` 作为唯一探测入口，成功结果写最新 JSON，并在统计开启时追加 7 日额度历史。独立的调度器只决定何时调用刷新，不自行调用 Claude/Codex。纯计算模块按采样设置选择 UTC 绘图网格，从真实采样点生成每区间用量和图表状态；SwiftUI 只负责绘制与悬停。
 
 **Tech Stack:** Swift 6、macOS 14、SwiftUI、系统 SQLite3、现有 `CapBarChecks` 测试执行器。
 
@@ -50,7 +50,7 @@
 - [x] 用系统 SQLite3 实现独立 actor；不存身份邮件或凭据，文件权限 0600。
 - [x] 运行目标测试和完整检查。
 
-### Task 3: 两小时用量计算
+### Task 3: 按采样间隔计算区间用量
 
 **Files:** 新建 `Sources/CapBarCore/Domain/UsageTrend.swift`；`Tests/CapBarChecks/UsageTrendChecks.swift`；`Tests/CapBarChecks/Runner.swift`。
 
@@ -60,6 +60,7 @@
 - [x] 写 UTC 网格、本地跨日、同周期倒退、缺少 resetAt、超过间隔容差、人工中途采样和纵轴刻度用例。
 - [x] 运行 `swift run CapBarChecks --filter UsageTrendTests` 见红，再实现分段线性插值和缺测标志。
 - [x] 运行目标测试及完整检查。
+- [x] 后续修订：1/2 小时采样对应 84 个两小时格，3/4/6/8 小时采样分别对应 56/42/28/21 个同长度格；加入人工采样跨网格插值与缓存边界回归检查。
 
 ### Task 4: 刷新结果写双存储
 

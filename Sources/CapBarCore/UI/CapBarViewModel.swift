@@ -139,10 +139,11 @@ import Foundation
               historyStore != nil || historySampleLoader != nil else { return }
         trendReloadGeneration += 1
         let generation = trendReloadGeneration
-        let gridEnd = floor(now.timeIntervalSince1970 / 7_200) * 7_200
         let records = await coordinator.viewState().records
         let accounts = settings.accounts
         let intervalHours = settings.samplingIntervalHours
+        let binSeconds = Double(max(2, intervalHours)) * 3_600
+        let gridEnd = floor(now.timeIntervalSince1970 / binSeconds) * binSeconds
         var result = trends.filter { accounts.contains($0.key) }
         var newKeys = trendKeys.filter { accounts.contains($0.key) }
         for account in accounts {
@@ -157,7 +158,7 @@ import Foundation
                 intervalHours: intervalHours
             )
             if trendKeys[account] == key, result[account] != nil { continue }
-            let start = Date(timeIntervalSince1970: gridEnd - 84 * 7_200 - Double(intervalHours) * 3_600 - 900)
+            let start = Date(timeIntervalSince1970: gridEnd - 7 * 86_400 - Double(intervalHours) * 3_600 - 900)
             do {
                 let samples: [UsageHistorySample]
                 if let historySampleLoader {
