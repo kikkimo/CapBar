@@ -104,9 +104,31 @@ private actor PreviewHangingProvider: UsageProvider {
         accounts: accounts, defaultsSeeded: true, autoRefreshOnOpen: false,
         refreshThresholdMinutes: 5, usageStatisticsEnabled: true
     )
+    let trendSnapshotStore = SnapshotStore(url: folder.appendingPathComponent("trend-snapshots.json"))
+    for (index, account) in accounts.enumerated() {
+        let snapshot = snapshots[index]
+        let displaySnapshot: UsageSnapshot
+        if index == 0 {
+            displaySnapshot = UsageSnapshot(
+                identity: snapshot.identity,
+                windows: [try QuotaWindow(kind: .fiveHour, remainingPercent: 72, resetsAt: snapshot.windows[0].resetsAt),
+                          snapshot.windows[1]],
+                capturedAt: snapshot.capturedAt
+            )
+        } else {
+            displaySnapshot = snapshot
+        }
+        try await trendSnapshotStore.update(AccountRecord(
+            id: account, snapshot: displaySnapshot, lastAttemptAt: displaySnapshot.capturedAt, lastError: nil
+        ))
+    }
+    let trendCoordinator = try await RefreshCoordinator(
+        settingsStore: settingsStore, snapshotStore: trendSnapshotStore,
+        providers: [:], policy: ProbePolicy.bundled()
+    )
     let trendModel = CapBarViewModel(
         settings: trendSettings, settingsStore: settingsStore,
-        coordinator: coordinator, historyStore: historyStore
+        coordinator: trendCoordinator, historyStore: historyStore
     )
     trendModel.updateRows()
     for _ in 0..<100 where trendModel.rows.count != accounts.count {

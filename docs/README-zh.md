@@ -1,7 +1,7 @@
 # CapBar
 
 [![CI](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml)
-[![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-2F80ED?style=flat-square)](../scripts/Info.plist)
+[![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-2F80ED?style=flat-square)](../scripts/Info.plist)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#安装与使用)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](../Package.swift)
 [![Apple Silicon](https://img.shields.io/badge/arch-Apple%20Silicon-0A7F75?style=flat-square)](#从源码构建)
@@ -24,13 +24,20 @@
 - **按需刷新：** 可以单独刷新账号，也可以刷新全部空闲账号。默认打开弹窗只显示已有快照；可选开启“打开时自动刷新”，按账号判断是否超过共用阈值，默认 5 分钟。
 - **状态清楚：** 刷新时显示进度并保留旧额度；失败后继续显示上一次成功快照，同时标记失败。
 - **符合 macOS 的交互：** 支持浅色和深色外观、可调整尺寸的弹窗、菜单栏右键菜单，以及可选的登录时启动。
+- **可选用量走势：** 按账号查看滚动 7 日额度消耗。开启统计后，CapBar 运行期间会定时采样；间隔默认 4 小时，可选 1、2、3、4、6、8 小时。手动刷新也会写入采样。走势图按所选间隔分组，最短绘图区间为 2 小时。
+
+| 深色用量走势 | 浅色用量走势 |
+| :---: | :---: |
+| ![CapBar 深色用量走势](images/trend-dark.png) | ![CapBar 浅色用量走势](images/trend-light.png) |
+
+*走势示意图使用虚构账号与采样数据。*
 
 ## 安装与使用
 
-CapBar 0.1.1 需要 **macOS 14 或更高版本**及 **Apple Silicon Mac**。从 [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest) 下载安装包与校验文件；安装包由 CI 从对应版本源码构建。
+CapBar 0.1.2 需要 **macOS 14 或更高版本**及 **Apple Silicon Mac**。从 [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest) 下载安装包与校验文件；安装包由 CI 从对应版本源码构建。
 
-1. 下载 `CapBar-0.1.1.pkg` 和 `SHA256SUMS`，在下载目录运行 `shasum -a 256 -c SHA256SUMS`。
-2. 打开 `CapBar-0.1.1.pkg`；应用会安装到 `/Applications/CapBar.app`。
+1. 下载 `CapBar-0.1.2.pkg` 和 `SHA256SUMS`，在下载目录运行 `shasum -a 256 -c SHA256SUMS`。
+2. 打开 `CapBar-0.1.2.pkg`；应用会安装到 `/Applications/CapBar.app`。
 3. 从“应用程序”启动 CapBar。它只显示在菜单栏，不显示 Dock 图标。
 4. 点击菜单栏图标查看快照；需要最新额度时，手动点“全部刷新”或某个账号旁的刷新按钮。
 
@@ -48,6 +55,8 @@ CapBar 0.1.1 需要 **macOS 14 或更高版本**及 **Apple Silicon Mac**。从 
 
 弹窗默认尺寸为 448 × 620 pt。宽、高可以输入精确数值后提交，也可以用上下按钮每次调整 10 pt；窗口加宽后，账号信息会横向排布。设置和额度快照以 JSON 文件保存在 `~/Library/Application Support/CapBar/`。
 
+用量统计默认关闭。开启后，应用运行期间会定时探测额度；关闭统计会停止定时采样。成功采集的记录保存在本机 SQLite 中。走势图按 UTC 区间计算，以本地时区显示日期；只有采样覆盖完整区间后才显示用量，缺测区间不会当作 0%。
+
 ## 额度如何刷新
 
 每次刷新 Claude 账号的尝试都会启动一次受限的简短 Claude Code 交互会话，以获取新的 statusline；随后用该配置目录已有的 OAuth 凭据查询 Anthropic 用量接口。任一渠道取得有效额度即可使用；同一额度窗口取采集时间较新的结果。探测可能消耗 Claude 用量，发生重试时消耗可能增加。CapBar 为查询额度读取 macOS 钥匙串中的凭据，但不会把令牌保存在 JSON 文件或日志中。
@@ -64,7 +73,7 @@ cd CapBar
 ./scripts/package-installer.sh
 ```
 
-脚本会运行项目检查，构建并验证 `dist/CapBar.app`，生成 `dist/CapBar-0.1.1.pkg`，同时检查安装包固定安装到 `/Applications`，不会定位到开发目录中的旧应用。
+脚本会运行项目检查，构建并验证 `dist/CapBar.app`，生成 `dist/CapBar-0.1.2.pkg`，同时检查安装包固定安装到 `/Applications`，不会定位到开发目录中的旧应用。
 
 ```sh
 swift run CapBarChecks

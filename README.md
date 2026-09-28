@@ -1,7 +1,7 @@
 # CapBar
 
 [![CI](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml)
-[![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-2F80ED?style=flat-square)](scripts/Info.plist)
+[![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-2F80ED?style=flat-square)](scripts/Info.plist)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#install-and-use)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](Package.swift)
 [![Apple Silicon](https://img.shields.io/badge/arch-Apple%20Silicon-0A7F75?style=flat-square)](#build-from-source)
@@ -24,13 +24,20 @@
 - **Refresh when you choose:** Refresh one account or all idle accounts. Opening the window shows saved snapshots by default. Optional refresh on open checks each account against a shared threshold of 5 minutes by default.
 - **Clear states:** Refreshing accounts show progress while keeping their previous values. A failed refresh preserves the last successful snapshot and marks the failure.
 - **Native macOS behavior:** Light and dark appearances, a resizable popover, a right-click menu, and an optional launch-at-login setting.
+- **Optional usage trends:** Track each account's 7-day quota consumption in a rolling chart. Enabling statistics also enables scheduled sampling while CapBar runs; the interval defaults to 4 hours and can be set to 1, 2, 3, 4, 6, or 8 hours. Manual refreshes contribute samples too. Chart bins match the selected interval, with a 2-hour minimum.
+
+| 7-day usage trend, dark appearance | 7-day usage trend, light appearance |
+| :---: | :---: |
+| ![CapBar usage trend in dark appearance](docs/images/trend-dark.png) | ![CapBar usage trend in light appearance](docs/images/trend-light.png) |
+
+*Trend illustrations use fictional accounts and sample history.*
 
 ## Install and use
 
-CapBar 0.1.1 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
+CapBar 0.1.2 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
 
-1. Download `CapBar-0.1.1.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
-2. Open `CapBar-0.1.1.pkg`. The installer places the app at `/Applications/CapBar.app`.
+1. Download `CapBar-0.1.2.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
+2. Open `CapBar-0.1.2.pkg`. The installer places the app at `/Applications/CapBar.app`.
 3. Launch CapBar from Applications. It appears in the menu bar, without a Dock icon.
 4. Click the menu bar item to view snapshots. Select **Refresh All (全部刷新)** or refresh an individual account when you want current data.
 
@@ -48,6 +55,8 @@ On first launch, CapBar adds `~/.claude` and `~/.codex` as default entries. Add 
 
 The popover starts at 448 × 620 pt. Enter a precise width or height and submit it, or use the steppers in 10 pt increments. Wider windows rearrange account details horizontally. Snapshots and settings are stored as JSON under `~/Library/Application Support/CapBar/`.
 
+Usage statistics are off by default. Turning them on also starts scheduled quota probes while the app runs; turning them off stops the schedule. Successful probes are kept in a local SQLite history. Charts use UTC intervals and display dates in your local time zone. A complete interval needs enough observations before its usage can appear; missing intervals are not treated as zero usage.
+
 ## How quota refresh works
 
 Each Claude refresh attempt starts a short, restricted interactive Claude Code session to obtain a fresh statusline, then queries Anthropic's usage endpoint with the existing OAuth credential for that configuration directory. CapBar uses whichever valid channel is available and selects the newer observation for each quota window. These attempts can consume Claude usage, especially if retries occur. CapBar reads the credential from macOS Keychain for this query, but does not store tokens in its JSON files or logs.
@@ -64,7 +73,7 @@ cd CapBar
 ./scripts/package-installer.sh
 ```
 
-The script runs the checks, builds `dist/CapBar.app`, verifies the app bundle, and creates `dist/CapBar-0.1.1.pkg`. It verifies that the package targets `/Applications` **without relocating** to an existing development copy.
+The script runs the checks, builds `dist/CapBar.app`, verifies the app bundle, and creates `dist/CapBar-0.1.2.pkg`. It verifies that the package targets `/Applications` **without relocating** to an existing development copy.
 
 ```sh
 swift run CapBarChecks
