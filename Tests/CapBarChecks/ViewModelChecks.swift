@@ -81,14 +81,23 @@ private actor GatedTrendLoader {
         model.onFolderPickerWillOpen = { pickerEvents.append("opened") }
         var returned = 0
         model.onFolderPickerFinished = { returned += 1 }
+        var completePicker: ((URL?) -> Void)?
+        model.activateForDirectoryPicker = { pickerEvents.append("activated") }
+        model.presentDirectoryPicker = { completion in
+            pickerEvents.append("presented")
+            completePicker = completion
+        }
         model.showsSettings = true
-        model.prepareDirectorySelection()
-        check(pickerEvents == ["opened"], "folder picker announces its opening before display")
-        model.finishDirectorySelection(URL(fileURLWithPath: "/tmp/example-claude"))
+        model.chooseDirectory()
+        check(pickerEvents == ["opened", "activated", "presented"],
+              "folder picker activates the menu bar app before presenting its window")
+        completePicker?(URL(fileURLWithPath: "/tmp/example-claude"))
+        await Task.yield()
         check(model.directoryInput == "/tmp/example-claude", "chosen folder fills the directory field")
         check(model.showsSettings && returned == 1, "folder picker returns to the settings popover")
-        model.prepareDirectorySelection()
-        model.finishDirectorySelection(nil)
+        model.chooseDirectory()
+        completePicker?(nil)
+        await Task.yield()
         check(returned == 2 && model.showsSettings, "cancelling the picker also restores normal popover behavior")
 
         let enabledAt = Date(timeIntervalSince1970: 1_800_000_000)

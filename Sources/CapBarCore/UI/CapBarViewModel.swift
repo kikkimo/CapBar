@@ -23,6 +23,16 @@ import Foundation
     var onPopoverSizeChange: ((PopoverSize) -> Void)?
     var onFolderPickerWillOpen: (() -> Void)?
     var onFolderPickerFinished: (() -> Void)?
+    var activateForDirectoryPicker: () -> Void = { NSApplication.shared.activate() }
+    var presentDirectoryPicker: (@escaping (URL?) -> Void) -> Void = { completion in
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.begin { response in
+            completion(response == .OK ? panel.url : nil)
+        }
+    }
     var onSamplingSettingsChange: ((UserSettings) -> Void)?
 
     private var timer: Timer?
@@ -284,13 +294,9 @@ import Foundation
     }
 
     func chooseDirectory() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
         prepareDirectorySelection()
-        panel.begin { [weak self] response in
-            let chosenURL = response == .OK ? panel.url : nil
+        activateForDirectoryPicker()
+        presentDirectoryPicker { [weak self] chosenURL in
             Task { @MainActor [weak self] in
                 self?.finishDirectorySelection(chosenURL)
             }
