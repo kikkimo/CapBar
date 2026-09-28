@@ -1,6 +1,31 @@
 import Foundation
 @testable import CapBarCore
 
+private actor GatedTrendLoader {
+    let samples: [UsageHistorySample]
+    let laterSamples: [UsageHistorySample]?
+    private var waiter: CheckedContinuation<Void, Never>?
+    private(set) var calls = 0
+
+    init(samples: [UsageHistorySample], laterSamples: [UsageHistorySample]? = nil) {
+        self.samples = samples
+        self.laterSamples = laterSamples
+    }
+
+    func load(account: AccountID, from: Date, through: Date) async -> [UsageHistorySample] {
+        calls += 1
+        if calls == 1 {
+            await withCheckedContinuation { waiter = $0 }
+        }
+        return calls == 1 ? samples : laterSamples ?? samples
+    }
+
+    func release() {
+        waiter?.resume()
+        waiter = nil
+    }
+}
+
 @MainActor func runViewModelChecks() async {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
@@ -105,9 +130,64 @@ import Foundation
         let trendCoordinator = try await RefreshCoordinator(settingsStore: settingsStore, snapshotStore: snapshotStore, providers: [:], policy: ProbePolicy.bundled())
         let trendSettings = UserSettings(accounts: [account], defaultsSeeded: true, autoRefreshOnOpen: false, refreshThresholdMinutes: 5, usageStatisticsEnabled: true)
         let trendModel = CapBarViewModel(settings: trendSettings, settingsStore: settingsStore, coordinator: trendCoordinator, historyStore: historyStore)
-        trendModel.setTrendMode(true)
+        trendModel.setTrendMode(true, reload: false)
         await trendModel.reloadTrends(endingAt: chartEnd)
         check(trendModel.trends[account]?.points.last?.usedPercent == 10, "view model loads the latest two-hour usage from SQLite")
+
+        let gated = GatedTrendLoader(samples: [
+            UsageHistorySample(capturedAt: initial.capturedAt, usedPercent: 30, resetsAt: chartEnd.addingTimeInterval(86_400)),
+            UsageHistorySample(capturedAt: latest.capturedAt, usedPercent: 40, resetsAt: chartEnd.addingTimeInterval(86_400))
+        ])
+        let gatedModel = CapBarViewModel(
+            settings: trendSettings, settingsStore: settingsStore,
+            coordinator: trendCoordinator, historyStore: historyStore
+        )
+        gatedModel.historySampleLoader = { account, start, end in
+            await gated.load(account: account, from: start, through: end)
+        }
+        gatedModel.setTrendMode(true, reload: false)
+        let firstLoad = Task { await gatedModel.reloadTrends(endingAt: chartEnd) }
+        for _ in 0..<100 {
+            if await gated.calls > 0 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        gatedModel.setTrendMode(false)
+        await gated.release()
+        await firstLoad.value
+        gatedModel.setTrendMode(true, reload: false)
+        await gatedModel.reloadTrends(endingAt: chartEnd)
+        check(gatedModel.trends[account]?.points.last?.usedPercent == 10,
+              "turning trend mode back on reloads after an earlier load was discarded")
+
+        let oldSamples = [
+            UsageHistorySample(capturedAt: initial.capturedAt, usedPercent: 30, resetsAt: chartEnd.addingTimeInterval(86_400)),
+            UsageHistorySample(capturedAt: latest.capturedAt, usedPercent: 40, resetsAt: chartEnd.addingTimeInterval(86_400))
+        ]
+        let newSamples = [
+            oldSamples[0],
+            UsageHistorySample(capturedAt: latest.capturedAt, usedPercent: 50, resetsAt: chartEnd.addingTimeInterval(86_400))
+        ]
+        let overlapLoader = GatedTrendLoader(samples: oldSamples, laterSamples: newSamples)
+        let overlapModel = CapBarViewModel(
+            settings: trendSettings, settingsStore: settingsStore,
+            coordinator: trendCoordinator, historyStore: historyStore
+        )
+        overlapModel.historySampleLoader = { account, start, end in
+            await overlapLoader.load(account: account, from: start, through: end)
+        }
+        overlapModel.setTrendMode(true, reload: false)
+        let olderLoad = Task { await overlapModel.reloadTrends(endingAt: chartEnd) }
+        for _ in 0..<100 {
+            if await overlapLoader.calls > 0 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        await overlapModel.reloadTrends(endingAt: chartEnd)
+        check(overlapModel.trends[account]?.points.last?.usedPercent == 20,
+              "newer overlapping trend load publishes its result")
+        await overlapLoader.release()
+        await olderLoad.value
+        check(overlapModel.trends[account]?.points.last?.usedPercent == 20,
+              "older overlapping trend load cannot overwrite the newer result")
     } catch {
         check(false, "view model checks setup succeeds: \(error)")
     }

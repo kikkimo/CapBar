@@ -53,7 +53,13 @@ actor UsageSamplingController {
             || previous?.samplingIntervalHours != newSettings.samplingIntervalHours
             || previous?.samplingScheduleStartedAt != newSettings.samplingScheduleStartedAt {
             dueAt = Dictionary(uniqueKeysWithValues: newSettings.accounts.map { account in
-                (account, UsageSamplingSchedule.nextRegular(after: current, intervalHours: newSettings.samplingIntervalHours))
+                let next = previous?.usageStatisticsEnabled == true
+                    ? UsageSamplingSchedule.nextEvent(
+                        after: current, intervalHours: newSettings.samplingIntervalHours,
+                        resetAt: knownResetAt[account]
+                    )
+                    : UsageSamplingSchedule.nextRegular(after: current, intervalHours: newSettings.samplingIntervalHours)
+                return (account, next)
             })
             return
         }
@@ -84,11 +90,13 @@ actor UsageSamplingController {
                 knownResetAt.removeValue(forKey: account)
             }
             guard let due = dueAt[account], due <= current else { continue }
-            dueAt[account] = UsageSamplingSchedule.nextEvent(
-                after: current, intervalHours: settings.samplingIntervalHours,
-                resetAt: reset
-            )
-            if await coordinator.requestRefresh(account, recordHistory: true) { started += 1 }
+            if await coordinator.requestRefresh(account, recordHistory: true) {
+                dueAt[account] = UsageSamplingSchedule.nextEvent(
+                    after: current, intervalHours: settings.samplingIntervalHours,
+                    resetAt: reset
+                )
+                started += 1
+            }
         }
         return started
     }

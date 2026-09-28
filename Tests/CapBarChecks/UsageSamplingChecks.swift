@@ -12,13 +12,16 @@ private final class SamplingTestClock: @unchecked Sendable {
 private actor SamplingProvider: UsageProvider {
     private let clock: SamplingTestClock
     private let resetAt: Date?
+    private let delay: Duration
     private(set) var calls = 0
-    init(clock: SamplingTestClock, resetAt: Date? = nil) {
+    init(clock: SamplingTestClock, resetAt: Date? = nil, delay: Duration = .zero) {
         self.clock = clock
         self.resetAt = resetAt
+        self.delay = delay
     }
     func probe(account: AccountID) async throws -> UsageSnapshot {
         calls += 1
+        if delay != .zero { try await Task.sleep(for: delay) }
         let weekly = try QuotaWindow(kind: .sevenDay, remainingPercent: 80, resetsAt: resetAt)
         return UsageSnapshot(
             identity: AccountIdentity(email: "sample@example.com", plan: nil, organization: nil),
@@ -135,5 +138,69 @@ private actor SamplingProvider: UsageProvider {
         await discoveryCoordinator.cancelAll()
     } catch {
         check(false, "reset-discovery setup should succeed: \(error)")
+    }
+
+    do {
+        let changeFolder = folder.appendingPathComponent("interval-change", isDirectory: true)
+        let changeAccount = AccountID(provider: .claude, directory: changeFolder.appendingPathComponent("claude-demo").path)
+        let changeClock = SamplingTestClock(at(4.5))
+        let changeSnapshots = SnapshotStore(url: changeFolder.appendingPathComponent("snapshots.json"))
+        let weekly = try QuotaWindow(kind: .sevenDay, remainingPercent: 70, resetsAt: at(7))
+        let existing = UsageSnapshot(
+            identity: AccountIdentity(email: "change@example.com", plan: nil, organization: nil),
+            windows: [weekly], capturedAt: at(4)
+        )
+        try await changeSnapshots.update(AccountRecord(id: changeAccount, snapshot: existing, lastAttemptAt: at(4), lastError: nil))
+        let changeCoordinator = try await RefreshCoordinator(
+            settingsStore: SettingsStore(url: changeFolder.appendingPathComponent("settings.json")),
+            snapshotStore: changeSnapshots, providers: [:], policy: ProbePolicy.bundled(), now: { changeClock.now() }
+        )
+        let sampler = UsageSamplingController(coordinator: changeCoordinator, now: { changeClock.now() })
+        var settings = UserSettings(
+            accounts: [changeAccount], defaultsSeeded: true, autoRefreshOnOpen: false,
+            refreshThresholdMinutes: 5, usageStatisticsEnabled: true,
+            samplingIntervalHours: 4, samplingScheduleStartedAt: at(0)
+        )
+        await sampler.start(settings: settings)
+        check(await sampler.nextDue(for: changeAccount) == at(5), "known reset schedules the next hourly sample")
+        settings.samplingIntervalHours = 6
+        settings.samplingScheduleStartedAt = changeClock.now()
+        await sampler.update(settings: settings)
+        check(await sampler.nextDue(for: changeAccount) == at(5), "changing interval preserves the imminent reset-window sample")
+    } catch {
+        check(false, "interval-change setup should succeed: \(error)")
+    }
+
+    do {
+        let busyFolder = folder.appendingPathComponent("busy-sample", isDirectory: true)
+        let busyAccount = AccountID(provider: .claude, directory: busyFolder.appendingPathComponent("claude-demo").path)
+        let busyClock = SamplingTestClock(at(2.5))
+        let slowProvider = SamplingProvider(clock: busyClock, delay: .milliseconds(150))
+        let busyCoordinator = try await RefreshCoordinator(
+            settingsStore: SettingsStore(url: busyFolder.appendingPathComponent("settings.json")),
+            snapshotStore: SnapshotStore(url: busyFolder.appendingPathComponent("snapshots.json")),
+            providers: [.claude: slowProvider], policy: ProbePolicy.bundled(), now: { busyClock.now() }
+        )
+        let sampler = UsageSamplingController(coordinator: busyCoordinator, now: { busyClock.now() })
+        let settings = UserSettings(
+            accounts: [busyAccount], defaultsSeeded: true, autoRefreshOnOpen: false,
+            refreshThresholdMinutes: 5, usageStatisticsEnabled: true,
+            samplingIntervalHours: 3, samplingScheduleStartedAt: at(2.5)
+        )
+        await sampler.start(settings: settings)
+        busyClock.set(at(2.9))
+        check(await busyCoordinator.requestRefresh(busyAccount, recordHistory: false), "a manual probe can already be running")
+        busyClock.set(at(3))
+        check(await sampler.tick() == 0, "scheduled probe skips the busy account without parallel work")
+        check(await sampler.nextDue(for: busyAccount) == at(3), "busy account keeps its due sampling slot")
+        for _ in 0..<100 {
+            if await !busyCoordinator.isRefreshing(busyAccount) { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        busyClock.set(at(3.1))
+        check(await sampler.tick() == 1, "missed slot is sampled once after the busy account becomes free")
+        await busyCoordinator.cancelAll()
+    } catch {
+        check(false, "busy-sample setup should succeed: \(error)")
     }
 }

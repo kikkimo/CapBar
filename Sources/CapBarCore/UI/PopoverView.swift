@@ -297,9 +297,12 @@ private struct CapBarAccountRow: View {
                 .font(.system(size: 11)).foregroundStyle(secondary)
                 .padding(.top, 1)
         } else {
-            HStack(alignment: .top, spacing: 0) {
+            HStack(alignment: statisticsEnabled ? .center : .top, spacing: 0) {
                 ForEach(Array(row.windows.enumerated()), id: \.offset) { index, window in
-                    if index > 0 { line.frame(width: 1).padding(.horizontal, 14) }
+                    if index > 0 {
+                        line.frame(width: 1, height: statisticsEnabled ? 54 : nil)
+                            .padding(.horizontal, 14)
+                    }
                     CapBarMetric(window: window, expanded: statisticsEnabled).frame(maxWidth: .infinity)
                 }
             }
@@ -339,7 +342,7 @@ private struct CapBarMetric: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: expanded ? 8 : 6) {
+        VStack(alignment: .leading, spacing: expanded ? 0 : 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(window.kind == .fiveHour ? "5 小时" : "7 天")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
@@ -348,6 +351,7 @@ private struct CapBarMetric: View {
                     .font(.system(size: expanded ? 16 : 15, weight: .bold)).monospacedDigit()
                     .foregroundStyle(color)
             }
+            if expanded { Spacer(minLength: 6) }
             GeometryReader { geometry in
                 Capsule().fill(Color(nsColor: .separatorColor).opacity(0.75))
                     .overlay(alignment: .leading) {
@@ -356,8 +360,10 @@ private struct CapBarMetric: View {
                     }
             }
             .frame(height: expanded ? 5 : 4)
+            if expanded { Spacer(minLength: 6) }
             Text(reset).font(.system(size: 11)).foregroundStyle(.secondary)
                 .monospacedDigit().lineLimit(1)
         }
+        .frame(height: expanded ? 84 : nil)
     }
 }

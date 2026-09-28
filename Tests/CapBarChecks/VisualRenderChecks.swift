@@ -112,7 +112,7 @@ private actor PreviewHangingProvider: UsageProvider {
     for _ in 0..<100 where trendModel.rows.count != accounts.count {
         try await Task.sleep(for: .milliseconds(10))
     }
-    trendModel.setTrendMode(true)
+    trendModel.setTrendMode(true, reload: false)
     await trendModel.reloadTrends()
     try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-light.png"))
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-dark.png"))
