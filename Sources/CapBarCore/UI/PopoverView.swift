@@ -100,7 +100,9 @@ struct CapBarPopoverView: View {
             .padding(.horizontal, 16).padding(.vertical, 8)
             .background(Color(nsColor: .controlBackgroundColor).opacity(0.72))
             .overlay(alignment: .bottom) { line.frame(height: 1) }
-            ForEach(rows, id: \.account) { row in
+            ForEach(rows.indices, id: \.self) { index in
+                let row = rows[index]
+                let tinted = !model.showsTrend && row.isExhausted
                 CapBarAccountRow(
                     row: row, width: model.settings.popoverSize.width,
                     statisticsEnabled: model.settings.usageStatisticsEnabled,
@@ -109,7 +111,7 @@ struct CapBarPopoverView: View {
                 ) { model.refresh(row.account) }
                     .padding(.horizontal, 16)
                     .background {
-                        if !model.showsTrend && row.isExhausted {
+                        if tinted {
                             LinearGradient(
                                 colors: [Color(nsColor: .systemRed).opacity(0.14),
                                          Color(nsColor: .systemRed).opacity(0.06)],
@@ -117,7 +119,7 @@ struct CapBarPopoverView: View {
                             )
                         }
                     }
-                if row.account != rows.last?.account {
+                if index < rows.count - 1 && !tinted && (model.showsTrend || !rows[index + 1].isExhausted) {
                     line.frame(height: 1).padding(.horizontal, 16)
                 }
             }
@@ -292,7 +294,7 @@ private struct CapBarAccountRow: View {
             HStack(alignment: statisticsEnabled ? .center : .top, spacing: 0) {
                 ForEach(Array(row.windows.enumerated()), id: \.offset) { index, window in
                     if index > 0 {
-                        line.frame(width: 1, height: statisticsEnabled ? 84 : nil)
+                        line.frame(width: 1, height: statisticsEnabled ? 54 : nil)
                             .padding(.horizontal, 14)
                     }
                     CapBarMetric(window: window, expanded: statisticsEnabled).frame(maxWidth: .infinity)
