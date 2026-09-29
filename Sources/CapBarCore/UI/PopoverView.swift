@@ -246,7 +246,7 @@ private struct CapBarAccountRow: View {
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
                 .help(row.title)
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 Text(row.subtitle).lineLimit(1)
                 Text("·")
                 Text(row.directoryLabel).lineLimit(1)
@@ -355,7 +355,7 @@ private struct CapBarMetric: View {
             }
             .frame(height: expanded ? 5 : 4)
             if expanded { Spacer(minLength: 6) }
-            HStack(spacing: 5) {
+            HStack(spacing: 9) {
                 if window.kind == .sevenDay, case let .upcoming(progress) = resetState {
                     SevenDayResetRing(progress: progress)
                 }
