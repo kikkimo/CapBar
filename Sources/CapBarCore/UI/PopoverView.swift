@@ -292,7 +292,7 @@ private struct CapBarAccountRow: View {
             HStack(alignment: statisticsEnabled ? .center : .top, spacing: 0) {
                 ForEach(Array(row.windows.enumerated()), id: \.offset) { index, window in
                     if index > 0 {
-                        line.frame(width: 1, height: statisticsEnabled ? 54 : nil)
+                        line.frame(width: 1, height: statisticsEnabled ? 84 : nil)
                             .padding(.horizontal, 14)
                     }
                     CapBarMetric(window: window, expanded: statisticsEnabled).frame(maxWidth: .infinity)
