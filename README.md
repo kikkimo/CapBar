@@ -21,6 +21,7 @@
 
 - **Multiple accounts:** Add Claude Code and Codex configuration directories. CapBar identifies available email, plan, and organization details instead of asking for display names.
 - **Quota at a glance:** See available 5-hour and 7-day windows, remaining percentages, reset times, and the age of each account's snapshot. A window that the provider does not report stays hidden.
+- **Seven-day reset ring:** A small ring beside the exact weekly reset time shows how far the cycle has progressed. A depleted 7-day quota gives the account a pale red background; a depleted 5-hour quota highlights only its own value. Once the weekly reset time passes, the ring disappears and the old value is marked as awaiting refresh.
 - **Refresh when you choose:** Refresh one account or all idle accounts. Opening the window shows saved snapshots by default. Optional refresh on open checks each account against a shared threshold of 5 minutes by default.
 - **Clear states:** Refreshing accounts show progress while keeping their previous values. A failed refresh preserves the last successful snapshot and marks the failure.
 - **Native macOS behavior:** Light and dark appearances, a resizable popover, a right-click menu, and an optional launch-at-login setting.
@@ -91,6 +92,7 @@ The screenshot command renders sample data from the SwiftUI app and updates `doc
 ## Project documents
 
 - [Visual design](design/capbar-visual-study.html)
+- [Seven-day reset ring design](design/reset-visual-study.html)
 - [Product and engineering specification](design/spec.md)
 - [Implementation plan](design/implementation-plan.md)
 

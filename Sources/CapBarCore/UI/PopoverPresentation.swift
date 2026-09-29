@@ -1,5 +1,18 @@
 import Foundation
 
+enum SevenDayResetState: Equatable {
+    case unknown
+    case upcoming(Double)
+    case awaitingRefresh
+
+    init(resetsAt: Date?, now: Date) {
+        guard let resetsAt else { self = .unknown; return }
+        let remaining = resetsAt.timeIntervalSince(now)
+        guard remaining > 0 else { self = .awaitingRefresh; return }
+        self = .upcoming(min(1, max(0, 1 - remaining / (7 * 86_400))))
+    }
+}
+
 struct PopoverAccountRow: Sendable {
     let account: AccountID
     let title: String
@@ -12,7 +25,12 @@ struct PopoverAccountRow: Sendable {
     let error: String?
 
     var refreshEnabled: Bool { !isRefreshing }
-    var isExhausted: Bool { windows.contains { $0.remainingPercent == 0 } }
+    var isExhausted: Bool {
+        windows.contains { window in
+            window.kind == .sevenDay && window.remainingPercent == 0 &&
+                SevenDayResetState(resetsAt: window.resetsAt, now: Date()) != .awaitingRefresh
+        }
+    }
 }
 
 enum PopoverLayout {
