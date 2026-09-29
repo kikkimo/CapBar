@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CapBar · 七日环最终视觉候选</title>
+  <style>
+    :root {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      color-scheme: light;
+      --page: #eceef2; --card: #f9f9fb; --head: #f4f5f8; --group: #f0f1f4;
+      --ink: #24272d; --muted: #757b83; --line: #dfe1e6; --track: #dcdee2;
+      --green: #31a57b; --red: #e24749; --blue: #518bc0;
+      --wash: linear-gradient(90deg, #e2474924, #e2474914 52%, #e247490d);
+      --shadow: 0 16px 44px #1a273025;
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --page: #1e2025; --card: #292b30; --head: #33353b; --group: #303239;
+      --ink: #f2f3f5; --muted: #acb0b8; --line: #464950; --track: #4c4f55;
+      --green: #4bc195; --red: #fb7477; --blue: #7eafe0;
+      --wash: linear-gradient(90deg, #e2474933, #e247491c 52%, #e2474912);
+      --shadow: 0 20px 54px #0007;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 34px 22px 54px; background: var(--page); color: var(--ink); }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid #0a84ff; outline-offset: 2px; }
+    .page { max-width: 1430px; margin: auto; }
+    .eyebrow { margin: 0 0 7px; color: var(--blue); font-size: 11px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(25px, 3vw, 34px); letter-spacing: -.045em; }
+    .intro { max-width: 780px; margin: 10px 0 20px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-bottom: 21px; }
+    .control-group { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
+    .segmented { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--head); }
+    .segmented button { min-height: 25px; padding: 3px 9px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font-size: 11px; }
+    .segmented button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px #0002; font-weight: 670; }
+    .play { min-height: 32px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); color: var(--ink); font-size: 11px; font-weight: 650; }
+    .play:hover { border-color: var(--blue); }
+    .demo-time { min-width: 174px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .variants { display: grid; grid-template-columns: minmax(0, 448px); justify-content: center; align-items: start; }
+    .variant { min-width: 0; }
+    .variant-title { display: flex; align-items: baseline; gap: 8px; margin: 0 0 7px; }
+    .variant-title h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
+    .variant-title span { color: var(--muted); font-size: 10px; }
+    .variant-desc { margin: 0 0 11px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .popover { overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: var(--card); box-shadow: var(--shadow); }
+    .header { display: flex; align-items: center; gap: 9px; min-height: 54px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--head); }
+    .logo { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); font-size: 17px; font-weight: 790; }
+    .brand { flex: 1; min-width: 0; }
+    .brand strong { display: block; font-size: 12px; }
+    .brand small { display: block; margin-top: 1px; color: var(--muted); font-size: 9px; }
+    .header-action { padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font-size: 10px; font-weight: 620; }
+    .add { padding: 0 3px; border: 0; background: none; color: var(--muted); font-size: 19px; }
+    .group { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--group); color: var(--muted); font-size: 10px; font-weight: 720; letter-spacing: .045em; }
+    .group::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #bf8262; }
+    .group small { margin-left: auto; font-weight: 500; letter-spacing: 0; }
+    .account { position: relative; min-height: 133px; padding: 12px 14px 11px; border-bottom: 1px solid var(--line); }
+    .account.week-exhausted { background: var(--wash); }
+    .account.week-exhausted, .account:has(+ .account.week-exhausted) { border-bottom: 0; }
+    .identity { display: flex; align-items: flex-start; gap: 7px; min-width: 0; }
+    .account-name { flex: 1; min-width: 0; }
+    .account-name strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 670; }
+    .account-name small { display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 9px; }
+    .age { flex: none; padding: 4px 6px; border-radius: 99px; background: #36ad6916; color: #2e995c; font-size: 10px; font-weight: 670; white-space: nowrap; }
+    [data-theme="dark"] .age { background: #4bc19524; color: #72dbaa; }
+    .refresh { flex: none; padding: 1px 2px; border: 0; background: none; color: var(--muted); font-size: 16px; }
+    .metrics { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 0; margin-top: 13px; }
+    .metric { min-width: 0; }
+    .metric + .metric { margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--line); }
+    .metric-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 5px; }
+    .metric-heading small { color: var(--muted); font-size: 10px; white-space: nowrap; }
+    .metric-heading strong { color: var(--green); font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .metric-heading strong.empty { color: var(--red); }
+    .quota-track { height: 4px; margin-top: 10px; overflow: hidden; border-radius: 6px; background: var(--track); }
+    .quota-fill { height: 100%; border-radius: inherit; background: var(--green); }
+    .quota-fill.empty { background: var(--red); }
+    .reset { display: flex; align-items: center; gap: 9px; min-width: 0; margin-top: 10px; color: var(--muted); font-size: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .reset strong { color: var(--ink); font-size: 10px; font-weight: 680; }
+    .reset .muted { color: var(--muted); font-weight: 500; }
+    .metric.five .reset strong { color: var(--muted); font-weight: 500; }
+    .ring { width: 15px; height: 15px; flex: none; transform: rotate(-90deg); }
+    .ring circle { fill: none; stroke-width: 2.2; }
+    .ring .ring-track { stroke: var(--track); }
+    .ring .ring-fill { stroke: var(--blue); stroke-linecap: round; opacity: .8; transition: stroke-dashoffset .1s linear; }
+    .ring .ring-tick { stroke: var(--card); stroke-width: 1.1; }
+    .variant .account.past .metric.week .metric-heading strong, .variant .account.past .metric.week .quota-fill { opacity: .55; }
+    .variant .account.past .metric.week .ring { visibility: hidden; }
+    .footer { display: flex; align-items: center; gap: 8px; min-height: 39px; padding: 9px 14px; background: var(--head); color: var(--muted); font-size: 10px; }
+    .footer .spacer { flex: 1; }
+    .footer b { color: #1976c2; font-weight: 650; }
+    .summary { max-width: 850px; margin: 22px auto 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .summary strong { color: var(--ink); }
+    .scenario-section { margin-top: 47px; padding-top: 22px; border-top: 1px solid var(--line); }
+    .scenario-section h2 { margin: 0; font-size: 22px; letter-spacing: -.035em; }
+    .scenario-intro { max-width: 850px; margin: 8px 0 23px; color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .scenario-group-title { display: flex; align-items: baseline; gap: 10px; margin: 25px 0 11px; }
+    .scenario-group-title h3 { margin: 0; font-size: 14px; }
+    .scenario-group-title span { color: var(--muted); font-size: 11px; }
+    .scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 15px; }
+    .scenario { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+    .scenario-heading { min-height: 82px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); background: var(--head); }
+    .scenario-heading .top { display: flex; align-items: baseline; gap: 7px; }
+    .scenario-heading .number { color: var(--blue); font-size: 10px; font-weight: 760; font-variant-numeric: tabular-nums; }
+    .scenario-heading strong { font-size: 12px; }
+    .scenario-heading p { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .scenario .account { min-height: 126px; border-bottom: 0; }
+    .scenario .account.has-state-note { min-height: 139px; }
+    .scenario .account.no-snapshot { min-height: 126px; }
+    .scenario .metrics { margin-top: 14px; }
+    .scenario .metrics.single { grid-template-columns: minmax(0,1fr); }
+    .scenario .metric-heading strong.low { color: #eb8c31; }
+    .scenario .quota-fill.low { background: #eb8c31; }
+    .scenario .metric.stale .metric-heading strong, .scenario .metric.stale .quota-fill { opacity: .58; }
+    .scenario .metric.stale .quota-track { opacity: .65; }
+    .scenario .age.loading { background: color-mix(in srgb, var(--blue), transparent 87%); color: var(--blue); }
+    .scenario .age.old { background: color-mix(in srgb, #d98a25, transparent 88%); color: #b56a1c; }
+    .scenario .age.error { background: color-mix(in srgb, var(--red), transparent 90%); color: var(--red); }
+    .scenario .refresh:disabled { opacity: .35; cursor: default; }
+    .scenario .state-note { margin-top: 7px; color: var(--muted); font-size: 9px; }
+    .scenario .state-note.error { color: var(--red); }
+    .scenario .state-note.loading { color: var(--blue); }
+    .scenario .reset.past { color: #b56a1c; }
+    .scenario .reset.past strong { color: inherit; }
+    .scenario .empty-message { display: grid; place-items: center; height: 65px; margin-top: 8px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); font-size: 10px; text-align: center; }
+    .scenario .empty-message small { display: block; margin-top: 3px; font-size: 9px; }
+    .scenario-footer { padding: 8px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .rule-note { max-width: 900px; margin: 21px 0 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--muted); font-size: 11px; line-height: 1.65; }
+    .rule-note strong { color: var(--ink); }
+    @media (max-width: 1150px) { .scenario-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 760px) { body { padding: 22px 12px 38px; } .scenario-grid { grid-template-columns: 1fr; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <p class="eyebrow">CapBar / Seven-day reset ring</p>
+    <h1>七日重置环 · 最终视觉候选</h1>
+    <p class="intro">只给 <strong>7 天额度</strong>的具体重置时间配一个七段小环。蓝色进度随周期推进，越满越接近重置。下方弹窗同时展示普通账号、仅 5 小时额度为 0%、七日额度为 0% 的实际排版；数据均为虚构。</p>
+    <div class="controls">
+      <div class="control-group">外观 <div class="segmented" role="group" aria-label="外观"><button type="button" data-theme-button="light" aria-pressed="true">浅色</button><button type="button" data-theme-button="dark" aria-pressed="false">深色</button></div></div>
+      <button class="play" id="play" type="button">▶ 播放重置进度演示</button>
+      <span class="demo-time" id="demo-time" aria-live="polite">演示进度：七日周期已过 86%</span>
+    </div>
+    <div class="variants" id="variants"></div>
+    <p class="summary"><strong>方案规则：</strong>七日额度耗尽时，卡片呈整片浅红色，并保留红色“余 0%”与具体重置时刻。仅 5 小时额度耗尽时，卡片维持普通底色。七日环只表达重置周期进度，额度余量仍由现有数字和横条表达。</p>
+    <section class="scenario-section" aria-labelledby="scenario-title">
+      <h2 id="scenario-title">状态全景：每种情况下会看到什么</h2>
+      <p class="scenario-intro">以下全部使用上面的七日环方案。浅色 / 深色开关也会作用于这些场景。<strong>只有七日窗口剩余 0% 才出现整卡浅红背景</strong>；5 小时是否耗尽，不改变卡片背景。</p>
+      <div class="scenario-group-title"><h3>7 天额度仍可用</h3><span>包括 5 小时额度单独用尽的对照</span></div>
+      <div class="scenario-grid" id="scenario-available"></div>
+      <div class="scenario-group-title"><h3>七日余量 0%</h3><span>浅红卡片、红色“余 0%”与具体重置时刻</span></div>
+      <div class="scenario-grid" id="scenario-exhausted"></div>
+      <div class="scenario-group-title"><h3>边界与探测状态</h3><span>不把旧快照或未知时间伪装成当前结果</span></div>
+      <div class="scenario-grid" id="scenario-boundary"></div>
+      <p class="rule-note"><strong>显示规则：</strong>七日额度为 0% 且仍可视为当前快照时，整卡浅红，七日数值显示红色“余 0%”；不重复写耗尽提示。5 小时单独为 0% 不触发整卡浅红。只在取得有效七日重置时刻时绘制时间进度；时刻已过而尚未取得新快照时，停止进度并标“待刷新”，撤去红色背景。刷新中保留旧快照并禁用单账号刷新；失败时保留旧快照并明确标记失败。页面使用虚构数据，不连接账号。</p>
+    </section>
+  </main>
+  <script>
+    const circumference = 2 * Math.PI * 7;
+    function ringMarkup(offset = circumference) {
+      const segments = 7;
+      const ticks = Array.from({ length: segments }, (_, index) => {
+        const angle = 2 * Math.PI * index / segments;
+        const x1 = (10 + 5.5 * Math.cos(angle)).toFixed(2);
+        const y1 = (10 + 5.5 * Math.sin(angle)).toFixed(2);
+        const x2 = (10 + 8.5 * Math.cos(angle)).toFixed(2);
+        const y2 = (10 + 8.5 * Math.sin(angle)).toFixed(2);
+        return `<line class="ring-tick" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"></line>`;
+      }).join("");
+      return `<svg class="ring" viewBox="0 0 20 20" aria-hidden="true"><circle class="ring-track" cx="10" cy="10" r="7"></circle><circle class="ring-fill" cx="10" cy="10" r="7" stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${offset}"></circle>${ticks}</svg>`;
+    }
+    function metric(kind, remaining, resetDate, progress = 0, isDynamic = false) {
+      const weekly = kind === "7 天";
+      const indicator = weekly ? ringMarkup((circumference * (1 - progress)).toFixed(2)) : "";
+      const resetLabel = `<strong ${isDynamic ? "data-reset-label" : ""}>${resetDate} 重置</strong>`;
+      return `<div class="metric ${weekly ? "week" : "five"}"><div class="metric-heading"><small>${kind}</small><strong class="${remaining === 0 ? "empty" : ""}">余 ${remaining}%</strong></div><div class="quota-track"><div class="quota-fill ${remaining === 0 ? "empty" : ""}" style="width:${remaining}%"></div></div><div class="reset" title="示例：本地时间 2026年${resetDate} 重置">${indicator}${resetLabel}</div></div>`;
+    }
+    function account(name, directory, five, week, weekExhausted) {
+      return `<section class="account ${weekExhausted ? "week-exhausted" : ""}" ${weekExhausted ? 'data-dynamic="true"' : ""} aria-label="${name} 额度"><div class="identity"><div class="account-name"><strong>${name}</strong><small>Example Team · team · ${directory}</small></div><span class="age">◷ 9 分钟前</span><button class="refresh" type="button" title="设计示意，无刷新功能" aria-label="刷新 ${name}">↻</button></div><div class="metrics">${metric("5 小时", five, "9月29日 12:12")}${metric("7 天", week, weekExhausted ? "9月30日 07:59" : "10月3日 20:59", weekExhausted ? 145 / 168 : 60 / 168, weekExhausted)}</div></section>`;
+    }
+    document.getElementById("variants").innerHTML = `<section class="variant variant-a"><div class="variant-title"><h2>CapBar 弹窗预览</h2><span>七日环 · 浅色 / 深色</span></div><p class="variant-desc">三种状态在同一个弹窗中的最终布局。右侧 7 天窗口的环与具体重置时刻一起阅读。</p><div class="popover"><div class="header"><div class="logo">C</div><div class="brand"><strong>CapBar</strong><small>3 个账号 · 用量统计已开启</small></div><button class="header-action" type="button">↻ 全部刷新</button><button class="add" type="button" aria-label="添加账号">＋</button></div><div class="group">CLAUDE CODE<small>3 个账号</small></div>${account("alex@example.com", "~/.claude-demo", 68, 36, false)}${account("short@example.com", "~/.claude-short", 0, 54, false)}${account("team@example.com", "~/.claude-team", 100, 0, true)}<div class="footer">额度为剩余百分比<span class="spacer"></span><b>账号与设置</b></div></div></section>`;
+
+    const root = document.documentElement;
+    function choose(kind, value) {
+      root.dataset[kind] = value;
+      document.querySelectorAll(`[data-${kind}-button]`).forEach(button => button.setAttribute("aria-pressed", String(button.dataset[`${kind}Button`] === value)));
+    }
+    document.querySelectorAll("[data-theme-button]").forEach(button => button.addEventListener("click", () => choose("theme", button.dataset.themeButton)));
+    root.dataset.theme = "light";
+
+    let timer = null;
+    function paint(hours) {
+      const progress = Math.max(0, Math.min(1, (168 - hours) / 168));
+      const passed = hours <= 0;
+      document.querySelectorAll("[data-reset-label]").forEach(node => node.textContent = passed ? "9月30日 07:59 · 待刷新" : "9月30日 07:59 重置");
+      document.querySelectorAll(".variant-a .account[data-dynamic] .metric.week .ring-fill").forEach(node => node.style.strokeDashoffset = String(circumference * (1 - progress)));
+      document.querySelectorAll(".variant .account[data-dynamic]").forEach(node => {
+        node.classList.toggle("week-exhausted", !passed);
+        node.classList.toggle("past", passed);
+        node.querySelector(".metric.week .metric-heading strong").textContent = passed ? "上次余 0%" : "余 0%";
+      });
+      document.getElementById("demo-time").textContent = `演示进度：七日周期已过 ${Math.round(progress * 100)}%`;
+    }
+    paint(23);
+    document.getElementById("play").addEventListener("click", event => {
+      if (timer) { clearInterval(timer); timer = null; event.currentTarget.textContent = "▶ 重新播放"; return; }
+      paint(23);
+      const start = performance.now();
+      event.currentTarget.textContent = "Ⅱ 暂停演示";
+      timer = setInterval(() => {
+        const elapsed = (performance.now() - start) / 7000;
+        paint(Math.max(0, 23 * (1 - elapsed)));
+        if (elapsed >= 1) { clearInterval(timer); timer = null; event.currentTarget.textContent = "▶ 重新播放"; }
+      }, 60);
+    });
+
+    // 状态对照使用同一个虚构时钟；它不会读取或探测本机账号。
+    const scenarioClock = new Date(2026, 8, 29, 9, 0);
+    const scenarios = {
+      available: [
+        { number: "01", title: "两个窗口都有余量", description: "额度还够，两个重置日期分别列在下方。", windows: [{ kind: "5 小时", remaining: 68, hours: 3 }, { kind: "7 天", remaining: 36, hours: 108 }], footer: "绿色额度条与蓝色时间环分别回答“还剩多少”和“周期走到哪里”。" },
+        { number: "02", title: "有余量，七日重置临近", description: "还剩 12%，重置时刻是 9 月 29 日 09:36。", windows: [{ kind: "5 小时", remaining: 78, hours: 2 }, { kind: "7 天", remaining: 12, hours: .6 }], footer: "低额度用橙色，临近重置的时间环接近闭合；卡片不用红底。" },
+        { number: "03", title: "刚进入新周期", description: "刷新后得到新的七日额度与重置时刻。", badge: "刚刚", windows: [{ kind: "5 小时", remaining: 100, hours: 4.9 }, { kind: "7 天", remaining: 98, hours: 167 }], footer: "七日额度恢复，时间环重新从起点开始；旧周期的红色提示消失。" },
+        { number: "04", title: "只有 5 小时额度耗尽", description: "七日额度仍有余量；卡片不出现七日告警。", windows: [{ kind: "5 小时", remaining: 0, hours: .7 }, { kind: "7 天", remaining: 54, hours: 72 }], footer: "5 小时的 0% 只在本窗口标红，不触发整卡浅红或“7 天已用尽”。" }
+      ],
+      exhausted: [
+        { number: "05", title: "7 天额度耗尽，重置较远", description: "七日额度 0%，重置时刻是 10 月 3 日 21:00。", windows: [{ kind: "5 小时", remaining: 100, hours: 3 }, { kind: "7 天", remaining: 0, hours: 108 }], footer: "红色 0% 与较浅的蓝色时间环并列，具体重置日期直接可见。" },
+        { number: "06", title: "7 天额度耗尽，重置临近", description: "七日额度 0%，9 月 29 日 09:25 重置。", windows: [{ kind: "5 小时", remaining: 100, hours: 3 }, { kind: "7 天", remaining: 0, hours: 25 / 60 }], footer: "红底仍在，时间环将要闭合；不做持续闪烁或跳动。" },
+        { number: "07", title: "两个窗口都耗尽", description: "5 小时和 7 天都为 0%，但只突出七日耗尽。", windows: [{ kind: "5 小时", remaining: 0, hours: 1.2 }, { kind: "7 天", remaining: 0, hours: 19 }], footer: "整卡浅红只由七日 0% 触发；两个窗口各自保留红色 0%。" }
+      ],
+      boundary: [
+        { number: "08", title: "额度已尽，重置时间未知", description: "知道七日余量为 0%，但未取得重置时刻。", windows: [{ kind: "5 小时", remaining: 100, hours: 3 }, { kind: "7 天", remaining: 0, resetState: "unknown" }], footer: "保留红底和 0%，七日窗口不画时间环，也不猜测具体时间。" },
+        { number: "09", title: "重置时刻已过，尚未刷新", description: "上次快照为 0%，但重置时刻已经过去。", stale: true, badge: "55 分钟前", badgeClass: "old", windows: [{ kind: "5 小时", remaining: 100, hours: 2 }, { kind: "7 天", remaining: 0, resetState: "past" }], footer: "显示“上次余 0%”，撤去红底和七日时间环；等待新探测确认额度。" },
+        { number: "10", title: "七日旧值待确认，5 小时为 0%", description: "七日重置时刻已过；5 小时额度仍为 0%。", badge: "25 分钟前", windows: [{ kind: "5 小时", remaining: 0, hours: 1 }, { kind: "7 天", remaining: 0, resetState: "past" }], footer: "七日旧值变淡，5 小时虽为 0%，整卡仍不显示七日告警。" },
+        { number: "11", title: "正在刷新，保留旧快照", description: "后台探测正在运行，单账号刷新不可重复点击。", badge: "刷新中", badgeClass: "loading", note: "正在刷新 · 暂时显示上次采集结果", noteClass: "loading", disabled: true, windows: [{ kind: "5 小时", remaining: 100, hours: 3 }, { kind: "7 天", remaining: 0, hours: 18 }], footer: "旧的 0% 与原重置时刻继续可见；刷新按钮禁用，完成后整体替换。" },
+        { number: "12", title: "刷新失败，保留旧快照", description: "探测未成功，但此前有可用的额度快照。", badge: "刷新失败", badgeClass: "error", note: "刷新失败 · 沿用 55 分钟前的快照", noteClass: "error", windows: [{ kind: "5 小时", remaining: 100, hours: 3 }, { kind: "7 天", remaining: 0, hours: 7 }], footer: "明确标出失败和快照时间；仍可手动重试。" },
+        { number: "13", title: "仅有 7 天窗口，且额度耗尽", description: "例如只返回了周额度的 Codex 账号。", provider: "Codex", name: "codex@example.com", directory: "~/.codex-demo", windows: [{ kind: "7 天", remaining: 0, hours: 96 }], footer: "单窗口占满额度区域，以浅红底色和红色 0% 表达耗尽。" },
+        { number: "14", title: "只取得 5 小时窗口", description: "另一条额度数据缺失，但当前结果仍有效。", windows: [{ kind: "5 小时", remaining: 42, hours: 2.3 }], footer: "仅绘制有数据的窗口；不把缺失的七日额度当作 0%。" },
+        { number: "15", title: "首次打开，没有快照", description: "尚未手动刷新，也没有后台采样结果。", badge: "未采集", windows: [], footer: "显示明确的空状态和刷新入口，不绘制 0% 或时间环。" },
+        { number: "16", title: "首次刷新失败，没有旧快照", description: "没有任何成功采集的结果可保留。", badge: "刷新失败", badgeClass: "error", note: "刷新失败 · 尚无可保留的快照", noteClass: "error", windows: [], footer: "保留错误提示与重试入口，不展示虚构的额度。" }
+      ]
+    };
+    function resetTimeLabel(date) {
+      return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+    }
+    function scenarioMetric(window) {
+      const remaining = window.remaining;
+      const level = remaining === 0 ? "empty" : remaining < 20 ? "low" : "";
+      const weekly = window.kind === "7 天";
+      const duration = weekly ? 168 : 5;
+      const stale = window.resetState === "past";
+      let resetContent, resetClass = "", tooltip = "";
+      if (window.resetState === "unknown") {
+        resetContent = `<span class="muted">◷ 重置时间未知</span>`;
+      } else if (window.resetState === "past") {
+        resetClass = "past";
+        const previousReset = new Date(scenarioClock.getTime() - 20 * 60000);
+        tooltip = ` title="上次预计 ${previousReset.getFullYear()}年${resetTimeLabel(previousReset)} 重置；尚未刷新确认"`;
+        resetContent = `<strong>${resetTimeLabel(previousReset)} · 待刷新</strong>`;
+      } else {
+        const progress = Math.max(0, Math.min(1, 1 - window.hours / duration));
+        const offset = (circumference * (1 - progress)).toFixed(2);
+        const date = new Date(scenarioClock.getTime() + Math.round(window.hours * 60) * 60000);
+        tooltip = ` title="示例：${date.getFullYear()}年${resetTimeLabel(date)} 重置（本地时间）"`;
+        resetContent = `${weekly ? ringMarkup(offset) : ""}<strong>${resetTimeLabel(date)} 重置</strong>`;
+      }
+      return `<div class="metric ${weekly ? "week" : "five"} ${stale ? "stale" : ""}"><div class="metric-heading"><small>${window.kind}</small><strong class="${level}">${stale ? "上次余" : "余"} ${remaining}%</strong></div><div class="quota-track"><div class="quota-fill ${level}" style="width:${remaining}%"></div></div><div class="reset ${resetClass}"${tooltip}>${resetContent}</div></div>`;
+    }
+    function scenarioCard(scenario) {
+      const name = scenario.name ?? "demo@example.com";
+      const directory = scenario.directory ?? "~/.claude-demo";
+      const provider = scenario.provider ?? "Example Team · team";
+      const weekly = scenario.windows.find(window => window.kind === "7 天");
+      const weekExhausted = weekly?.remaining === 0 && weekly.resetState !== "past";
+      const stateClass = scenario.windows.length ? "" : "no-snapshot";
+      const note = scenario.note ? `<div class="state-note ${scenario.noteClass ?? ""}">${scenario.note}</div>` : "";
+      const content = scenario.windows.length
+        ? `<div class="metrics ${scenario.windows.length === 1 ? "single" : ""}">${scenario.windows.map(scenarioMetric).join("")}</div>`
+        : `<div class="empty-message"><div>${scenario.number === "16" ? "暂无额度快照" : "尚未采集额度"}<small>点击右侧刷新账号</small></div></div>`;
+      return `<article class="scenario"><div class="scenario-heading"><div class="top"><span class="number">${scenario.number}</span><strong>${scenario.title}</strong></div><p>${scenario.description}</p></div><div class="account ${weekExhausted ? "week-exhausted" : ""} ${scenario.stale ? "stale" : ""} ${scenario.note ? "has-state-note" : ""} ${stateClass}"><div class="identity"><div class="account-name"><strong>${name}</strong><small>${provider} · ${directory}</small></div><span class="age ${scenario.badgeClass ?? ""}">${scenario.badge ?? "◷ 9 分钟前"}</span><button class="refresh" type="button" title="设计示意，无刷新功能" aria-label="刷新 ${name}" ${scenario.disabled ? "disabled" : ""}>${scenario.disabled ? "◌" : "↻"}</button></div>${note}${content}</div><div class="scenario-footer">${scenario.footer}</div></article>`;
+    }
+    for (const [group, entries] of Object.entries(scenarios)) {
+      document.getElementById(`scenario-${group}`).innerHTML = entries.map(scenarioCard).join("");
+    }
+  </script>
+</body>
+</html>

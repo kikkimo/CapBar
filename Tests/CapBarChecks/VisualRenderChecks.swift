@@ -27,7 +27,7 @@ private actor PreviewHangingProvider: UsageProvider {
     let now = Date()
     let samples: [(String, String, String?, Double, Double?, Int)] = [
         ("alex@example.com", "Team", "Example Studio", 0, 99, 2),
-        ("sam@example.com", "Team", "Example Studio", 33, 33, 7),
+        ("sam@example.com", "Team", "Example Studio", 33, 0, 7),
         ("codex@example.com", "Plus", nil, 68, 42, 64),
         ("work@example.com", "Team", "Example Org", 13, nil, 180),
     ]

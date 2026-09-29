@@ -65,18 +65,6 @@ struct CapBarPopoverView: View {
     private var overview: some View {
         ScrollView {
             VStack(spacing: 0) {
-                let exhausted = PopoverPresentation.exhaustedCount(rows: model.rows)
-                if exhausted > 0 {
-                    HStack(spacing: 7) {
-                        Circle().fill(Color.red).frame(width: 6, height: 6)
-                        Text("\(exhausted) 个账号额度已用尽 · 请查看下方账号")
-                            .font(.system(size: 11, weight: .medium))
-                        Spacer()
-                    }
-                    .foregroundStyle(Color(nsColor: .systemRed))
-                    .padding(.horizontal, 16).padding(.vertical, 9)
-                    .background(Color(nsColor: .systemRed).opacity(0.08))
-                }
                 if !model.rows.isEmpty && model.rows.allSatisfy({ $0.windows.isEmpty && !$0.isRefreshing && $0.error == nil }) {
                     HStack(spacing: 7) {
                         Image(systemName: "arrow.clockwise.circle")
@@ -112,7 +100,9 @@ struct CapBarPopoverView: View {
             .padding(.horizontal, 16).padding(.vertical, 8)
             .background(Color(nsColor: .controlBackgroundColor).opacity(0.72))
             .overlay(alignment: .bottom) { line.frame(height: 1) }
-            ForEach(rows, id: \.account) { row in
+            ForEach(rows.indices, id: \.self) { index in
+                let row = rows[index]
+                let tinted = !model.showsTrend && row.isExhausted
                 CapBarAccountRow(
                     row: row, width: model.settings.popoverSize.width,
                     statisticsEnabled: model.settings.usageStatisticsEnabled,
@@ -120,7 +110,16 @@ struct CapBarPopoverView: View {
                     trend: model.trends[row.account]
                 ) { model.refresh(row.account) }
                     .padding(.horizontal, 16)
-                if row.account != rows.last?.account {
+                    .background {
+                        if tinted {
+                            LinearGradient(
+                                colors: [Color(nsColor: .systemRed).opacity(0.14),
+                                         Color(nsColor: .systemRed).opacity(0.06)],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                        }
+                    }
+                if index < rows.count - 1 && !tinted && (model.showsTrend || !rows[index + 1].isExhausted) {
                     line.frame(height: 1).padding(.horizontal, 16)
                 }
             }
@@ -213,11 +212,6 @@ private struct CapBarAccountRow: View {
             }
         }
         .padding(.vertical, 12)
-        .overlay(alignment: .leading) {
-            if row.isExhausted {
-                Color(nsColor: .systemRed).frame(width: 2).offset(x: -16)
-            }
-        }
     }
 
     private var captureTimeColor: Color {
@@ -333,37 +327,69 @@ private struct CapBarMetric: View {
         return value.rounded() == value ? String(format: "%.0f", value) : String(format: "%.1f", value)
     }
 
-    private var reset: String {
+    private func resetLabel(state: SevenDayResetState) -> String {
         guard let date = window.resetsAt else { return "重置时间未知" }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.dateFormat = "M月d日 HH:mm"
-        return formatter.string(from: date) + " 重置"
+        return formatter.string(from: date) + (window.kind == .sevenDay && state == .awaitingRefresh ? " · 待刷新" : " 重置")
     }
 
     var body: some View {
+        let resetState = SevenDayResetState(resetsAt: window.resetsAt, now: Date())
+        let weeklyExpired = window.kind == .sevenDay && resetState == .awaitingRefresh
         VStack(alignment: .leading, spacing: expanded ? 0 : 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(window.kind == .fiveHour ? "5 小时" : "7 天")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer(minLength: 4)
-                Text("余 \(percentage)%")
+                Text("\(weeklyExpired ? "上次余" : "余") \(percentage)%")
                     .font(.system(size: expanded ? 16 : 15, weight: .bold)).monospacedDigit()
-                    .foregroundStyle(color)
+                    .foregroundStyle(color.opacity(weeklyExpired ? 0.55 : 1))
             }
             if expanded { Spacer(minLength: 6) }
             GeometryReader { geometry in
                 Capsule().fill(Color(nsColor: .separatorColor).opacity(0.75))
                     .overlay(alignment: .leading) {
-                        Capsule().fill(color)
+                        Capsule().fill(color.opacity(weeklyExpired ? 0.55 : 1))
                             .frame(width: max(0, geometry.size.width * window.remainingPercent / 100))
                     }
             }
             .frame(height: expanded ? 5 : 4)
             if expanded { Spacer(minLength: 6) }
-            Text(reset).font(.system(size: 11)).foregroundStyle(.secondary)
-                .monospacedDigit().lineLimit(1)
+            HStack(spacing: 9) {
+                if window.kind == .sevenDay, case let .upcoming(progress) = resetState {
+                    SevenDayResetRing(progress: progress)
+                }
+                Text(resetLabel(state: resetState)).font(.system(size: 11))
+                    .foregroundStyle(weeklyExpired ? Color(nsColor: .systemOrange) : Color.secondary)
+                    .monospacedDigit().lineLimit(1)
+            }
         }
         .frame(height: expanded ? 84 : nil)
+    }
+}
+
+private struct SevenDayResetRing: View {
+    let progress: Double
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<7, id: \.self) { segment in
+                let start = Double(segment) / 7 + 0.02
+                let end = Double(segment + 1) / 7 - 0.02
+                Circle().trim(from: start, to: end)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.65), style: StrokeStyle(lineWidth: 1.7, lineCap: .round))
+                if progress > start {
+                    Circle().trim(from: start, to: min(end, progress))
+                        .stroke(Color(nsColor: .systemBlue).opacity(0.8), style: StrokeStyle(lineWidth: 1.7, lineCap: .round))
+                }
+            }
+        }
+        .rotationEffect(.degrees(-90))
+        .frame(width: 15, height: 15)
+        .animation(.easeInOut(duration: 0.35), value: progress)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("七日重置周期已过 \(Int((progress * 100).rounded()))%")
     }
 }
