@@ -246,7 +246,7 @@ private struct CapBarAccountRow: View {
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
                 .help(row.title)
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 Text(row.subtitle).lineLimit(1)
                 Text("·")
                 Text(row.directoryLabel).lineLimit(1)
@@ -374,18 +374,18 @@ private struct SevenDayResetRing: View {
     var body: some View {
         ZStack {
             ForEach(0..<7, id: \.self) { segment in
-                let start = Double(segment) / 7 + 0.009
-                let end = Double(segment + 1) / 7 - 0.009
+                let start = Double(segment) / 7 + 0.02
+                let end = Double(segment + 1) / 7 - 0.02
                 Circle().trim(from: start, to: end)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.8), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.65), style: StrokeStyle(lineWidth: 1.7, lineCap: .round))
                 if progress > start {
                     Circle().trim(from: start, to: min(end, progress))
-                        .stroke(Color(nsColor: .systemBlue), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+                        .stroke(Color(nsColor: .systemBlue).opacity(0.8), style: StrokeStyle(lineWidth: 1.7, lineCap: .round))
                 }
             }
         }
         .rotationEffect(.degrees(-90))
-        .frame(width: 18, height: 18)
+        .frame(width: 15, height: 15)
         .animation(.easeInOut(duration: 0.35), value: progress)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("七日重置周期已过 \(Int((progress * 100).rounded()))%")
