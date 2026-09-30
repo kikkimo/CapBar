@@ -162,9 +162,10 @@ struct UsageTrendChart: View {
                 }
             }
             .frame(height: chartHeight)
-            if let series, let hoveredIndex, series.points.indices.contains(hoveredIndex) {
-                tooltip(for: series.points[hoveredIndex], series: series,
-                        range: colorRange ?? UsageTrendColorScale.range(for: [series]))
+            if let totalOverview, let series, let hoveredIndex,
+               series.points.indices.contains(hoveredIndex) {
+                TotalTrendTooltip(point: series.points[hoveredIndex], series: series,
+                                  overview: totalOverview, calendar: calendar)
                     .padding(.leading, UsageTrendChartLayout.leading)
                     .padding(.trailing, UsageTrendChartLayout.trailing)
                     .padding(.top, 7)
@@ -254,18 +255,15 @@ struct UsageTrendChart: View {
                         .frame(width: 7, height: 7)
                         .position(x: x, y: UsageTrendChartLayout.yPosition(value: usage, axisMaximum: series.axisMaximum, height: size.height))
                 }
+                if !isTotal {
+                    individualTooltip(for: point, series: series, range: range)
+                        .frame(width: 166)
+                        .position(x: min(max(83, x), max(83, size.width - 83)), y: -29)
+                        .zIndex(3)
+                }
             }
         }
         .frame(width: size.width, height: size.height)
-    }
-
-    @ViewBuilder private func tooltip(for point: UsageTrendPoint, series: UsageTrendSeries,
-                                      range: ClosedRange<Double>?) -> some View {
-        if let totalOverview {
-            TotalTrendTooltip(point: point, series: series, overview: totalOverview, calendar: calendar)
-        } else {
-            individualTooltip(for: point, series: series, range: range)
-        }
     }
 
     private func individualTooltip(for point: UsageTrendPoint, series: UsageTrendSeries,
@@ -297,9 +295,8 @@ struct UsageTrendChart: View {
                 .font(.system(size: 9)).foregroundStyle(secondary)
         }
         .font(.system(size: 10))
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 9).padding(.vertical, 7)
-        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(nsColor: .separatorColor)))
         .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
         .allowsHitTesting(false)
@@ -330,6 +327,11 @@ struct TotalTrendTooltip: View {
     let calendar: Calendar
 
     private var secondary: Color { Color(nsColor: .secondaryLabelColor) }
+    private var contributions: [TrendContribution]? { overview.contributions(at: point.endAt) }
+    private var contributionRange: ClosedRange<Double>? {
+        contributions.flatMap { TotalTrendBreakdownScale.colorRange(for: $0.map(\.equivalentPercent)) }
+    }
+    private var largestContribution: Double { contributions?.map(\.equivalentPercent).max() ?? 0 }
 
     private var dateLabel: String {
         let formatter = DateFormatter()
@@ -352,6 +354,7 @@ struct TotalTrendTooltip: View {
                 Text(point.usedPercent.map(percent) ?? "—")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .monospacedDigit()
+                    .foregroundStyle(point.usedPercent.map { scaleColor($0, in: UsageTrendColorScale.range(for: [series])) } ?? secondary)
             }
             .padding(.top, 5)
             Text(point.isMissing ? "采样覆盖不足" : "以 \(overview.baselinePlan?.displayName ?? "套餐") 为基准 · \(overview.accountCount) 个账号")
@@ -359,7 +362,7 @@ struct TotalTrendTooltip: View {
                 .foregroundStyle(secondary)
                 .padding(.top, 2)
 
-            if let contributions = overview.contributions(at: point.endAt) {
+            if let contributions {
                 Rectangle().fill(Color(nsColor: .separatorColor).opacity(0.8))
                     .frame(height: 1).padding(.vertical, 9)
                 HStack {
@@ -371,17 +374,31 @@ struct TotalTrendTooltip: View {
                 .foregroundStyle(secondary)
                 .padding(.bottom, 5)
                 ForEach(contributions.indices, id: \.self) { index in
-                    HStack(spacing: 8) {
-                        Text(contributions[index].label)
-                            .lineLimit(1).truncationMode(.middle)
-                            .foregroundStyle(Color.primary)
-                        Spacer(minLength: 4)
-                        Text(percent(contributions[index].equivalentPercent))
-                            .fontWeight(.semibold).monospacedDigit()
-                            .foregroundStyle(Color.primary)
+                    let contribution = contributions[index]
+                    let color = scaleColor(contribution.equivalentPercent, in: contributionRange)
+                    VStack(spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text(contribution.label)
+                                .lineLimit(1).truncationMode(.middle)
+                                .foregroundStyle(Color.primary)
+                            Spacer(minLength: 4)
+                            Text(percent(contribution.equivalentPercent))
+                                .fontWeight(.bold).monospacedDigit()
+                                .foregroundStyle(color)
+                        }
+                        .font(.system(size: 12))
+                        GeometryReader { geometry in
+                            Capsule().fill(Color(nsColor: .separatorColor).opacity(0.44))
+                            if contribution.equivalentPercent > 0 {
+                                Capsule().fill(color)
+                                    .frame(width: geometry.size.width * TotalTrendBreakdownScale.barFraction(
+                                        contribution.equivalentPercent, maximum: largestContribution
+                                    ))
+                            }
+                        }
+                        .frame(height: 5)
                     }
-                    .font(.system(size: 12))
-                    .frame(minHeight: 21)
+                    .padding(.bottom, index == contributions.count - 1 ? 0 : 7)
                 }
             }
         }
@@ -395,5 +412,23 @@ struct TotalTrendTooltip: View {
 
     private func percent(_ value: Double) -> String {
         value.rounded() == value ? String(format: "%.0f%%", value) : String(format: "%.1f%%", value)
+    }
+
+    private func scaleColor(_ value: Double, in range: ClosedRange<Double>?) -> Color {
+        let rgb = UsageTrendColorScale.turboRGB(at: UsageTrendColorScale.fraction(value, in: range))
+        return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
+    }
+}
+
+enum TotalTrendBreakdownScale {
+    static func colorRange(for values: [Double]) -> ClosedRange<Double>? {
+        let finite = values.filter(\.isFinite)
+        guard let minimum = finite.min(), let maximum = finite.max() else { return nil }
+        return minimum...maximum
+    }
+
+    static func barFraction(_ value: Double, maximum: Double) -> Double {
+        guard value.isFinite, maximum.isFinite, maximum > 0 else { return 0 }
+        return min(1, max(0, value / maximum))
     }
 }

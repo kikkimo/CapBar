@@ -169,9 +169,9 @@ private actor PreviewHangingProvider: UsageProvider {
                     .padding(.trailing, UsageTrendChartLayout.trailing)
             }
                 .padding(16)
-                .frame(width: 448, height: 430, alignment: .top)
+                .frame(width: 448, height: 480, alignment: .top)
                 .background(Color(nsColor: .underPageBackgroundColor)),
-                size: CGSize(width: 448, height: 430), appearance: appearance,
+                size: CGSize(width: 448, height: 480), appearance: appearance,
                 to: URL(fileURLWithPath: "/tmp/capbar-preview-total-tooltip-\(name).png"))
         }
     }
