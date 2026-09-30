@@ -207,6 +207,7 @@ private struct CapBarTotalTrendCard: View {
 
     private var title: String { provider == .claude ? "Claude 用量合计" : "Codex 用量合计" }
     private var latestUsage: Double? { overview.series?.points.last?.usedPercent }
+    private var statistics: ProviderTrendStatistics? { overview.statistics(calendar: .current) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -248,11 +249,125 @@ private struct CapBarTotalTrendCard: View {
                     totalOverview: overview
                 )
             }
-            Text("套餐容量按估算系数换算 · 缺测区间留空")
-                .font(.system(size: 9)).foregroundStyle(.secondary)
+            if let statistics, statistics.validBinCount > 0, let binHours = overview.series?.binHours {
+                CapBarTotalTrendStatistics(statistics: statistics, binHours: binHours)
+            } else {
+                Text("套餐容量按估算系数换算 · 缺测区间留空")
+                    .font(.system(size: 9)).foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct CapBarTotalTrendStatistics: View {
+    let statistics: ProviderTrendStatistics
+    let binHours: Int
+
+    private let secondary = Color(nsColor: .secondaryLabelColor)
+    private let separator = Color(nsColor: .separatorColor)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 0) {
+                primary(label: "最高 · 每 \(binHours) 小时", value: percent(statistics.peak?.value),
+                        note: statistics.peak.map { peakTime($0.endAt) } ?? "数据不足")
+                divider
+                primary(label: "最低 · 每 \(binHours) 小时", value: percent(statistics.minimum),
+                        note: "有效区间含 0%")
+                divider
+                primary(label: "平均 · 每 \(binHours) 小时", value: percent(statistics.average),
+                        note: "仅计算有效区间")
+            }
+            .padding(.vertical, 8)
+            .overlay(alignment: .top) { separator.frame(height: 1) }
+            .overlay(alignment: .bottom) { separator.frame(height: 1) }
+            .padding(.bottom, 6)
+
+            HStack(spacing: 7) {
+                Text("已观测合计").foregroundStyle(secondary)
+                Text(percent(statistics.observedTotal)).fontWeight(.semibold)
+                Spacer(minLength: 2)
+                Text("数据覆盖").foregroundStyle(secondary)
+                Text("\(statistics.validBinCount)/\(statistics.expectedBinCount) 区间").fontWeight(.semibold)
+            }
+            .modifier(StatisticsRowStyle())
+
+            HStack(spacing: 7) {
+                Text("贡献最多").foregroundStyle(secondary).fixedSize()
+                Text(statistics.leader?.label ?? "—")
+                    .fontWeight(.semibold).lineLimit(1).truncationMode(.middle)
+                    .help(statistics.leader?.label ?? "尚无账号用量")
+                Spacer(minLength: 2)
+                if let leader = statistics.leader {
+                    Text("等效 \(percent(leader.equivalentPercent)) · 占 \(percent(leader.sharePercent))")
+                        .font(.system(size: 9)).foregroundStyle(secondary).fixedSize()
+                }
+            }
+            .modifier(StatisticsRowStyle())
+
+            HStack(spacing: 7) {
+                Text("高用量时段").foregroundStyle(secondary)
+                Text(statistics.highUsagePeriod?.label ?? "数据不足").fontWeight(.semibold)
+                if statistics.highUsagePeriod != nil {
+                    Text("本地时间 · 估算").font(.system(size: 9)).foregroundStyle(secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .modifier(StatisticsRowStyle())
+
+            HStack(spacing: 7) {
+                Text("最近 24 小时").foregroundStyle(secondary).fixedSize()
+                Text(percent(statistics.recent24Hours.usedPercent))
+                    .fontWeight(.semibold).foregroundStyle(Color.accentColor)
+                Text("覆盖 \(statistics.recent24Hours.validBinCount)/\(statistics.recent24Hours.expectedBinCount)")
+                    .font(.system(size: 9)).foregroundStyle(secondary).fixedSize()
+                Spacer(minLength: 2)
+                Text("较前 24 小时").foregroundStyle(secondary).fixedSize()
+                Text(TrendStatisticsText.changeLabel(statistics.changePercent))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(statistics.changePercent == nil ? secondary : Color(red: 0.17, green: 0.62, blue: 0.45))
+                    .help(statistics.changePercent == nil ? "前一窗口采样不足或基线为零" : "与前一个完整 24 小时窗口相比")
+            }
+            .modifier(StatisticsRowStyle())
+        }
+        .font(.system(size: 10))
+        .monospacedDigit()
+    }
+
+    private var divider: some View {
+        separator.frame(width: 1, height: 43)
+    }
+
+    private func primary(label: String, value: String, note: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label).font(.system(size: 9)).foregroundStyle(secondary).lineLimit(1)
+            Text(value).font(.system(size: 15, weight: .bold)).lineLimit(1)
+            Text(note).font(.system(size: 8)).foregroundStyle(secondary).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 9)
+    }
+
+    private func percent(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return value.formatted(.number.precision(.fractionLength(1))) + "%"
+    }
+
+    private func peakTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.timeZone = .current
+        formatter.dateFormat = "M/d HH:mm"
+        return formatter.string(from: date)
+    }
+}
+
+private struct StatisticsRowStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content.frame(minHeight: 23).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 2)
     }
 }
 

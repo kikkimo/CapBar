@@ -143,6 +143,13 @@ private actor PreviewHangingProvider: UsageProvider {
     trendModel.setTrendScope(.total)
     try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-light.png"))
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-dark.png"))
+    let originalTrendSize = trendModel.settings.popoverSize
+    trendModel.setPopoverSize(width: 462, height: 862)
+    try render(model: trendModel, appearance: .aqua,
+               to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-expanded-light.png"))
+    try render(model: trendModel, appearance: .darkAqua,
+               to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-expanded-dark.png"))
+    trendModel.setPopoverSize(width: originalTrendSize.width, height: originalTrendSize.height)
     trendModel.setTrendScope(.individual)
     try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-individual-light.png"))
     let tooltipEnd = Date(timeIntervalSince1970: gridEnd)
@@ -247,7 +254,7 @@ private actor PreviewHangingProvider: UsageProvider {
     }
     try render(model: stateModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-states.png"))
     await stateCoordinator.cancelAll()
-    print("Rendered /tmp/capbar-preview-{light,dark,settings,wide,settings-wide,states,trend-light,trend-dark,trend-empty,trend-single,quota-expanded,usage-settings}.png")
+    print("Rendered /tmp/capbar-preview-{light,dark,settings,wide,settings-wide,states,trend-light,trend-dark,trend-expanded-light,trend-expanded-dark,trend-empty,trend-single,quota-expanded,usage-settings}.png")
 }
 
 @MainActor private func render(model: CapBarViewModel, appearance: NSAppearance.Name, to url: URL) throws {

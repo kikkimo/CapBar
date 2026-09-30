@@ -12,6 +12,12 @@ import Foundation
           "tooltip describes the selected chart interval")
     check(UsageTrendChartText.intervalUsageLabel(binHours: 4, isTotal: true) == "这 4 小时合计用量",
           "total tooltip distinguishes weighted aggregate usage from one account")
+    check(TrendStatisticsText.changeLabel(-0.04) == "0%"
+          && TrendStatisticsText.changeLabel(0.49) == "0%"
+          && TrendStatisticsText.changeLabel(68.5) == "+69%"
+          && TrendStatisticsText.changeLabel(-12.6) == "-13%"
+          && TrendStatisticsText.changeLabel(nil) == "—",
+          "small relative changes never render negative zero and signs follow rounded values")
     check(UsageTrendChartLayout.nearestPointIndex(at: 26, width: 416, count: 84) == 0, "hover at left edge picks oldest point")
     check(UsageTrendChartLayout.nearestPointIndex(at: 408, width: 416, count: 84) == 83, "hover at right edge picks latest point")
     check(abs(UsageTrendChartLayout.yPosition(value: 0, axisMaximum: 60, height: 84) - 63) < 0.01, "zero usage is at graph baseline")

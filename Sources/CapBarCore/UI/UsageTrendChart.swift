@@ -6,6 +6,15 @@ enum UsageTrendChartText {
     }
 }
 
+enum TrendStatisticsText {
+    static func changeLabel(_ change: Double?) -> String {
+        guard let change, change.isFinite else { return "—" }
+        let raw = change.rounded()
+        let rounded = raw == 0 ? 0 : raw
+        return "\(rounded > 0 ? "+" : "")\(String(format: "%.0f", rounded))%"
+    }
+}
+
 enum UsageTrendEmptyState {
     static func lines(sampleCount: Int, binHours: Int, nextSampleAt: Date?, now: Date, calendar: Calendar) -> [String] {
         let count = "近 7 日已采样 \(sampleCount) 次"
@@ -123,7 +132,7 @@ struct UsageTrendChart: View {
     var totalOverview: ProviderTrendOverview? = nil
 
     @State private var hoveredIndex: Int?
-    private var chartHeight: CGFloat { totalOverview == nil ? 84 : 128 }
+    private var chartHeight: CGFloat { totalOverview == nil ? 84 : 105 }
     private let secondary = Color(nsColor: .secondaryLabelColor)
 
     var body: some View {
