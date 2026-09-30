@@ -75,6 +75,21 @@ import Foundation
     check(empty.points.allSatisfy { $0.usedPercent == nil }, "no history renders missing points without fabricated usage")
     check(empty.points.last?.endAt == Date(timeIntervalSince1970: 8 * hour), "incomplete current bin is not drawn")
 
+    let awaitingBoundarySample = UsageTrendCalculator.calculate(
+        samples: [
+            sample(2 + 20.0 / 3_600, used: 10, reset: 80),
+            sample(4 + 20.0 / 3_600, used: 15, reset: 80),
+            sample(6 + 20.0 / 3_600, used: 20, reset: 80)
+        ], intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour + 10)
+    )
+    let awaitingOverview = ProviderTrendOverview.build([
+        TrendOverviewAccount(label: "example@example.com", tier: .claudePro, series: awaitingBoundarySample)
+    ])
+    check(awaitingBoundarySample.points.last?.usedPercent == nil
+          && near(awaitingOverview.latestObservedPoint?.usedPercent, 5)
+          && awaitingOverview.latestObservedPoint?.endAt == Date(timeIntervalSince1970: 6 * hour),
+          "the headline falls back to the preceding measured bin while the just-ended bin awaits sampling")
+
     let expectedGrids: [(setting: Int, count: Int, lastHour: Double)] = [
         (1, 84, 10), (2, 84, 10), (3, 56, 9),
         (4, 42, 8), (6, 28, 6), (8, 21, 8)
@@ -115,4 +130,195 @@ import Foundation
     )
     check(near(manualBridge.points[54].usedPercent, 30) && near(manualBridge.points[55].usedPercent, 30),
           "manual samples between three-hour grid points bridge a missed regular sample")
+    let stableTier = UsageTrendCalculator.calculate(samples: [
+        UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 0), usedPercent: 10,
+                           resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudePro),
+        UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 2 * hour), usedPercent: 30,
+                           resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudePro)
+    ], intervalHours: 2, endingAt: Date(timeIntervalSince1970: 2 * hour))
+    check(stableTier.points.last?.planTier == .claudePro && near(stableTier.points.last?.usedPercent, 20),
+          "a measured interval carries its historical subscription tier")
+    let newlyRecordedTierSamples = [
+        UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 0), usedPercent: 10,
+                           resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: nil),
+        UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 2 * hour + 20), usedPercent: 20,
+                           resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudePro),
+        UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 4 * hour + 20), usedPercent: 30,
+                           resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudePro)
+    ]
+    let newlyRecordedTier = UsageTrendCalculator.calculate(
+        samples: newlyRecordedTierSamples, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 4 * hour + 30)
+    )
+    check(newlyRecordedTier.points.suffix(2).allSatisfy { $0.usedPercent != nil }
+          && newlyRecordedTier.points.last?.usedPercent.map { abs($0 - 10) < 0.01 } == true
+          && newlyRecordedTier.points.last?.planTier == .claudePro,
+          "a newly populated tier field does not erase intervals on either side of its sample")
+    let newlyRecordedHistory = UsageTrendCalculator.calculateHistory(
+        samples: newlyRecordedTierSamples, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 4 * hour + 30)
+    )
+    check(newlyRecordedHistory.points.count == 2
+          && newlyRecordedHistory.points.allSatisfy { $0.usedPercent != nil }
+          && newlyRecordedHistory.points.last?.usedPercent.map { abs($0 - 10) < 0.01 } == true
+          && newlyRecordedHistory.points.last?.planTier == .claudePro,
+          "all-time history also bridges missing tier metadata without inventing a plan change")
+    let changedTier = UsageTrendCalculator.calculate(samples: [
+        UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 0), usedPercent: 10,
+                           resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudePro),
+        UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 2 * hour), usedPercent: 30,
+                           resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudeMax5)
+    ], intervalHours: 2, endingAt: Date(timeIntervalSince1970: 2 * hour))
+    check(changedTier.points.last?.usedPercent == nil,
+          "an interval crossing a subscription change is left blank instead of interpolated")
+    let changedTierHistory = UsageTrendCalculator.calculateHistory(
+        samples: [
+            UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 0), usedPercent: 10,
+                               resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudePro),
+            UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 2 * hour), usedPercent: 30,
+                               resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudeMax5)
+        ], intervalHours: 2, endingAt: Date(timeIntervalSince1970: 2 * hour)
+    )
+    check(changedTierHistory.points.last?.usedPercent == nil,
+          "all-time history still leaves a confirmed subscription change blank")
+
+    let historical = UsageTrendCalculator.calculateHistory(
+        samples: twoHourSamples, intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour)
+    )
+    check(historical.points.count == 4
+          && zip(historical.points, series.points.suffix(4)).allSatisfy {
+              $0.0.endAt == $0.1.endAt && $0.0.usedPercent == $0.1.usedPercent
+              && $0.0.crossesReset == $0.1.crossesReset
+          }, "all-time bin calculation matches the existing seven-day reset and interpolation rules")
+    let historicalGap = UsageTrendCalculator.calculateHistory(
+        samples: [sample(0, used: 30, reset: 80), sample(8, used: 50, reset: 80)],
+        intervalHours: 4, endingAt: Date(timeIntervalSince1970: 8 * hour)
+    )
+    check(historicalGap.points.count == 2 && historicalGap.points.allSatisfy { $0.usedPercent == nil },
+          "all-time calculation preserves missing intervals rather than filling them with zero")
+    let yearSamples = (0...(365 * 6)).map { sample(Double($0 * 4), used: 0, reset: 20_000) }
+    let year = UsageTrendCalculator.calculateHistory(
+        samples: yearSamples, intervalHours: 4,
+        endingAt: Date(timeIntervalSince1970: 365 * 24 * hour)
+    )
+    check(year.points.count == 365 * 6 && year.points.allSatisfy { $0.usedPercent == 0 },
+          "all-time calculation handles a year of indexed samples in one pass")
+
+    func trend(_ values: [Double?], hours: [Double] = [2, 4, 6]) -> UsageTrendSeries {
+        UsageTrendSeries(
+            points: zip(hours, values).map { end, value in
+                UsageTrendPoint(endAt: Date(timeIntervalSince1970: end * hour), usedPercent: value,
+                                remainingPercent: nil, crossesReset: false, isEstimated: false)
+            },
+            binHours: 2, axisMaximum: 10, axisTicks: [0, 5, 10], sampleCount: 3
+        )
+    }
+    let pro = trend([2, 3, 4])
+    let maxFive = trend([1, nil, 2])
+    let summed = UsageTrendAggregator.aggregate(
+        [WeightedUsageTrend(series: pro, capacity: 1), WeightedUsageTrend(series: maxFive, capacity: 5)],
+        baselineCapacity: 1
+    )
+    check(near(summed?.points[0].usedPercent, 7) && summed?.points[1].usedPercent == nil
+          && near(summed?.points[2].usedPercent, 14),
+          "total converts plan capacities before summing and leaves incomplete bins blank")
+    check(summed?.axisMaximum == 20 && summed?.axisTicks == [0, 10, 20],
+          "total axis expands to the weighted observed peak")
+    let maxBased = UsageTrendAggregator.aggregate(
+        [WeightedUsageTrend(series: maxFive, capacity: 5), WeightedUsageTrend(series: pro, capacity: 1)],
+        baselineCapacity: 5
+    )
+    check(near(maxBased?.points[0].usedPercent, 1.4),
+          "first account capacity changes the total display unit")
+    let upgraded = UsageTrendSeries(points: maxFive.points.enumerated().map { index, point in
+        UsageTrendPoint(endAt: point.endAt, usedPercent: point.usedPercent, remainingPercent: nil,
+                        crossesReset: false, isEstimated: false,
+                        planTier: index == 2 ? .claudeMax20 : .claudeMax5)
+    }, binHours: 2, axisMaximum: 10, axisTicks: [0, 5, 10], sampleCount: 3)
+    let upgradedTotal = UsageTrendAggregator.aggregate(
+        [WeightedUsageTrend(series: pro, capacity: 1), WeightedUsageTrend(series: upgraded, capacity: 5)],
+        baselineCapacity: 1
+    )
+    check(near(upgradedTotal?.points[0].usedPercent, 7)
+          && near(upgradedTotal?.points[2].usedPercent, 44),
+          "historical tier weights a past bin with its captured capacity, not today's tier")
+    let upgradedBreakdown = ProviderTrendOverview.build([
+        TrendOverviewAccount(label: "Pro", tier: .claudePro, series: pro),
+        TrendOverviewAccount(label: "Upgraded", tier: .claudeMax5, series: upgraded)
+    ]).contributions(at: pro.points[2].endAt)
+    check(near(upgradedBreakdown?[1].equivalentPercent, 40),
+          "tooltip contribution uses the historical tier behind the plotted total")
+    let mismatched = trend([1, 2, 3], hours: [2, 5, 6])
+    let mismatchedTotal = UsageTrendAggregator.aggregate(
+        [WeightedUsageTrend(series: pro, capacity: 1), WeightedUsageTrend(series: mismatched, capacity: 1)],
+        baselineCapacity: 1
+    )
+    check(mismatchedTotal?.points[1].usedPercent == nil,
+          "samples with different UTC interval ends cannot be combined by array position")
+    check(UsageTrendAggregator.aggregate([WeightedUsageTrend(series: pro, capacity: 0)], baselineCapacity: 1) == nil,
+          "unknown or invalid capacity does not create a misleading total")
+
+    let sharedClaudeRange = UsageTrendColorScale.range(for: [pro, maxFive])
+    let codexRange = UsageTrendColorScale.range(for: [trend([10, 20, 30])])
+    check(sharedClaudeRange?.lowerBound == 1 && sharedClaudeRange?.upperBound == 4,
+          "all Claude account charts use one observed color range")
+    check(codexRange?.lowerBound == 10 && codexRange?.upperBound == 30,
+          "Codex account colors are independent from Claude")
+    check(UsageTrendColorScale.range(for: [summed!])?.lowerBound == 7
+          && UsageTrendColorScale.range(for: [summed!])?.upperBound == 14,
+          "a total chart maps its own observed minimum and maximum")
+    check(UsageTrendColorScale.fraction(1, in: sharedClaudeRange) == 0
+          && UsageTrendColorScale.fraction(4, in: sharedClaudeRange) == 1,
+          "observed bounds reach both ends of the palette instead of using zero and axis maximum")
+    check(UsageTrendColorScale.fraction(3, in: 3...3) == 0.5
+          && UsageTrendColorScale.range(for: [trend([nil, nil, nil])]) == nil,
+          "flat or missing history gets a neutral color without a divide-by-zero")
+
+    check(UsagePlanTier.detect(provider: .claude, rawPlan: "Pro") == .claudePro
+          && UsagePlanTier.detect(provider: .claude, rawPlan: "Max 20x") == .claudeMax20,
+          "explicit Claude plan tiers can be recognized without credentials")
+    check(UsagePlanTier.detect(provider: .codex, rawPlan: "Plus") == .codexPlus
+          && UsagePlanTier.detect(provider: .codex, rawPlan: "Pro 5x") == .codexPro5,
+          "explicit Codex plan tiers map only within Codex")
+    check(UsagePlanTier.detect(provider: .claude, rawPlan: "team") == nil
+          && UsagePlanTier.detect(provider: .claude, rawPlan: "max") == nil
+          && UsagePlanTier.detect(provider: .codex, rawPlan: "pro") == nil,
+          "ambiguous plan names never silently select a subscription multiplier")
+    check(UsagePlanTier.claudePro.capacityFactor == 1
+          && UsagePlanTier.claudeMax5.capacityFactor == 5
+          && UsagePlanTier.claudeMax20.capacityFactor == 20
+          && UsagePlanTier.claudeTeamStandard.capacityFactor == 1.25
+          && UsagePlanTier.claudeTeamPremium.capacityFactor == 6.25
+          && UsagePlanTier.codexPlus.capacityFactor == 1
+          && UsagePlanTier.codexPro5.capacityFactor == 5
+          && UsagePlanTier.codexPro20.capacityFactor == 20,
+          "candidate proposal factors convert each tier to provider base capacity")
+
+    let overview = ProviderTrendOverview.build([
+        TrendOverviewAccount(label: "Pro account", tier: .claudePro, series: pro),
+        TrendOverviewAccount(label: "Max account", tier: .claudeMax5, series: maxFive)
+    ])
+    check(overview.accountCount == 2 && overview.baselinePlan == .claudePro
+          && near(overview.series?.points[0].usedPercent, 7),
+          "provider overview uses the first account plan as its display unit")
+    let breakdown = overview.contributions(at: pro.points[0].endAt)
+    check(breakdown?.map(\.label) == ["Pro account", "Max account"]
+          && near(breakdown?[0].equivalentPercent, 2)
+          && near(breakdown?[1].equivalentPercent, 5)
+          && near(breakdown?.reduce(0) { $0 + $1.equivalentPercent }, 7),
+          "total tooltip breaks down each account in the same baseline units as its plotted total")
+    check(overview.contributions(at: pro.points[1].endAt) == nil,
+          "total tooltip does not invent account values for an incomplete interval")
+    let unknownOverview = ProviderTrendOverview.build([
+        TrendOverviewAccount(tier: .claudePro, series: pro),
+        TrendOverviewAccount(tier: nil, series: maxFive)
+    ])
+    check(unknownOverview.uncalibratedCount == 1 && unknownOverview.series == nil,
+          "one unknown subscription blocks a misleading partial total")
+    let pendingOverview = ProviderTrendOverview.build([
+        TrendOverviewAccount(tier: .claudePro, series: pro),
+        TrendOverviewAccount(tier: .claudeMax5, series: nil)
+    ])
+    check(pendingOverview.pendingHistoryCount == 1 && pendingOverview.series == nil,
+          "a missing account trend waits for history instead of treating it as zero")
 }

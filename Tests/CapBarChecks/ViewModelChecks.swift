@@ -113,6 +113,25 @@ private actor GatedTrendLoader {
         check(model.settings.usageStatisticsEnabled && model.settings.samplingScheduleStartedAt == enabledAt, "enabling statistics records first-schedule time")
         model.setTrendMode(true)
         check(model.showsTrend, "trend mode is available while statistics are enabled")
+        check(model.trendScope == .individual, "opening the trend view defaults to individual accounts")
+        model.setTrendScope(.individual)
+        check(model.trendScope == .individual, "trend scope switches all providers to individual accounts")
+        model.setTrendMode(false)
+        model.setTrendMode(true)
+        check(model.trendScope == .individual, "temporarily viewing quotas keeps the selected trend scope")
+        let calibrationAccount = model.settings.accounts.first { $0.provider == .claude }!
+        model.setPlanOverride(.claudeTeamStandard, for: calibrationAccount)
+        check(model.settings.planOverrides.first?.account == calibrationAccount
+              && model.planTier(for: calibrationAccount) == .claudeTeamStandard,
+              "manual calibration is associated with the configured account")
+        check(samplingChanges.last?.planOverrides.first?.tier == .claudeTeamStandard,
+              "changing a plan tier updates the running sampling controller's settings")
+        model.setPlanOverride(.codexPlus, for: calibrationAccount)
+        check(model.planTier(for: calibrationAccount) == .claudeTeamStandard,
+              "a Codex tier cannot be assigned to a Claude account")
+        model.setPlanOverride(nil, for: calibrationAccount)
+        check(model.settings.planOverrides.isEmpty,
+              "clearing a calibration removes the per-account override")
         model.setSamplingInterval(6, now: enabledAt.addingTimeInterval(60))
         check(model.settings.samplingIntervalHours == 6, "six-hour sampling choice applies")
         check(model.settings.samplingScheduleStartedAt == enabledAt.addingTimeInterval(60), "interval change realigns first UTC sample")
@@ -120,7 +139,7 @@ private actor GatedTrendLoader {
         check(model.settings.samplingIntervalHours == 6, "unsupported stepper value is ignored")
         model.setUsageStatisticsEnabled(false, now: enabledAt.addingTimeInterval(180))
         check(!model.showsTrend && !model.settings.usageStatisticsEnabled, "disabling statistics returns to quota view")
-        check(samplingChanges.count == 3, "only accepted settings changes notify scheduler")
+        check(samplingChanges.count == 5, "only accepted statistics and calibration changes notify scheduler")
         await model.flushSettings()
         let usageSaved = try await SettingsStore(url: root.appendingPathComponent("settings.json")).loadOrSeed()
         check(!usageSaved.usageStatisticsEnabled && usageSaved.samplingIntervalHours == 6, "statistics choice and interval persist")
@@ -159,6 +178,14 @@ private actor GatedTrendLoader {
         let due = await sampler.nextDue(for: account)
         check(trendModel.trends[account]?.nextSampleAt == due,
               "empty-state hint uses the account's actual scheduled sampling time")
+        trendModel.setPlanOverride(.claudePro, for: account)
+        trendModel.setTrendScope(.total)
+        await trendModel.reloadTrends(endingAt: chartEnd)
+        for _ in 0..<100 where trendModel.historicalStatistics[.claude] == nil {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        check(trendModel.historicalStatistics[.claude]?.highInterval?.usedPercent == 10,
+              "total trend loads all-time records from SQLite for a calibrated provider")
 
         let gated = GatedTrendLoader(samples: [
             UsageHistorySample(capturedAt: initial.capturedAt, usedPercent: 30, resetsAt: chartEnd.addingTimeInterval(86_400)),

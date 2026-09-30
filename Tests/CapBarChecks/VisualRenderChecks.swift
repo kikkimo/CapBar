@@ -29,7 +29,7 @@ private actor PreviewHangingProvider: UsageProvider {
         ("alex@example.com", "Team", "Example Studio", 0, 99, 2),
         ("sam@example.com", "Team", "Example Studio", 33, 0, 7),
         ("codex@example.com", "Plus", nil, 68, 42, 64),
-        ("work@example.com", "Team", "Example Org", 13, nil, 180),
+        ("work@example.com", "Pro 20x", nil, 13, 55, 180),
     ]
     var snapshots: [UsageSnapshot] = []
     for (account, sample) in zip(accounts, samples) {
@@ -78,31 +78,36 @@ private actor PreviewHangingProvider: UsageProvider {
         let currentUsed = 100 - weekly.remainingPercent
         let hasReset = account == accounts[1]
         let resetAt = Date(timeIntervalSince1970: gridEnd - 60 * 3_600)
-        for index in 0...84 {
-            if account == accounts[2] && (27...32).contains(index) { continue }
+        for index in 0...120 {
+            let chartIndex = index - 36
+            if account == accounts[2] && (27...32).contains(chartIndex) { continue }
             let used: Double
             let nextReset: Date
-            if hasReset && index < 54 {
-                used = weightedUsed(index, count: 53, start: 12, end: 90, spike: 37)
+            if hasReset && chartIndex < 54 {
+                used = weightedUsed(max(0, chartIndex), count: 53, start: 12, end: 90, spike: 37)
                 nextReset = resetAt
             } else if hasReset {
-                used = weightedUsed(index - 54, count: 30, start: 2, end: currentUsed, spike: 22)
+                used = weightedUsed(chartIndex - 54, count: 30, start: 2, end: currentUsed, spike: 22)
                 nextReset = resetAt.addingTimeInterval(7 * 86_400)
             } else {
-                used = weightedUsed(index, count: 84, start: 0, end: currentUsed, spike: 38)
+                used = weightedUsed(max(0, chartIndex), count: 84, start: 0, end: currentUsed, spike: 38)
                 nextReset = weekly.resetsAt ?? now.addingTimeInterval(4 * 86_400)
             }
             let historySnapshot = UsageSnapshot(
                 identity: snapshot.identity,
                 windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 100 - used, resetsAt: nextReset)],
-                capturedAt: Date(timeIntervalSince1970: gridEnd - Double(84 - index) * 2 * 3_600)
+                capturedAt: Date(timeIntervalSince1970: gridEnd - Double(120 - index) * 2 * 3_600)
             )
             _ = try await historyStore.append(account: account, snapshot: historySnapshot)
         }
     }
     let trendSettings = UserSettings(
         accounts: accounts, defaultsSeeded: true, autoRefreshOnOpen: false,
-        refreshThresholdMinutes: 5, usageStatisticsEnabled: true
+        refreshThresholdMinutes: 5, usageStatisticsEnabled: true,
+        planOverrides: [
+            UsagePlanOverride(account: accounts[0], tier: .claudeTeamStandard),
+            UsagePlanOverride(account: accounts[1], tier: .claudeTeamPremium)
+        ]
     )
     let trendSnapshotStore = SnapshotStore(url: folder.appendingPathComponent("trend-snapshots.json"))
     for (index, account) in accounts.enumerated() {
@@ -136,8 +141,51 @@ private actor PreviewHangingProvider: UsageProvider {
     }
     trendModel.setTrendMode(true, reload: false)
     await trendModel.reloadTrends()
+    trendModel.setTrendScope(.total)
+    for _ in 0..<100 where trendModel.historicalStatistics[.claude] == nil {
+        try await Task.sleep(for: .milliseconds(10))
+    }
     try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-light.png"))
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-dark.png"))
+    let originalTrendSize = trendModel.settings.popoverSize
+    trendModel.setPopoverSize(width: 462, height: 862)
+    try render(model: trendModel, appearance: .aqua,
+               to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-expanded-light.png"))
+    try render(model: trendModel, appearance: .darkAqua,
+               to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-expanded-dark.png"))
+    trendModel.setPopoverSize(width: originalTrendSize.width, height: originalTrendSize.height)
+    trendModel.setTrendScope(.individual)
+    try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-individual-light.png"))
+    let tooltipEnd = Date(timeIntervalSince1970: gridEnd)
+    let tooltipNames = ["alex-claude.team@example.com", "sam-claude.team@example.com",
+                        "lee-claude.team@example.com", "pat-claude.team@example.com",
+                        "kim-claude.team@example.com", "taylor-claude.team@example.com"]
+    let tooltipOverview = ProviderTrendOverview.build(zip(tooltipNames, [3.0, 5, 0, 12, 15.04, 20]).map { name, usage in
+        let points = [0.0, usage / 2, usage].enumerated().map { index, value in
+            UsageTrendPoint(endAt: tooltipEnd.addingTimeInterval(Double(index - 2) * 2 * 3_600),
+                            usedPercent: value, remainingPercent: nil,
+                            crossesReset: false, isEstimated: false)
+        }
+        let series = UsageTrendSeries(points: points, binHours: 2, axisMaximum: 20,
+                                      axisTicks: [0, 10, 20], sampleCount: 2)
+        return TrendOverviewAccount(label: name, tier: .claudeTeamPremium, series: series)
+    })
+    if let tooltipSeries = tooltipOverview.series, let point = tooltipSeries.points.last {
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            try render(view: VStack(alignment: .leading, spacing: 7) {
+                UsageTrendChart(series: tooltipSeries, totalOverview: tooltipOverview)
+                TotalTrendTooltip(point: point, series: tooltipSeries,
+                                  overview: tooltipOverview, calendar: .current)
+                    .padding(.leading, UsageTrendChartLayout.leading)
+                    .padding(.trailing, UsageTrendChartLayout.trailing)
+            }
+                .padding(16)
+                .frame(width: 448, height: 480, alignment: .top)
+                .background(Color(nsColor: .underPageBackgroundColor)),
+                size: CGSize(width: 448, height: 480), appearance: appearance,
+                to: URL(fileURLWithPath: "/tmp/capbar-preview-total-tooltip-\(name).png"))
+        }
+    }
     trendModel.setTrendMode(false)
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-quota-expanded.png"))
     trendModel.showsSettings = true
@@ -210,13 +258,20 @@ private actor PreviewHangingProvider: UsageProvider {
     }
     try render(model: stateModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-states.png"))
     await stateCoordinator.cancelAll()
-    print("Rendered /tmp/capbar-preview-{light,dark,settings,wide,settings-wide,states,trend-light,trend-dark,trend-empty,trend-single,quota-expanded,usage-settings}.png")
+    print("Rendered /tmp/capbar-preview-{light,dark,settings,wide,settings-wide,states,trend-light,trend-dark,trend-expanded-light,trend-expanded-dark,trend-empty,trend-single,quota-expanded,usage-settings}.png")
 }
 
 @MainActor private func render(model: CapBarViewModel, appearance: NSAppearance.Name, to url: URL) throws {
-    let view = NSHostingView(rootView: CapBarPopoverView(model: model))
+    try render(view: CapBarPopoverView(model: model),
+               size: CGSize(width: model.settings.popoverSize.width, height: model.settings.popoverSize.height),
+               appearance: appearance, to: url)
+}
+
+@MainActor private func render<V: View>(view rootView: V, size: CGSize,
+                                         appearance: NSAppearance.Name, to url: URL) throws {
+    let view = NSHostingView(rootView: rootView)
     view.appearance = NSAppearance(named: appearance)
-    view.frame = NSRect(x: 0, y: 0, width: model.settings.popoverSize.width, height: model.settings.popoverSize.height)
+    view.frame = NSRect(origin: .zero, size: size)
     view.layoutSubtreeIfNeeded()
     guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
         throw NSError(domain: "CapBarVisual", code: 2)

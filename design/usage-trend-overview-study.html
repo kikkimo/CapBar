@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CapBar · 总走势设计稿</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 34px 18px 58px; color: light-dark(#292c32, #f0f1f4); background: light-dark(#e9ebef, #1c1d21); }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid #0a84ff; outline-offset: 2px; }
+    .page { max-width: 900px; margin: auto; }
+    h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -.04em; }
+    .intro { margin: 0 0 23px; max-width: 760px; color: light-dark(#646b75, #afb6c0); font-size: 13px; line-height: 1.6; }
+    .comparison { display: flex; align-items: center; gap: 12px; margin: -9px 0 16px; color: light-dark(#59616b, #bbc1ca); font-size: 12px; }
+    .comparison .segmented button { padding: 5px 11px; }
+    .comparison small { color: light-dark(#7b838e, #aab1bc); font-size: 10px; }
+    .stage { display: grid; place-items: start center; min-height: 725px; padding: 22px 12px 30px; border: 1px solid light-dark(#d4d8df, #3c3e45); border-radius: 16px; background: radial-gradient(circle at 20% 4%, light-dark(#d8e5f1, #233147), transparent 44%), light-dark(#e4e7ec, #25262c); }
+    .popover { display: flex; flex-direction: column; width: 462px; max-width: 100%; height: 685px; overflow: hidden; border: 1px solid light-dark(#d1d5dc, #54575f); border-radius: 13px; background: light-dark(#fafafbf2, #2a2c32f2); box-shadow: 0 17px 44px #0003; backdrop-filter: blur(30px); }
+    .header, .footer { display: flex; align-items: center; flex: none; gap: 10px; background: light-dark(#f4f5f7e8, #373940e8); }
+    .header { min-height: 54px; padding: 8px 14px; border-bottom: 1px solid light-dark(#dfe1e6, #4c4e55); }
+    .brand-icon { display: grid; flex: none; place-items: center; width: 29px; height: 29px; border: 1px solid light-dark(#d5d8de, #646770); border-radius: 8px; background: light-dark(#fff, #50525a); font-size: 17px; font-weight: 720; }
+    .brand { flex: 1; min-width: 0; }
+    .brand strong { display: block; font-size: 13px; }
+    .brand small { display: block; margin-top: 2px; color: light-dark(#737b85, #abb2bc); font-size: 10px; }
+    .all-refresh { flex: none; padding: 6px 9px; border: 1px solid light-dark(#d8dbe1, #666870); border-radius: 7px; background: light-dark(#fff, #4b4d55); color: inherit; font-size: 11px; font-weight: 630; }
+    .add { border: 0; background: none; color: light-dark(#555d67, #c7ccd3); font-size: 20px; }
+    .body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+    .scope-bar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 10px; min-height: 43px; padding: 7px 14px; border-bottom: 1px solid light-dark(#e1e3e7, #45474e); background: light-dark(#fafafbf5, #2a2c32f5); backdrop-filter: blur(16px); }
+    .segmented { display: inline-flex; gap: 1px; padding: 2px; border: 1px solid light-dark(#d5d8df, #5a5d65); border-radius: 7px; background: light-dark(#e9ebef, #45474f); }
+    .segmented button { padding: 4px 9px; border: 0; border-radius: 5px; background: transparent; color: light-dark(#646d77, #b7bdc6); font-size: 11px; font-weight: 640; white-space: nowrap; }
+    .segmented button.active { color: light-dark(#24303c, #fff); background: light-dark(#fff, #64666f); box-shadow: 0 1px 3px #0002; }
+    .scope-note { margin-left: auto; color: light-dark(#79818b, #a4abb5); font-size: 10px; white-space: nowrap; }
+    .scale-key { display: inline-flex; align-items: center; gap: 5px; color: light-dark(#7a828c, #afb5bf); font-size: 9px; white-space: nowrap; }
+    .scale-key i { display: inline-block; width: 38px; height: 4px; border-radius: 9px; }
+    .group-title { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 7px 15px; border-bottom: 1px solid light-dark(#e1e3e7, #45474e); background: light-dark(#f0f1f3, #35373e); color: light-dark(#505760, #d7d9de); font-size: 10px; font-weight: 730; letter-spacing: .065em; }
+    .group-title small { margin-left: auto; color: light-dark(#878e96, #adb3bd); font-size: 10px; font-weight: 500; letter-spacing: 0; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #c67d5b; }
+    .dot.codex { background: #59a889; }
+    .total-card { padding: 13px 16px 15px; border-bottom: 1px solid light-dark(#e2e4e8, #44464c); }
+    .total-head { display: flex; align-items: start; gap: 10px; }
+    .total-title { flex: 1; min-width: 0; }
+    .total-title strong { display: block; font-size: 13px; font-weight: 670; }
+    .total-title small { display: block; margin-top: 3px; color: light-dark(#77808a, #acb3bd); font-size: 10px; }
+    .latest { text-align: right; font-variant-numeric: tabular-nums; }
+    .latest strong { display: block; font-size: 16px; font-weight: 730; }
+    .latest small { color: light-dark(#7e8690, #a9b0b9); font-size: 9px; white-space: nowrap; }
+    .plot { position: relative; height: 128px; margin-top: 10px; }
+    .plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
+    .grid { stroke: light-dark(#dfe1e6, #4c4e56); stroke-width: .8; }
+    .grid.mid { opacity: .58; }
+    .axis { fill: light-dark(#858c95, #a3abb5); font-size: 8px; font-weight: 540; }
+    .series { fill: none; stroke-width: 2.15; stroke-linecap: round; stroke-linejoin: round; }
+    .guide { stroke: light-dark(#4b84bf, #afcdf2); stroke-dasharray: 2.5 2.5; stroke-width: 1; opacity: 0; }
+    .hover-dot { stroke: light-dark(#fff, #2a2c32); stroke-width: 2; opacity: 0; }
+    .plot.hovering .guide, .plot.hovering .hover-dot { opacity: 1; }
+    .plot.missing .hover-dot { opacity: 0; }
+    .tooltip { position: absolute; z-index: 5; top: 1px; left: 50%; display: none; min-width: 160px; padding: 8px 10px; border: 1px solid light-dark(#cdd3dd, #60636c); border-radius: 8px; background: light-dark(#fffffff3, #404249f5); box-shadow: 0 8px 24px #0003; pointer-events: none; font-variant-numeric: tabular-nums; }
+    .plot.hovering .tooltip { display: block; }
+    .tooltip strong { display: block; margin-bottom: 5px; font-size: 10px; }
+    .tooltip span { display: block; color: light-dark(#626c77, #c2c8d1); font-size: 10px; line-height: 1.55; }
+    .tooltip b { font-weight: 750; }
+    .account { padding: 12px 16px 14px; border-bottom: 1px solid light-dark(#e2e4e8, #44464c); }
+    .account-head { display: flex; align-items: start; gap: 8px; }
+    .account-head .identity { flex: 1; min-width: 0; }
+    .account-head strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    .account-head small { display: block; margin-top: 3px; color: light-dark(#858c95, #aab0ba); font-size: 10px; }
+    .age { padding: 4px 7px; border-radius: 20px; background: light-dark(#e5f3eb, #244b39); color: light-dark(#29945d, #72dda1); font-size: 10px; white-space: nowrap; }
+    .refresh-one { border: 0; background: none; color: light-dark(#606872, #c1c6d0); font-size: 17px; }
+    .account .plot { height: 96px; margin-top: 8px; }
+    .footer { min-height: 36px; margin-top: auto; padding: 5px 13px; border-top: 1px solid light-dark(#dfe1e6, #4c4e55); }
+    .footer .grow { flex: 1; }
+    .footer a { color: light-dark(#0a69cd, #83baff); font-size: 10px; font-weight: 620; text-decoration: none; }
+    .footer .exit { color: light-dark(#737c85, #b5bbc4); }
+    .footer .separator { height: 12px; border-left: 1px solid light-dark(#d3d7de, #5c5e66); }
+    .quota-demo { display: none; padding: 24px 18px; color: light-dark(#6a737d, #b0b7c0); font-size: 12px; line-height: 1.6; }
+    .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 20px; }
+    .notes article { padding-top: 10px; border-top: 1px solid light-dark(#ccd2da, #464952); }
+    .notes strong { display: block; margin-bottom: 5px; font-size: 12px; }
+    .notes p { margin: 0; color: light-dark(#68717c, #b0b7c1); font-size: 11px; line-height: 1.6; }
+    @media (max-width: 650px) { body { padding: 20px 10px 40px; } .stage { padding: 11px 4px 20px; } .notes { grid-template-columns: 1fr; gap: 9px; } }
+  </style>
+</head>
+<body>
+<main class="page">
+  <h1>总走势：Claude 和 Codex 各一张图</h1>
+  <p class="intro">可交互视觉稿。点击弹窗内“总走势 / 单账号”切换；总走势图先按各服务首账号的七日额度容量换算，再汇总同一时间区间的用量。所有账号、容量系数与曲线均为虚构示例，不读取本机数据。</p>
+  <div class="comparison" aria-label="设计稿配色对照"><span>走势色阶</span><div class="segmented"><button type="button" id="turbo-palette" class="active">Google Turbo · 柔和</button><button type="button" id="previous-palette">上一版</button></div><small>仅用于比较设计，不属于应用界面</small></div>
+  <div class="stage">
+    <div class="popover" aria-label="CapBar 总走势弹窗示意">
+      <header class="header"><span class="brand-icon">C</span><span class="brand"><strong>CapBar</strong><small>8 个账号 · 用量统计已开启</small></span><button class="all-refresh" type="button">↻ &nbsp;全部刷新</button><button class="add" type="button" aria-label="添加账号">＋</button></header>
+      <div class="body" id="body">
+        <div class="scope-bar" id="scope-bar"><div class="segmented" aria-label="走势图范围"><button type="button" id="total" class="active">总走势</button><button type="button" id="individual">单账号</button></div><span class="scale-key" title="Claude 与 Codex 分别按实际观测的最低、最高用量映射颜色"><i aria-hidden="true"></i>各服务低 → 高</span><span class="scope-note">近 7 日 · 4 小时 / 点</span></div>
+        <div id="content"></div>
+        <div class="quota-demo" id="quota-demo">额度界面沿用现有设计，本稿仅展示走势图。</div>
+      </div>
+      <footer class="footer"><div class="segmented" aria-label="显示内容"><button type="button" id="quota">额度</button><button type="button" id="trend" class="active">走势</button></div><span class="grow"></span><a href="#notes">账号与设置</a><span class="separator"></span><span class="exit">退出</span></footer>
+    </div>
+  </div>
+  <div class="notes" id="notes">
+    <article><strong>先换算，再汇总</strong><p>各服务分别以首账号为基准：账号区间用量 × 该账号七日额度容量 ÷ 基准账号七日额度容量。示例中 Pro 用 2%、Max 20x 用 2%，若基准是 Pro 且容量比确为 20，合计是 42% Pro 等效，不是 4%。</p></article>
+    <article><strong>缺测不算零</strong><p>某区间只要有参与汇总的账号缺测，就留空，不画总值；鼠标悬停可查看覆盖账号数。重置附近仍按现有逐账号计算规则处理，图中不画额外虚线。</p></article>
+    <article><strong>容量与颜色</strong><p>图中倍率仅演示换算，不代表官方七日额度比例。走势默认使用 Google Turbo 的柔和节选；总走势按各服务的总图观测范围着色，单账号走势按同一服务全部账号的观测范围着色。纵轴仍单独调整，原有额度界面不改。</p></article>
+  </div>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const accounts = [
+    { provider: "claude", name: "studio-a@example.com", plan: "Pro", capacity: 1, meta: "Pro · ~/.claude-a", phase: .2, factor: 1.0 },
+    { provider: "claude", name: "studio-b@example.com", plan: "Max 5x", capacity: 5, meta: "Max 5x · ~/.claude-b", phase: 1.5, factor: .8 },
+    { provider: "claude", name: "studio-c@example.com", plan: "Max 20x", capacity: 20, meta: "Max 20x · ~/.claude-c", phase: 2.7, factor: 1.2 },
+    { provider: "claude", name: "studio-d@example.com", plan: "Pro", capacity: 1, meta: "Pro · ~/.claude-d", phase: 3.2, factor: .6 },
+    { provider: "claude", name: "studio-e@example.com", plan: "Pro", capacity: 1, meta: "Pro · ~/.claude-e", phase: 4.3, factor: .9 },
+    { provider: "claude", name: "studio-f@example.com", plan: "Pro", capacity: 1, meta: "Pro · ~/.claude-f", phase: 5.0, factor: 1.15 },
+    { provider: "codex", name: "developer@example.com", plan: "Plus", capacity: 1, meta: "Plus · ~/.codex-demo", phase: 2.0, factor: .9 },
+    { provider: "codex", name: "builder@example.com", plan: "Pro 20x", capacity: 20, meta: "Pro 20x · ~/.codex-second", phase: 3.7, factor: .7 }
+  ];
+  const state = { scope: "total", mode: "trend", palette: "turbo" };
+  const hours = 4, count = 42, ms = hours * 3600000;
+  const gridEnd = Math.floor(Date.now() / ms) * ms;
+  const pointEnd = i => new Date(gridEnd - (count - 1 - i) * ms);
+  const esc = v => String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const previousPalette = [{ at: 0, rgb: [47, 131, 215] }, { at: .3, rgb: [47, 169, 164] }, { at: .64, rgb: [202, 137, 53] }, { at: 1, rgb: [207, 96, 91] }];
+  const hex = n => Math.round(n).toString(16).padStart(2, "0");
+  const clamp = value => Math.max(0, Math.min(1, value));
+  function previousColor(fraction) {
+    const value = clamp(fraction);
+    const upper = previousPalette.findIndex(stop => stop.at >= value);
+    if (upper <= 0) return `#${previousPalette[0].rgb.map(hex).join("")}`;
+    const first = previousPalette[upper - 1], last = previousPalette[upper];
+    const mix = (value - first.at) / (last.at - first.at);
+    return `#${first.rgb.map((channel, index) => hex(channel + (last.rgb[index] - channel) * mix)).join("")}`;
+  }
+  // Google Research Turbo polynomial approximation, copyright 2019 Google LLC (Apache-2.0).
+  // Use the central 0.14–0.84 range and soften saturation for a thin macOS chart line.
+  // Source: https://www.research.google/blog/turbo-an-improved-rainbow-colormap-for-visualization/
+  function turboColor(fraction) {
+    const x = .14 + clamp(fraction) * .70, x2 = x * x, x3 = x2 * x, x4 = x3 * x, x5 = x4 * x;
+    const channels = [
+      .13572138 + 4.61539260*x - 42.66032258*x2 + 132.13108234*x3 - 152.94239396*x4 + 59.28637943*x5,
+      .09140261 + 2.19418839*x + 4.84296658*x2 - 14.18503333*x3 + 4.27729857*x4 + 2.82956604*x5,
+      .10667330 + 12.64194608*x - 60.58204836*x2 + 110.36276771*x3 - 89.90310912*x4 + 27.34824973*x5
+    ];
+    return `#${channels.map(channel => hex((clamp(channel) * .82 + .18 * .47) * 255)).join("")}`;
+  }
+  const scaleColor = fraction => state.palette === "turbo" ? turboColor(fraction) : previousColor(fraction);
+  function updateScaleKey() {
+    const stops = Array.from({ length: 17 }, (_, i) => `${scaleColor(i / 16)} ${i * 100 / 16}%`);
+    document.querySelector(".scale-key i").style.background = `linear-gradient(90deg, ${stops.join(", ")})`;
+  }
+  const chartMaximum = values => Math.ceil(Math.max(10, ...values.filter(v => v !== null)) / 10) * 10;
+  const individual = accounts.map((a, ai) => Array.from({ length: count }, (_, i) => {
+    if (i < 29) return null;
+    const wave = Math.abs(Math.sin((i - 28) * .73 + a.phase)) * (ai === 3 ? .25 : 1);
+    const bump = i === 37 && ai === 0 ? 9 : i === 40 && ai === 5 ? 12 : 0;
+    return Math.round((.9 + 6 * wave) * a.factor + bump);
+  }));
+  const aggregate = provider => Array.from({ length: count }, (_, i) => {
+    const indices = accounts.map((a, index) => a.provider === provider ? index : -1).filter(index => index >= 0);
+    const values = indices.map(index => individual[index][i]);
+    const baselineCapacity = accounts[indices[0]].capacity;
+    return values.every(value => value !== null)
+      ? Math.round(values.reduce((sum, value, position) => sum + value * accounts[indices[position]].capacity / baselineCapacity, 0) * 10) / 10
+      : null;
+  });
+  function observedBounds(series) {
+    let min = Infinity, max = -Infinity;
+    for (const values of series) for (const value of values) {
+      if (value === null || !Number.isFinite(value)) continue;
+      min = Math.min(min, value);
+      max = Math.max(max, value);
+    }
+    return min === Infinity ? null : { min, max };
+  }
+  const colorFraction = (value, bounds) => !bounds || bounds.min === bounds.max
+    ? .5 : clamp((value - bounds.min) / (bounds.max - bounds.min));
+  const dayLabels = () => {
+    const result = [];
+    for (let i = 0; i < count; i++) {
+      const date = pointEnd(i);
+      const day = date.toDateString();
+      if (i === 0 || day !== pointEnd(i - 1).toDateString()) result.push({ i, text: date.getDate() });
+    }
+    return result;
+  };
+  let chartCounter = 0;
+  function chart(values, provider, bounds, compact = false) {
+    const axisMax = chartMaximum(values);
+    const ticks = axisMax % 30 === 0 ? [0, axisMax / 3, axisMax * 2 / 3, axisMax] : [0, axisMax / 2, axisMax];
+    const x0 = 31, x1 = 418, y0 = 7, y1 = compact ? 70 : 96, labelY = compact ? 89 : 119;
+    const x = i => x0 + (x1 - x0) * i / (count - 1);
+    const y = value => y1 - value / axisMax * (y1 - y0);
+    const grids = ticks.map((t, j) => `<line class="grid${j && j < ticks.length - 1 ? " mid" : ""}" x1="${x0}" x2="${x1}" y1="${y(t)}" y2="${y(t)}"/><text class="axis" x="25" y="${y(t) + 3}" text-anchor="end">${t}%</text>`).join("");
+    const dates = dayLabels().map(d => `<text class="axis" x="${x(d.i)}" y="${labelY}" text-anchor="middle">${d.text}</text>`).join("");
+    const segments = [], gradients = [], chartId = ++chartCounter;
+    for (let i = 0; i < count - 1; i++) {
+      if (values[i] === null || values[i + 1] === null) continue;
+      const xa = x(i), xb = x(i + 1), ya = y(values[i]), yb = y(values[i + 1]), dx = xb - xa;
+      const id = `scale-${chartId}-${i}`;
+      const colorStops = Array.from({ length: 5 }, (_, step) => {
+        const mix = step / 4, value = values[i] + (values[i + 1] - values[i]) * mix;
+        return `<stop offset="${mix}" stop-color="${scaleColor(colorFraction(value, bounds))}"/>`;
+      }).join("");
+      gradients.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${xa}" y1="0" x2="${xb}" y2="0">${colorStops}</linearGradient>`);
+      segments.push(`<path class="series" stroke="url(#${id})" d="M ${xa} ${ya} C ${xa + dx * .42} ${ya}, ${xb - dx * .42} ${yb}, ${xb} ${yb}"/>`);
+    }
+    return `<div class="plot" data-values="${values.map(v => v === null ? "" : v).join(",")}" data-provider="${provider}" data-single="${compact}" data-max="${axisMax}" data-color-min="${bounds?.min ?? ""}" data-color-max="${bounds?.max ?? ""}" data-y0="${y0}" data-y1="${y1}"><svg viewBox="0 0 430 ${compact ? 96 : 128}" role="img" aria-label="${provider} 近七日用量走势图"><defs>${gradients.join("")}</defs>${grids}${segments.join("")}${dates}<line class="guide" y1="${y0}" y2="${y1}"/><circle class="hover-dot" r="3.5"/></svg><div class="tooltip"><strong class="tip-time"></strong><span class="tip-value"></span><span class="tip-coverage"></span></div></div>`;
+  }
+  function group(provider, scope) {
+    const selected = accounts.map((account, index) => ({ account, index })).filter(entry => entry.account.provider === provider);
+    const title = provider === "claude" ? "CLAUDE CODE" : "CODEX";
+    const dot = provider === "codex" ? " codex" : "";
+    const groupHead = `<div class="group-title"><span class="dot${dot}"></span>${title}<small>${selected.length} 个账号</small></div>`;
+    if (scope === "total") {
+      const values = aggregate(provider);
+      const bounds = observedBounds([values]);
+      const latest = values.at(-1);
+      const baseline = selected[0].account;
+      const latestColor = latest === null ? "inherit" : scaleColor(colorFraction(latest, bounds));
+      return groupHead + `<section class="total-card"><div class="total-head"><div class="total-title"><strong>${provider === "claude" ? "Claude 用量合计" : "Codex 用量合计"}</strong><small>${selected.length} 个账号 · 以首账号 ${esc(baseline.plan)} 为基准</small></div><div class="latest"><strong style="color:${latestColor}">${latest === null ? "—" : latest + "%"}</strong><small>最近完整区间 · ${esc(baseline.plan)} 等效</small></div></div>${chart(values, provider, bounds)}</section>`;
+    }
+    const bounds = observedBounds(selected.map(({ index }) => individual[index]));
+    return groupHead + selected.map(({ account, index }) => `<section class="account"><div class="account-head"><div class="identity"><strong>${esc(account.name)}</strong><small>${esc(account.meta)}</small></div><span class="age">◷ 刚刚</span><button class="refresh-one" type="button" aria-label="刷新 ${esc(account.name)}">↻</button></div>${chart(individual[index], provider, bounds, true)}</section>`).join("");
+  }
+  function attachHover() {
+    document.querySelectorAll(".plot").forEach(plot => {
+      const values = plot.dataset.values.split(",").map(v => v === "" ? null : Number(v));
+      const bounds = plot.dataset.colorMin === "" ? null : { min: Number(plot.dataset.colorMin), max: Number(plot.dataset.colorMax) };
+      const guide = plot.querySelector(".guide"), dot = plot.querySelector(".hover-dot"), tip = plot.querySelector(".tooltip");
+      plot.addEventListener("mousemove", event => {
+        const box = plot.getBoundingClientRect();
+        const scaledX = (event.clientX - box.left) / box.width * 430;
+        const index = Math.min(count - 1, Math.max(0, Math.round((scaledX - 31) / (418 - 31) * (count - 1))));
+        const xpos = 31 + (418 - 31) * index / (count - 1), value = values[index];
+        const start = new Date(pointEnd(index).getTime() - ms), end = pointEnd(index);
+        const format = d => d.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+        plot.classList.add("hovering"); plot.classList.toggle("missing", value === null);
+        guide.setAttribute("x1", xpos); guide.setAttribute("x2", xpos);
+        if (value !== null) {
+          const y = Number(plot.dataset.y1) - value / Number(plot.dataset.max) * (Number(plot.dataset.y1) - Number(plot.dataset.y0));
+          dot.setAttribute("cx", xpos); dot.setAttribute("cy", y);
+          dot.setAttribute("fill", scaleColor(colorFraction(value, bounds)));
+        }
+        tip.style.left = `${Math.min(Math.max((event.clientX - box.left) / box.width * 100, 22), 78)}%`;
+        tip.style.transform = "translateX(-50%)";
+        plot.querySelector(".tip-time").textContent = `${format(start)} – ${format(end)}`;
+        const isSingle = plot.dataset.single === "true";
+        plot.querySelector(".tip-value").innerHTML = value === null ? "用量：缺测" : `${isSingle ? "该账号使用" : "合计使用"}：<b>${value} 个百分点</b>`;
+        const emphasizedValue = plot.querySelector(".tip-value b");
+        if (emphasizedValue) emphasizedValue.style.color = scaleColor(colorFraction(value, bounds));
+        const providerAccounts = accounts.filter(account => account.provider === plot.dataset.provider);
+        const countInGroup = isSingle ? 1 : providerAccounts.length;
+        const baseline = providerAccounts[0];
+        plot.querySelector(".tip-coverage").textContent = value === null ? "本区间采样覆盖不足" : isSingle ? "该账号原始用量" : `${baseline.plan} 等效 · 覆盖 ${countInGroup}/${countInGroup} 个账号`;
+      });
+      plot.addEventListener("mouseleave", () => plot.classList.remove("hovering", "missing"));
+    });
+  }
+  function render() {
+    $("turbo-palette").classList.toggle("active", state.palette === "turbo");
+    $("previous-palette").classList.toggle("active", state.palette === "previous");
+    updateScaleKey();
+    $("total").classList.toggle("active", state.scope === "total");
+    $("individual").classList.toggle("active", state.scope === "individual");
+    $("quota").classList.toggle("active", state.mode === "quota");
+    $("trend").classList.toggle("active", state.mode === "trend");
+    $("scope-bar").style.display = state.mode === "trend" ? "flex" : "none";
+    $("content").style.display = state.mode === "trend" ? "block" : "none";
+    $("quota-demo").style.display = state.mode === "quota" ? "block" : "none";
+    if (state.mode === "trend") { $("content").innerHTML = group("claude", state.scope) + group("codex", state.scope); attachHover(); }
+    $("body").scrollTop = 0;
+  }
+  $("total").onclick = () => { state.scope = "total"; render(); };
+  $("individual").onclick = () => { state.scope = "individual"; render(); };
+  $("quota").onclick = () => { state.mode = "quota"; render(); };
+  $("trend").onclick = () => { state.mode = "trend"; render(); };
+  $("turbo-palette").onclick = () => { state.palette = "turbo"; render(); };
+  $("previous-palette").onclick = () => { state.palette = "previous"; render(); };
+  render();
+})();
+</script>
+</body>
+</html>

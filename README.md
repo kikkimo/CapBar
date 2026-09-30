@@ -1,7 +1,7 @@
 # CapBar
 
 [![CI](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml)
-[![Version 0.1.4](https://img.shields.io/badge/version-0.1.4-2F80ED?style=flat-square)](scripts/Info.plist)
+[![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-2F80ED?style=flat-square)](scripts/Info.plist)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#install-and-use)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](Package.swift)
 [![Apple Silicon](https://img.shields.io/badge/arch-Apple%20Silicon-0A7F75?style=flat-square)](#build-from-source)
@@ -25,20 +25,29 @@
 - **Refresh when you choose:** Refresh one account or all idle accounts. Opening the window shows saved snapshots by default. Optional refresh on open checks each account against a shared threshold of 5 minutes by default.
 - **Clear states:** Refreshing accounts show progress while keeping their previous values. A failed refresh preserves the last successful snapshot and marks the failure.
 - **Native macOS behavior:** Light and dark appearances, a resizable popover, a right-click menu, and an optional launch-at-login setting.
-- **Optional usage trends:** Track each account's 7-day quota consumption in a rolling chart. Enabling statistics also enables scheduled sampling while CapBar runs; the interval defaults to 4 hours and can be set to 1, 2, 3, 4, 6, or 8 hours. Manual refreshes contribute samples too. Chart bins match the selected interval, with a 2-hour minimum.
+- **Optional usage trends:** Switch between one total chart per provider and individual account charts. Totals convert each subscription to the first account's capacity before adding usage, and are labeled as estimates because provider 7-day capacity ratios are unverified. Ambiguous plans require a tier selection in Settings. Trend colors adapt to each provider's observed range. Enabling statistics also enables scheduled sampling while CapBar runs; the interval defaults to 4 hours and can be set to 1, 2, 3, 4, 6, or 8 hours. Manual refreshes contribute samples too. Chart bins match the selected interval, with a 2-hour minimum.
+- **Usage analysis:** The provider view shows observed 7-day totals, peak, minimum, average, coverage, leading account, active time periods, and recent 24-hour change. Historical records track rolling 7-day highs and lows, the highest single day, and the highest interval. Missing intervals stay blank; the headline uses the latest fully observed interval.
 
 | 7-day usage trend, dark appearance | 7-day usage trend, light appearance |
 | :---: | :---: |
 | ![CapBar usage trend in dark appearance](docs/images/trend-dark.png) | ![CapBar usage trend in light appearance](docs/images/trend-light.png) |
 
+| Individual account trends |
+| :---: |
+| ![CapBar individual account usage trends](docs/images/trend-individual-light.png) |
+
+| Provider usage analysis, dark | Provider usage analysis, light |
+| :---: | :---: |
+| ![CapBar provider usage analysis in dark appearance](docs/images/trend-expanded-dark.png) | ![CapBar provider usage analysis in light appearance](docs/images/trend-expanded-light.png) |
+
 *Trend illustrations use fictional accounts and sample history.*
 
 ## Install and use
 
-CapBar 0.1.4 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
+CapBar 0.2.0 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
 
-1. Download `CapBar-0.1.4.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
-2. Open `CapBar-0.1.4.pkg`. The installer places the app at `/Applications/CapBar.app`.
+1. Download `CapBar-0.2.0.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
+2. Open `CapBar-0.2.0.pkg`. The installer places the app at `/Applications/CapBar.app`.
 3. Launch CapBar from Applications. It appears in the menu bar, without a Dock icon.
 4. Click the menu bar item to view snapshots. Select **Refresh All (全部刷新)** or refresh an individual account when you want current data.
 
@@ -56,7 +65,7 @@ On first launch, CapBar adds `~/.claude` and `~/.codex` as default entries. Add 
 
 The popover starts at 448 × 620 pt. Enter a precise width or height and submit it, or use the steppers in 10 pt increments. Wider windows rearrange account details horizontally. Snapshots and settings are stored as JSON under `~/Library/Application Support/CapBar/`.
 
-Usage statistics are off by default. Turning them on also starts scheduled quota probes while the app runs; turning them off stops the schedule. Successful probes are kept in a local SQLite history. Charts use UTC intervals and display dates in your local time zone. A complete interval needs enough observations before its usage can appear; missing intervals are not treated as zero usage.
+Usage statistics are off by default. Turning them on also starts scheduled quota probes while the app runs; turning them off stops the schedule. Successful probes are kept in a local SQLite history. Charts use UTC intervals and display dates in your local time zone. A complete interval needs enough observations before its usage can appear; missing intervals are not treated as zero usage. New samples store the detected or selected plan tier; older samples without a tier use the current calibrated tier for estimated totals.
 
 ## How quota refresh works
 
@@ -74,7 +83,7 @@ cd CapBar
 ./scripts/package-installer.sh
 ```
 
-The script runs the checks, builds `dist/CapBar.app`, verifies the app bundle, and creates `dist/CapBar-0.1.4.pkg`. It verifies that the package targets `/Applications` **without relocating** to an existing development copy.
+The script runs the checks, builds `dist/CapBar.app`, verifies the app bundle, and creates `dist/CapBar-0.2.0.pkg`. It verifies that the package targets `/Applications` **without relocating** to an existing development copy.
 
 ```sh
 swift run CapBarChecks

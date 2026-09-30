@@ -11,5 +11,8 @@ cp /tmp/capbar-preview-light.png "$CAPBAR_IMAGES/overview-light.png"
 cp /tmp/capbar-preview-settings.png "$CAPBAR_IMAGES/settings.png"
 cp /tmp/capbar-preview-trend-dark.png "$CAPBAR_IMAGES/trend-dark.png"
 cp /tmp/capbar-preview-trend-light.png "$CAPBAR_IMAGES/trend-light.png"
+cp /tmp/capbar-preview-trend-expanded-dark.png "$CAPBAR_IMAGES/trend-expanded-dark.png"
+cp /tmp/capbar-preview-trend-expanded-light.png "$CAPBAR_IMAGES/trend-expanded-light.png"
+cp /tmp/capbar-preview-trend-individual-light.png "$CAPBAR_IMAGES/trend-individual-light.png"
 
 print "README screenshots ready in $CAPBAR_IMAGES"

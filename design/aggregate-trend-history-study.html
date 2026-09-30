@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CapBar · 历史用量统计界面稿</title>
+  <style>
+    :root {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
+      color-scheme: light;
+      --page: #e8ebef; --stage: #dce1e7; --panel: #fafafb; --header: #f3f4f6;
+      --group: #f0f1f3; --ink: #30343a; --muted: #78818b; --hair: #e1e4e8;
+      --soft: #f4f5f7; --track: #e7e9ec; --blue: #2378d0; --teal: #198c7d; --amber: #b0641f; --green: #299d72;
+      --shadow: 0 16px 42px #1b263129;
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --page: #1e2024; --stage: #252931; --panel: #2b2d33; --header: #363940;
+      --group: #35383f; --ink: #f0f1f3; --muted: #aab0ba; --hair: #474a51;
+      --soft: #34373d; --track: #45484e; --blue: #83baff; --teal: #6ed1bf; --amber: #ffbd6e; --green: #66cfa8;
+      --shadow: 0 16px 48px #0007;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; padding: 32px 20px 54px; background: var(--page); color: var(--ink); }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+    .page { max-width: 900px; margin: 0 auto; }
+    .page-head { display: flex; justify-content: space-between; align-items: start; gap: 18px; margin-bottom: 18px; }
+    .page-head h1 { margin: 0 0 5px; font-size: 25px; letter-spacing: -.035em; }
+    .page-head p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .theme-toggle { flex: none; padding: 6px 11px; border: 1px solid var(--hair); border-radius: 8px; background: var(--panel); color: var(--ink); font-size: 11px; }
+    .stage { display: flex; justify-content: center; gap: 22px; align-items: flex-start; padding: 20px; border: 1px solid #aab3bd44; border-radius: 18px; background: var(--stage); }
+    .popover { display: flex; flex: none; flex-direction: column; width: 462px; max-width: 100%; height: 862px; overflow: hidden; border: 1px solid var(--hair); border-radius: 13px; background: var(--panel); box-shadow: var(--shadow); }
+    .header { display: flex; align-items: center; gap: 10px; flex: none; height: 54px; padding: 8px 14px; border-bottom: 1px solid var(--hair); background: var(--header); }
+    .brand-icon { display: grid; flex: none; place-items: center; width: 29px; height: 29px; border: 1px solid var(--hair); border-radius: 8px; background: var(--panel); font-size: 17px; font-weight: 740; }
+    .brand { flex: 1; min-width: 0; }
+    .brand strong { display: block; font-size: 13px; }
+    .brand small { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .all-refresh { padding: 6px 9px; border: 1px solid var(--hair); border-radius: 7px; background: var(--panel); color: var(--ink); font-size: 11px; font-weight: 630; }
+    .add { border: 0; background: none; color: var(--muted); font-size: 20px; }
+    .body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+    .scope-bar { display: flex; align-items: center; gap: 8px; height: 42px; padding: 6px 14px; border-bottom: 1px solid var(--hair); background: var(--panel); }
+    .segmented { display: inline-flex; padding: 2px; border: 1px solid var(--hair); border-radius: 7px; background: var(--track); }
+    .segmented button { padding: 4px 9px; border: 0; border-radius: 5px; background: none; color: var(--muted); font-size: 10px; font-weight: 650; }
+    .segmented button.active { background: var(--panel); color: var(--ink); box-shadow: 0 1px 3px #0002; }
+    .scope-note { margin-left: auto; color: var(--muted); font-size: 10px; white-space: nowrap; }
+    .group-title { display: flex; align-items: center; gap: 7px; height: 27px; padding: 6px 15px; border-bottom: 1px solid var(--hair); background: var(--group); color: var(--ink); font-size: 10px; font-weight: 730; letter-spacing: .06em; }
+    .group-title small { margin-left: auto; color: var(--muted); font-size: 10px; font-weight: 500; letter-spacing: 0; }
+    .group-dot { width: 7px; height: 7px; border-radius: 50%; background: #c67d5b; }
+    .group-dot.codex { background: #59a889; }
+    .total-card { padding: 11px 15px 13px; border-bottom: 1px solid var(--hair); }
+    .total-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .total-head strong { display: block; font-size: 12px; font-weight: 680; }
+    .total-head small { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .latest { text-align: right; font-variant-numeric: tabular-nums; }
+    .latest b { display: block; font-size: 16px; }
+    .latest small { white-space: nowrap; }
+    .plot { height: 105px; margin: 6px 0 2px; }
+    .plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
+    .grid { stroke: var(--hair); stroke-width: .8; }
+    .axis { fill: var(--muted); font-size: 8px; font-weight: 520; }
+    .series { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .stats-primary { display: grid; grid-template-columns: repeat(3, 1fr); margin: 4px 0 7px; padding: 8px 0; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+    .stat { padding: 0 10px; border-right: 1px solid var(--hair); min-width: 0; }
+    .stat:first-child { padding-left: 3px; }
+    .stat:last-child { border: 0; }
+    .stat-label { display: block; color: var(--muted); font-size: 9px; }
+    .stat-value { display: block; margin-top: 1px; font-size: 15px; font-weight: 720; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+    .stat:nth-child(1) .stat-value { color: var(--amber); }
+    .stat:nth-child(2) .stat-value { color: var(--teal); }
+    .stat:nth-child(3) .stat-value { color: var(--blue); }
+    .stat-note { display: block; margin-top: 1px; color: var(--muted); font-size: 8px; white-space: nowrap; }
+    .detail-line { display: flex; align-items: baseline; gap: 7px; min-height: 23px; padding: 3px 2px; font-size: 10px; }
+    .detail-line .key { flex: none; color: var(--muted); }
+    .detail-line .value { color: var(--blue); font-weight: 640; font-variant-numeric: tabular-nums; }
+    .detail-line .value.teal, .detail-line .sub.teal { color: var(--teal); }
+    .detail-line .value.amber { color: var(--amber); }
+    .detail-line .push { margin-left: auto; }
+    .detail-line .sub { color: var(--muted); font-size: 9px; white-space: nowrap; }
+    .detail-line .account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 168px; }
+    .leader-line .account-name { flex: 1; min-width: 0; max-width: none; }
+    .leader-line .sub { flex: none; font-size: 10px; font-weight: 640; font-variant-numeric: tabular-nums; }
+    .detail-line .emphasis { color: var(--blue); }
+    .detail-line .positive { color: var(--green); }
+    .detail-line .unknown { color: var(--muted); }
+    .history-head { display: flex; align-items: baseline; gap: 7px; margin-top: 9px; padding: 9px 2px 6px; border-top: 1px solid var(--hair); }
+    .history-head strong { font-size: 10px; font-weight: 700; }
+    .history-head small { margin-left: auto; color: var(--muted); font-size: 9px; }
+    .history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .history-item { min-width: 0; min-height: 68px; padding: 8px 9px; border: 1px solid var(--hair); border-radius: 7px; background: var(--soft); }
+    .history-item .label { display: block; color: var(--muted); font-size: 9px; font-weight: 580; white-space: nowrap; }
+    .history-item .reading { display: block; margin-top: 3px; color: var(--blue); font-size: 15px; font-weight: 710; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .history-item.low .reading { color: var(--teal); }
+    .history-item .range { display: block; overflow: hidden; margin-top: 4px; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .history-item.unavailable .reading { color: var(--muted); }
+    .state-buttons { display: inline-flex; gap: 5px; margin: 0 0 13px; }
+    .state-buttons button { padding: 6px 9px; border: 1px solid var(--hair); border-radius: 6px; background: var(--panel); color: var(--muted); font-size: 10px; }
+    .state-buttons button.active { border-color: var(--blue); color: var(--blue); font-weight: 680; }
+    .footer { display: flex; align-items: center; gap: 9px; flex: none; height: 35px; padding: 4px 12px; border-top: 1px solid var(--hair); background: var(--header); }
+    .footer .grow { flex: 1; }
+    .footer a { color: var(--blue); font-size: 10px; font-weight: 640; text-decoration: none; }
+    .footer .exit { color: var(--muted); font-size: 10px; }
+    .footer .separator { height: 12px; border-left: 1px solid var(--hair); }
+    .side { width: 245px; padding-top: 5px; }
+    .side h2 { margin: 0 0 12px; font-size: 15px; }
+    .side article { margin: 0 0 18px; padding-top: 10px; border-top: 1px solid #82909b70; }
+    .side strong { font-size: 12px; }
+    .side p { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .footnote { margin: 12px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    @media (max-width: 740px) { body { padding: 16px 9px 32px; } .stage { padding: 10px 3px; } .side { display: none; } .page-head h1 { font-size: 21px; } }
+    @media (max-width: 410px) { .detail-line .account-name { max-width: 115px; } .detail-line { gap: 5px; font-size: 9px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>总走势 · 历史用量统计</h1><p>四项历史纪录同时呈现用量与时间；示例账号和数值均为虚构数据。</p></div>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换浅色和深色外观">切换深色</button>
+    </div>
+    <div class="stage">
+      <section class="popover" aria-label="CapBar 总走势统计弹窗示意">
+        <header class="header"><span class="brand-icon">C</span><span class="brand"><strong>CapBar</strong><small>8 个账号 · 用量统计已开启</small></span><button class="all-refresh" type="button">↻ &nbsp;全部刷新</button><button class="add" type="button" aria-label="添加账号">＋</button></header>
+        <div class="body">
+          <nav class="scope-bar" aria-label="走势范围"><span class="segmented"><button type="button">单账号</button><button type="button" class="active">总走势</button></span><span class="scope-note">近 7 日 · 4 小时 / 点</span></nav>
+          <div id="providers"></div>
+        </div>
+        <footer class="footer"><span class="segmented"><button type="button">额度</button><button type="button" class="active">走势</button></span><span class="grow"></span><a href="#design-notes">账号与设置</a><span class="separator"></span><span class="exit">退出</span></footer>
+      </section>
+      <aside class="side" id="design-notes">
+        <h2>界面状态</h2>
+        <div class="state-buttons"><button id="show-complete" class="active" type="button">完整数据</button><button id="show-incomplete" type="button">数据不足</button></div>
+        <article><strong>两行、四项</strong><p>历史最高与最低连续 7 日并列；历史最高单日与最高采样时段并列。每项大字显示用量，下方显示对应本地日期。</p></article>
+        <article><strong>仅比较完整窗口</strong><p>滚动 7 日按本地自然日逐日移动：1–7 日、2–8 日。缺测的 7 日窗口和单日不参与最高、最低纪录；缺少完整窗口时明确显示“—”。</p></article>
+        <article><strong>历史时段</strong><p>“最高时段”是数据库中已观测的单个采样区间，显示区间用量及本地日期和时间；它可以出现在不完整的单日中。</p></article>
+        <article><strong>数据读取</strong><p>四项纪录缓存到 SQLite。账号、套餐、采样间隔和原始采样均未变化时，弹窗直接读取缓存；数据变化时重算并覆盖缓存。</p></article>
+      </aside>
+    </div>
+    <p class="footnote">设计稿展示宽 462 px 的可调整弹窗；历史纪录位于现有 7 日统计之后，内容随弹窗高度滚动。所有数值均为示例，不读取真实账号。</p>
+  </main>
+  <script>
+    (() => {
+      const initialDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = initialDark ? 'dark' : 'light';
+      document.querySelector('#theme-toggle').textContent = initialDark ? '切换浅色' : '切换深色';
+      const base = Date.UTC(2026, 8, 30, 12);
+      const hours = 4, count = 42;
+      const fixtures = [
+        { key: 'claude', group: 'CLAUDE CODE', title: 'Claude 用量合计', accounts: 6, plan: 'Team Premium', leader: 'studio-b@example.com', share: .435,
+          values: [
+            ...Array(11).fill(null),
+            0,2.4,3.1,4.2,7.2,10.1,8.4,6.3,4.8,2.1,0,1.8,5.1,8.2,11.4,9.7,7.8,5.6,2.3,0,2.8,5.4,8.9,14.6,12.2,7.3,5.1,8.7,16.3,24.4,12.4
+          ], highPeriod: '18:00–24:00', lowPeriod: '00:00–06:00',
+          history: { highWeek: [238.6, '9月10日–9月16日'], lowWeek: [102.4, '9月18日–9月24日'],
+                     highDay: [53.7, '9月29日'], highInterval: [24.4, '9月30日 12:00–16:00'] } },
+        { key: 'codex', group: 'CODEX', title: 'Codex 用量合计', accounts: 2, plan: 'Plus', leader: 'builder@example.com', share: .821,
+          values: [
+            ...Array(10).fill(null),
+            0,1.1,2.2,3.2,2.8,1.4,0,0,1.3,2.9,4.1,3.6,2.2,1.5,0,0,1.6,2.1,2.7,4.9,6.8,5.1,3.3,2.2,1.7,null,0.6,1.4,2.8,3.4,2.6,1.8
+          ], highPeriod: '06:00–12:00', lowPeriod: '18:00–24:00',
+          history: { highWeek: [93.8, '9月14日–9月20日'], lowWeek: [41.7, '9月22日–9月28日'],
+                     highDay: [21.2, '9月29日'], highInterval: [6.8, '9月29日 08:00–12:00'] } }
+      ];
+      let historyState = new URLSearchParams(location.search).get('state') === 'incomplete' ? 'incomplete' : 'complete';
+      const esc = text => String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const fmt = value => `${value.toFixed(1)}%`;
+      const time = index => new Date(base - (count - 1 - index) * hours * 3600000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+      const color = t => {
+        const x = .14 + Math.max(0, Math.min(1, t)) * .70;
+        const [r,g,b] = [
+          .13572138 + 4.61539260*x - 42.66032258*x*x + 132.13108234*x**3 - 152.94239396*x**4 + 59.28637943*x**5,
+          .09140261 + 2.19418839*x + 4.84296658*x*x - 14.18503333*x**3 + 4.27729857*x**4 + 2.82956604*x**5,
+          .10667330 + 12.64194608*x - 60.58204836*x*x + 110.36276771*x**3 - 89.90310912*x**4 + 27.34824973*x**5
+        ];
+        return `rgb(${[r,g,b].map(v => Math.round((Math.max(0,Math.min(1,v))*.82+.18*.47)*255)).join(',')})`;
+      };
+      function chart(values, key) {
+        const valid = values.filter(v => v !== null), max = Math.ceil(Math.max(...valid) / 10) * 10;
+        const x0 = 28, x1 = 427, y0 = 5, y1 = 79;
+        const x = i => x0 + (x1-x0) * i / (values.length-1);
+        const y = v => y1 - v / max * (y1-y0);
+        let paths = '', gradients = '';
+        for (let i = 0; i < values.length-1; i++) {
+          if (values[i] === null || values[i+1] === null) continue;
+          const id = `${key}-${i}`, dx = x(i+1)-x(i);
+          gradients += `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x(i)}" x2="${x(i+1)}"><stop stop-color="${color(values[i]/max)}"/><stop offset="1" stop-color="${color(values[i+1]/max)}"/></linearGradient>`;
+          paths += `<path class="series" stroke="url(#${id})" d="M${x(i)} ${y(values[i])} C${x(i)+dx*.42} ${y(values[i])},${x(i+1)-dx*.42} ${y(values[i+1])},${x(i+1)} ${y(values[i+1])}"/>`;
+        }
+        const ticks = [0,max/2,max].map(t => `<line class="grid" x1="${x0}" x2="${x1}" y1="${y(t)}" y2="${y(t)}"/><text class="axis" x="23" y="${y(t)+3}" text-anchor="end">${t}%</text>`).join('');
+        const dates = [];
+        for (let i = 0; i < values.length; i++) {
+          const d = new Date(base-(count-1-i)*hours*3600000).toLocaleDateString('zh-CN', {timeZone:'Asia/Shanghai',day:'numeric'});
+          if (i === 0 || d !== new Date(base-(count-i)*hours*3600000).toLocaleDateString('zh-CN', {timeZone:'Asia/Shanghai',day:'numeric'})) dates.push(`<text class="axis" x="${x(i)}" y="101" text-anchor="middle">${d}</text>`);
+        }
+        return `<div class="plot"><svg viewBox="0 0 438 105" role="img" aria-label="近七日用量走势图"><defs>${gradients}</defs>${ticks}${paths}${dates.join('')}</svg></div>`;
+      }
+      function historyItem(label, result, extraClass = '') {
+        const available = result !== null;
+        return `<div class="history-item ${extraClass} ${available ? '' : 'unavailable'}">
+          <span class="label">${label}</span>
+          <span class="reading">${available ? fmt(result[0]) : '—'}</span>
+          <span class="range">${available ? esc(result[1]) : label.includes('7 日') ? '尚无完整连续 7 日' : '尚无完整单日'}</span>
+        </div>`;
+      }
+      function providerCard(f) {
+        const valid = f.values.filter(v => v !== null), total = valid.reduce((a,b)=>a+b,0), highest = Math.max(...valid), lowest = Math.min(...valid), mean = total/valid.length;
+        const peakIndex = f.values.lastIndexOf(highest);
+        const recent = f.values.slice(-6), previous = f.values.slice(-12,-6);
+        const recentValid = recent.filter(v=>v !== null), recentTotal = recentValid.reduce((a,b)=>a+b,0);
+        const previousTotal = previous.filter(v=>v !== null).reduce((a,b)=>a+b,0);
+        const delta = recentValid.length === 6 && previous.every(v=>v!==null) && previousTotal > 0
+          ? `<span class="value positive">${recentTotal >= previousTotal ? '+' : ''}${((recentTotal/previousTotal-1)*100).toFixed(0)}%</span>`
+          : `<span class="value unknown">—</span>`;
+        const history = historyState === 'complete' ? f.history : {
+          highWeek: null, lowWeek: null,
+          highDay: f.history.highDay,
+          highInterval: f.history.highInterval
+        };
+        return `<div class="group-title"><span class="group-dot ${f.key==='codex'?'codex':''}"></span>${f.group}<small>${f.accounts} 个账号</small></div>
+          <section class="total-card" aria-label="${f.title}统计">
+            <div class="total-head"><div><strong>${f.title}</strong><small>${f.accounts} 个账号 · 以首账号 ${f.plan} 为基准</small></div><div class="latest"><b>${fmt(f.values.at(-1))}</b><small>最近完整区间 · 估算</small></div></div>
+            ${chart(f.values, f.key)}
+            <div class="stats-primary">
+              <div class="stat"><span class="stat-label">最高 · 每 ${hours} 小时</span><span class="stat-value">${fmt(highest)}</span><span class="stat-note">${time(peakIndex)}</span></div>
+              <div class="stat"><span class="stat-label">最低 · 每 ${hours} 小时</span><span class="stat-value">${fmt(lowest)}</span><span class="stat-note">有效区间含 0%</span></div>
+              <div class="stat"><span class="stat-label">平均 · 每 ${hours} 小时</span><span class="stat-value">${fmt(mean)}</span><span class="stat-note">仅计算有效区间</span></div>
+            </div>
+            <div class="detail-line"><span class="key">已观测合计</span><span class="value">${fmt(total)}</span><span class="key push">数据覆盖</span><span class="value teal">${valid.length}/${count} 区间</span></div>
+            <div class="detail-line leader-line"><span class="key">贡献最多</span><span class="value account-name" title="${esc(f.leader)}">${esc(f.leader)}</span><span class="sub teal push" title="按首账号套餐换算的用量；占比为该账号在本服务已观测合计中的比例">等效用量 ${fmt(total*f.share)} · 占比 ${fmt(f.share*100)}</span></div>
+            <div class="detail-line" title="按本地时间和已观测用量估算；缺测区间不计入"><span class="key">高用量时段</span><span class="value amber">${f.highPeriod}</span><span class="key push">低用量时段</span><span class="value teal">${f.lowPeriod}</span></div>
+            <div class="detail-line"><span class="key">最近 24 小时</span><span class="value emphasis">${fmt(recentTotal)}</span><span class="sub">覆盖 ${recentValid.length}/6</span><span class="key push">较前 24 小时</span>${delta}</div>
+            <div class="history-head"><strong>历史纪录</strong><small>完整窗口 · 本地日期</small></div>
+            <div class="history-grid">
+              ${historyItem('历史最高 · 连续 7 日', history.highWeek)}
+              ${historyItem('历史最低 · 连续 7 日', history.lowWeek, 'low')}
+              ${historyItem('历史最高 · 单日', history.highDay)}
+              ${historyItem('历史最高 · 单个时段', history.highInterval)}
+            </div>
+          </section>`;
+      }
+      function render() {
+        document.querySelector('#providers').innerHTML = fixtures.map(providerCard).join('');
+        document.querySelector('#show-complete').classList.toggle('active', historyState === 'complete');
+        document.querySelector('#show-incomplete').classList.toggle('active', historyState === 'incomplete');
+      }
+      render();
+      document.querySelector('#show-complete').addEventListener('click', () => { historyState = 'complete'; render(); });
+      document.querySelector('#show-incomplete').addEventListener('click', () => { historyState = 'incomplete'; render(); });
+      document.querySelector('#theme-toggle').addEventListener('click', event => {
+        const dark = document.documentElement.dataset.theme !== 'dark';
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        event.currentTarget.textContent = dark ? '切换浅色' : '切换深色';
+      });
+    })();
+  </script>
+</body>
+</html>

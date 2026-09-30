@@ -10,10 +10,35 @@ import Foundation
     check(labels.map(\.text) == ["21", "22", "23", "24", "25", "26", "27", "28"], "chart labels every local calendar day in rolling week")
     check(UsageTrendChartText.intervalUsageLabel(binHours: series.binHours) == "这 4 小时用量",
           "tooltip describes the selected chart interval")
+    check(UsageTrendChartText.intervalUsageLabel(binHours: 4, isTotal: true) == "这 4 小时合计用量",
+          "total tooltip distinguishes weighted aggregate usage from one account")
+    check(TrendStatisticsText.changeLabel(-0.04) == "0%"
+          && TrendStatisticsText.changeLabel(0.49) == "0%"
+          && TrendStatisticsText.changeLabel(68.5) == "+69%"
+          && TrendStatisticsText.changeLabel(-12.6) == "-13%"
+          && TrendStatisticsText.changeLabel(nil) == "—",
+          "small relative changes never render negative zero and signs follow rounded values")
     check(UsageTrendChartLayout.nearestPointIndex(at: 26, width: 416, count: 84) == 0, "hover at left edge picks oldest point")
     check(UsageTrendChartLayout.nearestPointIndex(at: 408, width: 416, count: 84) == 83, "hover at right edge picks latest point")
     check(abs(UsageTrendChartLayout.yPosition(value: 0, axisMaximum: 60, height: 84) - 63) < 0.01, "zero usage is at graph baseline")
     check(abs(UsageTrendChartLayout.yPosition(value: 60, axisMaximum: 60, height: 84) - 8) < 0.01, "axis maximum is at graph top")
+    let lowColor = UsageTrendColorScale.turboRGB(at: 0)
+    let midColor = UsageTrendColorScale.turboRGB(at: 0.5)
+    let highColor = UsageTrendColorScale.turboRGB(at: 1)
+    check(lowColor.blue > lowColor.red && highColor.red > highColor.blue && midColor.green > lowColor.green,
+          "trend palette moves from cool low usage through green to warm high usage")
+    check(UsageTrendColorScale.turboRGB(at: -1) == lowColor && UsageTrendColorScale.turboRGB(at: 2) == highColor,
+          "trend palette clamps out-of-range values")
+    check(TotalTrendBreakdownScale.maximumPercent == 20
+          && abs(TotalTrendBreakdownScale.barFraction(3) - 0.15) < 0.001
+          && abs(TotalTrendBreakdownScale.barFraction(5) - 0.25) < 0.001,
+          "each contribution bar uses the fixed 0–20% scale")
+    check(TotalTrendBreakdownScale.barFraction(0) == 0
+          && TotalTrendBreakdownScale.barFraction(20) == 1
+          && TotalTrendBreakdownScale.barFraction(27) == 1
+          && TotalTrendBreakdownScale.barFraction(-3) == 0
+          && TotalTrendBreakdownScale.barFraction(.nan) == 0,
+          "empty, full and overflow contribution bars stay within their track")
 
     let now = ISO8601DateFormatter().date(from: "2026-09-28T04:25:00Z")!
     let next = ISO8601DateFormatter().date(from: "2026-09-28T08:00:00Z")!
@@ -49,4 +74,12 @@ import Foundation
     )]
     check(UsageTrendChartLayout.standalonePointIndex(points: twoPoints) == nil,
           "two valid points use their connecting line, including a zero-usage point")
+    let withGap = [twoPoints[83], UsageTrendPoint(
+        endAt: Date(timeIntervalSince1970: 7 * hour), usedPercent: nil,
+        remainingPercent: nil, crossesReset: false, isEstimated: false
+    ), twoPoints[84]]
+    check(UsageTrendChartLayout.lineSegments(points: withGap, connectMissing: false).isEmpty,
+          "total trend leaves an unobserved interval blank")
+    check(UsageTrendChartLayout.isolatedPointIndices(points: withGap) == [0, 2],
+          "observed points beside missing intervals remain visible")
 }

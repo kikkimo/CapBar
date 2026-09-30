@@ -13,8 +13,10 @@ import Foundation
     @Published var settings: UserSettings
     @Published private(set) var rows: [PopoverAccountRow] = []
     @Published private(set) var trends: [AccountID: UsageTrendSeries] = [:]
+    @Published private(set) var historicalStatistics: [Provider: HistoricalTrendStatistics] = [:]
     @Published var showsSettings = false
     @Published private(set) var showsTrend = false
+    @Published private(set) var trendScope: TrendScope = .individual
     @Published var selectedProvider: Provider = .claude
     @Published var directoryInput = ""
     @Published var popoverWidthInput: String
@@ -51,6 +53,20 @@ import Foundation
         let intervalHours: Int
     }
     private var trendKeys: [AccountID: TrendKey] = [:]
+    private struct HistoricalAccountKey: Equatable {
+        let account: AccountID
+        let tier: UsagePlanTier
+        let capturedAt: Date?
+        let weeklyRemaining: Double?
+        let weeklyResetsAt: Date?
+    }
+    private struct HistoryKey: Equatable {
+        let accounts: [HistoricalAccountKey]
+        let intervalHours: Int
+        let timeZone: String
+    }
+    private var historyKeys: [Provider: HistoryKey] = [:]
+    private var historyLoading = false
     private var trendReloadGeneration = 0
 
     var maximumPopoverWidth: Int {
@@ -115,8 +131,9 @@ import Foundation
 
     func refresh(_ account: AccountID) {
         let recordHistory = settings.usageStatisticsEnabled
+        let override = settings.planOverrides.first { $0.account == account }?.tier
         Task {
-            _ = await coordinator.requestRefresh(account, recordHistory: recordHistory)
+            _ = await coordinator.requestRefresh(account, recordHistory: recordHistory, planTierOverride: override)
             await reloadRows()
         }
     }
@@ -125,6 +142,39 @@ import Foundation
         trendReloadGeneration += 1
         showsTrend = enabled && settings.usageStatisticsEnabled
         if showsTrend && reload { Task { await reloadTrends() } }
+    }
+
+    func setTrendScope(_ scope: TrendScope) {
+        trendScope = scope
+        if scope == .total && showsTrend { Task { await reloadTrends() } }
+    }
+
+    func planTier(for account: AccountID) -> UsagePlanTier? {
+        if let override = settings.planOverrides.first(where: { $0.account == account }) {
+            return override.tier.provider == account.provider ? override.tier : nil
+        }
+        let detected = rows.first(where: { $0.account == account })?.detectedPlan
+        return UsagePlanTier.detect(provider: account.provider, rawPlan: detected)
+    }
+
+    func setPlanOverride(_ tier: UsagePlanTier?, for account: AccountID) {
+        guard settings.accounts.contains(account), tier == nil || tier?.provider == account.provider else { return }
+        settings.planOverrides.removeAll { $0.account == account }
+        if let tier { settings.planOverrides.append(UsagePlanOverride(account: account, tier: tier)) }
+        historyKeys.removeValue(forKey: account.provider)
+        historicalStatistics.removeValue(forKey: account.provider)
+        if showsTrend && trendScope == .total { Task { await reloadTrends() } }
+        onSamplingSettingsChange?(settings)
+        enqueueSave()
+    }
+
+    func trendOverview(for provider: Provider) -> ProviderTrendOverview {
+        let accounts = settings.accounts.filter { $0.provider == provider }
+        return ProviderTrendOverview.build(accounts.map { account in
+            let row = rows.first { $0.account == account }
+            let label = row?.title == "尚未识别" ? (row?.directoryLabel ?? account.directory) : (row?.title ?? account.directory)
+            return TrendOverviewAccount(label: label, tier: planTier(for: account), series: trends[account])
+        })
     }
 
     func setUsageStatisticsEnabled(_ enabled: Bool, now: Date = Date()) {
@@ -136,6 +186,8 @@ import Foundation
             showsTrend = false
             trends.removeAll()
             trendKeys.removeAll()
+            historicalStatistics.removeAll()
+            historyKeys.removeAll()
         }
         onSamplingSettingsChange?(settings)
         enqueueSave()
@@ -147,6 +199,8 @@ import Foundation
         settings.samplingIntervalHours = hours
         if settings.usageStatisticsEnabled { settings.samplingScheduleStartedAt = now }
         trendKeys.removeAll()
+        historyKeys.removeAll()
+        historicalStatistics.removeAll()
         if showsTrend { Task { await reloadTrends() } }
         onSamplingSettingsChange?(settings)
         enqueueSave()
@@ -155,6 +209,7 @@ import Foundation
     func reloadTrends(endingAt now: Date = Date()) async {
         guard settings.usageStatisticsEnabled, showsTrend,
               historyStore != nil || historySampleLoader != nil else { return }
+        if trendScope == .total && historyLoading { return }
         trendReloadGeneration += 1
         let generation = trendReloadGeneration
         let records = await coordinator.viewState().records
@@ -197,9 +252,53 @@ import Foundation
                 newKeys.removeValue(forKey: account)
             }
         }
+        var history = historicalStatistics
+        var newHistoryKeys = historyKeys
+        if trendScope == .total, let historyStore {
+            historyLoading = true
+            defer { historyLoading = false }
+            let calendar = Calendar.current
+            for provider in [Provider.claude, .codex] {
+                let selected = accounts.filter { $0.provider == provider }
+                guard !selected.isEmpty else {
+                    history.removeValue(forKey: provider)
+                    newHistoryKeys.removeValue(forKey: provider)
+                    continue
+                }
+                let calibrated = selected.compactMap { account -> HistoricalAccount? in
+                    guard let tier = planTier(for: account) else { return nil }
+                    return HistoricalAccount(account: account, tier: tier)
+                }
+                guard calibrated.count == selected.count else {
+                    history.removeValue(forKey: provider)
+                    newHistoryKeys.removeValue(forKey: provider)
+                    continue
+                }
+                let key = HistoryKey(accounts: calibrated.map { configured in
+                    let snapshot = records[configured.account]?.snapshot
+                    let weekly = snapshot?.windows.first { $0.kind == .sevenDay }
+                    return HistoricalAccountKey(account: configured.account, tier: configured.tier,
+                                                capturedAt: snapshot?.capturedAt,
+                                                weeklyRemaining: weekly?.remainingPercent,
+                                                weeklyResetsAt: weekly?.resetsAt)
+                }, intervalHours: intervalHours, timeZone: calendar.timeZone.identifier)
+                if historyKeys[provider] == key, history[provider] != nil { continue }
+                do {
+                    history[provider] = try await historyStore.historicalStatistics(
+                        accounts: calibrated, intervalHours: intervalHours, calendar: calendar
+                    )?.statistics
+                    newHistoryKeys[provider] = key
+                } catch {
+                    history.removeValue(forKey: provider)
+                    newHistoryKeys.removeValue(forKey: provider)
+                }
+            }
+        }
         if generation == trendReloadGeneration && settings.usageStatisticsEnabled && showsTrend {
             trendKeys = newKeys
             trends = result
+            historyKeys = newHistoryKeys
+            historicalStatistics = history
         }
     }
 
@@ -284,6 +383,8 @@ import Foundation
         }
         settings.accounts.append(account)
         trendReloadGeneration += 1
+        historyKeys.removeValue(forKey: account.provider)
+        historicalStatistics.removeValue(forKey: account.provider)
         directoryInput = ""
         settingsMessage = nil
         onSamplingSettingsChange?(settings)
@@ -294,7 +395,10 @@ import Foundation
     func removeAccount(_ account: AccountID) {
         guard !rows.contains(where: { $0.account == account && $0.isRefreshing }) else { return }
         settings.accounts.removeAll { $0 == account }
+        settings.planOverrides.removeAll { $0.account == account }
         trendReloadGeneration += 1
+        historyKeys.removeValue(forKey: account.provider)
+        historicalStatistics.removeValue(forKey: account.provider)
         settingsMessage = nil
         onSamplingSettingsChange?(settings)
         enqueueSave()
