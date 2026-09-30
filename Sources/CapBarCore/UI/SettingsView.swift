@@ -177,19 +177,43 @@ struct CapBarSettingsView: View {
                         .padding(.vertical, 12)
                 }
                 ForEach(model.rows, id: \.account) { row in
-                    HStack(spacing: 8) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(row.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                            Text("\(row.account.provider == .claude ? "Claude" : "Codex") · \(row.directoryLabel) · \(row.subtitle)")
-                                .font(.system(size: 10)).foregroundStyle(secondary).lineLimit(1)
-                                .help(row.account.directory)
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack(spacing: 8) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(row.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                                Text("\(row.account.provider == .claude ? "Claude" : "Codex") · \(row.directoryLabel) · \(row.subtitle)")
+                                    .font(.system(size: 10)).foregroundStyle(secondary).lineLimit(1)
+                                    .help(row.account.directory)
+                            }
+                            Spacer(minLength: 8)
+                            Button("移除") { model.removeAccount(row.account) }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 11)).foregroundStyle(secondary)
+                                .disabled(row.isRefreshing)
+                                .accessibilityLabel("移除 \(row.title)")
                         }
-                        Spacer(minLength: 8)
-                        Button("移除") { model.removeAccount(row.account) }
-                            .buttonStyle(.plain)
-                            .font(.system(size: 11)).foregroundStyle(secondary)
-                            .disabled(row.isRefreshing)
-                            .accessibilityLabel("移除 \(row.title)")
+                        if model.settings.usageStatisticsEnabled {
+                            HStack(spacing: 8) {
+                                Text("总走势套餐").font(.system(size: 10, weight: .medium)).foregroundStyle(secondary)
+                                Spacer(minLength: 6)
+                                Picker("总走势套餐", selection: Binding<UsagePlanTier?>(
+                                    get: { model.settings.planOverrides.first { $0.account == row.account }?.tier },
+                                    set: { model.setPlanOverride($0, for: row.account) }
+                                )) {
+                                    Text("自动识别").tag(Optional<UsagePlanTier>.none)
+                                    ForEach(UsagePlanTier.options(for: row.account.provider), id: \.self) { tier in
+                                        Text(tier.displayName).tag(Optional(tier))
+                                    }
+                                }
+                                .labelsHidden()
+                                .frame(width: 152)
+                                .font(.system(size: 10))
+                            }
+                            if model.planTier(for: row.account) == nil {
+                                Text("当前套餐无法细分，请选择具体档位后参与总走势")
+                                    .font(.system(size: 10)).foregroundStyle(Color(nsColor: .systemOrange))
+                            }
+                        }
                     }
                     .padding(.vertical, 10)
                     line.frame(height: 1)

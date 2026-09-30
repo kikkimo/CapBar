@@ -45,7 +45,10 @@ private actor CancellableProvider: UsageProvider {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
     let old = UsageSnapshot(identity: AccountIdentity(email: "a@example.com", plan: "Team", organization: nil), windows: [], capturedAt: now.addingTimeInterval(-600))
     let provider = HoldingProvider()
-    let settings = UserSettings(accounts: [a, b], defaultsSeeded: true, autoRefreshOnOpen: false, refreshThresholdMinutes: 5)
+    let settings = UserSettings(
+        accounts: [a, b], defaultsSeeded: true, autoRefreshOnOpen: false, refreshThresholdMinutes: 5,
+        planOverrides: [UsagePlanOverride(account: a, tier: .claudeTeamStandard)]
+    )
     do {
         try await settingsStore.save(settings)
         try await snapshotStore.update(AccountRecord(id: a, snapshot: old, lastAttemptAt: now.addingTimeInterval(-180), lastError: nil))
@@ -153,6 +156,8 @@ private actor CancellableProvider: UsageProvider {
         }
         let savedSamples = try await historyStore.samples(account: a, from: now.addingTimeInterval(-1), through: now.addingTimeInterval(1))
         check(savedSamples.count == 1 && savedSamples.first?.usedPercent == 33, "successful refresh appends weekly history")
+        check(savedSamples.first?.planTier == .claudeTeamStandard,
+              "successful refresh records the calibrated tier alongside the historical sample")
         check((await historicalCoordinator.state())[a]?.snapshot?.capturedAt == now, "same refresh replaces latest JSON snapshot")
         check(await historicalCoordinator.requestRefresh(b, recordHistory: false), "statistics-disabled manual refresh still starts")
         for _ in 0..<100 {

@@ -15,6 +15,7 @@ import Foundation
     @Published private(set) var trends: [AccountID: UsageTrendSeries] = [:]
     @Published var showsSettings = false
     @Published private(set) var showsTrend = false
+    @Published private(set) var trendScope: TrendScope = .total
     @Published var selectedProvider: Provider = .claude
     @Published var directoryInput = ""
     @Published var popoverWidthInput: String
@@ -115,8 +116,9 @@ import Foundation
 
     func refresh(_ account: AccountID) {
         let recordHistory = settings.usageStatisticsEnabled
+        let override = settings.planOverrides.first { $0.account == account }?.tier
         Task {
-            _ = await coordinator.requestRefresh(account, recordHistory: recordHistory)
+            _ = await coordinator.requestRefresh(account, recordHistory: recordHistory, planTierOverride: override)
             await reloadRows()
         }
     }
@@ -125,6 +127,33 @@ import Foundation
         trendReloadGeneration += 1
         showsTrend = enabled && settings.usageStatisticsEnabled
         if showsTrend && reload { Task { await reloadTrends() } }
+    }
+
+    func setTrendScope(_ scope: TrendScope) {
+        trendScope = scope
+    }
+
+    func planTier(for account: AccountID) -> UsagePlanTier? {
+        if let override = settings.planOverrides.first(where: { $0.account == account }) {
+            return override.tier.provider == account.provider ? override.tier : nil
+        }
+        let detected = rows.first(where: { $0.account == account })?.detectedPlan
+        return UsagePlanTier.detect(provider: account.provider, rawPlan: detected)
+    }
+
+    func setPlanOverride(_ tier: UsagePlanTier?, for account: AccountID) {
+        guard settings.accounts.contains(account), tier == nil || tier?.provider == account.provider else { return }
+        settings.planOverrides.removeAll { $0.account == account }
+        if let tier { settings.planOverrides.append(UsagePlanOverride(account: account, tier: tier)) }
+        onSamplingSettingsChange?(settings)
+        enqueueSave()
+    }
+
+    func trendOverview(for provider: Provider) -> ProviderTrendOverview {
+        let accounts = settings.accounts.filter { $0.provider == provider }
+        return ProviderTrendOverview.build(accounts.map { account in
+            TrendOverviewAccount(tier: planTier(for: account), series: trends[account])
+        })
     }
 
     func setUsageStatisticsEnabled(_ enabled: Bool, now: Date = Date()) {
@@ -294,6 +323,7 @@ import Foundation
     func removeAccount(_ account: AccountID) {
         guard !rows.contains(where: { $0.account == account && $0.isRefreshing }) else { return }
         settings.accounts.removeAll { $0 == account }
+        settings.planOverrides.removeAll { $0.account == account }
         trendReloadGeneration += 1
         settingsMessage = nil
         onSamplingSettingsChange?(settings)

@@ -23,6 +23,7 @@ struct PopoverAccountRow: Sendable {
     let windows: [QuotaWindow]
     let isRefreshing: Bool
     let error: String?
+    var detectedPlan: String? = nil
 
     var refreshEnabled: Bool { !isRefreshing }
     var isExhausted: Bool {
@@ -62,7 +63,8 @@ enum PopoverPresentation {
                 captureAgeBand: captureAgeBand(record?.snapshot?.capturedAt, now: now),
                 windows: record?.snapshot?.windows ?? [],
                 isRefreshing: state.refreshing.contains(account),
-                error: record?.lastError
+                error: record?.lastError,
+                detectedPlan: identity?.plan
             )
         }
     }

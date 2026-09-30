@@ -90,7 +90,8 @@ actor UsageSamplingController {
                 knownResetAt.removeValue(forKey: account)
             }
             guard let due = dueAt[account], due <= current else { continue }
-            if await coordinator.requestRefresh(account, recordHistory: true) {
+            let override = settings.planOverrides.first { $0.account == account }?.tier
+            if await coordinator.requestRefresh(account, recordHistory: true, planTierOverride: override) {
                 dueAt[account] = UsageSamplingSchedule.nextEvent(
                     after: current, intervalHours: settings.samplingIntervalHours,
                     resetAt: reset

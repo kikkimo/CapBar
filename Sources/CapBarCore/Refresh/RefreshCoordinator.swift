@@ -49,7 +49,7 @@ actor RefreshCoordinator {
 
     func isRefreshing(_ id: AccountID) -> Bool { refreshing.contains(id) }
 
-    func requestRefresh(_ id: AccountID, recordHistory: Bool = false) async -> Bool {
+    func requestRefresh(_ id: AccountID, recordHistory: Bool = false, planTierOverride: UsagePlanTier? = nil) async -> Bool {
         guard !shuttingDown, !refreshing.contains(id), let provider = providers[id.provider] else { return false }
         refreshing.insert(id)
         let previous = records[id]
@@ -70,7 +70,7 @@ actor RefreshCoordinator {
         }
 
         activeTasks[id] = Task {
-            await self.perform(id, provider: provider, recordHistory: recordHistory)
+            await self.perform(id, provider: provider, recordHistory: recordHistory, planTierOverride: planTierOverride)
         }
         return true
     }
@@ -90,7 +90,8 @@ actor RefreshCoordinator {
     func requestRefreshAll(settings: UserSettings) async -> Int {
         var started = 0
         for account in settings.accounts {
-            if await requestRefresh(account, recordHistory: settings.usageStatisticsEnabled) { started += 1 }
+            let override = settings.planOverrides.first { $0.account == account }?.tier
+            if await requestRefresh(account, recordHistory: settings.usageStatisticsEnabled, planTierOverride: override) { started += 1 }
         }
         return started
     }
@@ -104,12 +105,14 @@ actor RefreshCoordinator {
                now().timeIntervalSince(last) < Double(settings.refreshThresholdMinutes * 60) {
                 continue
             }
-            if await requestRefresh(account, recordHistory: settings.usageStatisticsEnabled) { started += 1 }
+            let override = settings.planOverrides.first { $0.account == account }?.tier
+            if await requestRefresh(account, recordHistory: settings.usageStatisticsEnabled, planTierOverride: override) { started += 1 }
         }
         return started
     }
 
-    private func perform(_ id: AccountID, provider: any UsageProvider, recordHistory: Bool) async {
+    private func perform(_ id: AccountID, provider: any UsageProvider, recordHistory: Bool,
+                         planTierOverride: UsagePlanTier?) async {
         var record = records[id] ?? AccountRecord(id: id, snapshot: nil, lastAttemptAt: now(), lastError: nil)
         let previousSnapshot = record.snapshot
         var successfulSnapshot: UsageSnapshot?
@@ -134,7 +137,12 @@ actor RefreshCoordinator {
         if recordHistory, let successfulSnapshot {
             do {
                 guard let historyStore else { throw UsageHistoryError.database("History store unavailable") }
-                _ = try await historyStore.append(account: id, snapshot: successfulSnapshot)
+                let storedOverride = (try? await settingsStore.loadOrSeed())?.planOverrides
+                    .first(where: { $0.account == id })?.tier
+                let override = planTierOverride ?? storedOverride
+                let tier = override?.provider == id.provider ? override
+                    : UsagePlanTier.detect(provider: id.provider, rawPlan: successfulSnapshot.identity.plan)
+                _ = try await historyStore.append(account: id, snapshot: successfulSnapshot, planTier: tier)
             } catch {
                 record.lastError = "历史记录未能保存"
                 try? await snapshotStore.update(record)

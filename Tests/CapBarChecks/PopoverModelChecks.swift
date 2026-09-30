@@ -22,6 +22,8 @@ import Foundation
         let rows = PopoverPresentation.rows(settings: settings, state: view, now: now, calendar: calendar)
         check(rows.count == 3, "configured accounts retain order")
         check(rows[0].title == "person@example.com" && rows[0].subtitle == "Example · Team", "identity uses email then organization and plan")
+        check(rows[0].detectedPlan == "Team" && rows[1].detectedPlan == "Pro",
+              "rows retain raw detected plan for subscription calibration")
         check(rows[0].timeLabel == "17 分钟前" && rows[0].isRefreshing, "loading keeps old capture time")
         check(rows[0].captureAgeBand == .underThirty, "row exposes a time color from its actual snapshot age")
         check(!rows[0].refreshEnabled && rows[0].windows.count == 2, "only loading account disables its refresh")

@@ -1,7 +1,9 @@
 import SwiftUI
 
 enum UsageTrendChartText {
-    static func intervalUsageLabel(binHours: Int) -> String { "这 \(binHours) 小时用量" }
+    static func intervalUsageLabel(binHours: Int, isTotal: Bool = false) -> String {
+        "这 \(binHours) 小时\(isTotal ? "合计" : "")用量"
+    }
 }
 
 enum UsageTrendEmptyState {
@@ -37,6 +39,12 @@ enum UsageTrendEmptyState {
 struct UsageTrendDateLabel {
     let index: Int
     let text: String
+}
+
+struct UsageTrendLineSegment {
+    let from: Int
+    let to: Int
+    let dashed: Bool
 }
 
 enum UsageTrendChartLayout {
@@ -83,14 +91,40 @@ enum UsageTrendChartLayout {
         let validIndices = points.indices.filter { points[$0].usedPercent != nil }
         return validIndices.count == 1 ? validIndices[0] : nil
     }
+
+    static func lineSegments(points: [UsageTrendPoint], connectMissing: Bool) -> [UsageTrendLineSegment] {
+        var result: [UsageTrendLineSegment] = []
+        var previous: Int?
+        for index in points.indices where points[index].usedPercent != nil {
+            if let previous, connectMissing || index == previous + 1 {
+                result.append(UsageTrendLineSegment(
+                    from: previous, to: index,
+                    dashed: connectMissing && (index != previous + 1 || points[index].crossesReset)
+                ))
+            }
+            previous = index
+        }
+        return result
+    }
+
+    static func isolatedPointIndices(points: [UsageTrendPoint]) -> [Int] {
+        points.indices.filter { index in
+            points[index].usedPercent != nil
+                && (index == 0 || points[index - 1].usedPercent == nil)
+                && (index == points.count - 1 || points[index + 1].usedPercent == nil)
+        }
+    }
 }
 
 struct UsageTrendChart: View {
     let series: UsageTrendSeries?
     var calendar: Calendar = .current
+    var colorRange: ClosedRange<Double>? = nil
+    var totalPlan: String? = nil
+    var totalAccountCount = 0
 
     @State private var hoveredIndex: Int?
-    private let chartHeight: CGFloat = 84
+    private var chartHeight: CGFloat { totalPlan == nil ? 84 : 128 }
     private let secondary = Color(nsColor: .secondaryLabelColor)
 
     var body: some View {
@@ -131,7 +165,9 @@ struct UsageTrendChart: View {
     }
 
     private func chart(series: UsageTrendSeries, size: CGSize) -> some View {
-        let segments = lineSegments(points: series.points)
+        let isTotal = totalPlan != nil
+        let segments = UsageTrendChartLayout.lineSegments(points: series.points, connectMissing: !isTotal)
+        let range = colorRange ?? UsageTrendColorScale.range(for: [series])
         return ZStack(alignment: .topLeading) {
             ForEach(Array(series.axisTicks.enumerated()), id: \.offset) { index, tick in
                 let y = UsageTrendChartLayout.yPosition(value: tick, axisMaximum: series.axisMaximum, height: size.height)
@@ -158,24 +194,33 @@ struct UsageTrendChart: View {
                         control2: CGPoint(x: to.x - delta * 0.42, y: to.y)
                     )
                 }
-                .stroke(Color.accentColor, style: StrokeStyle(
+                .stroke(LinearGradient(
+                    colors: (0...4).map { step in
+                        let start = series.points[segment.from].usedPercent ?? 0
+                        let end = series.points[segment.to].usedPercent ?? 0
+                        return trendColor(start + (end - start) * Double(step) / 4, range: range)
+                    }, startPoint: .leading, endPoint: .trailing
+                ), style: StrokeStyle(
                     lineWidth: 1.8, lineCap: .round, lineJoin: .round,
                     dash: segment.dashed ? [3.5, 3] : []
                 ))
             }
-            if let index = UsageTrendChartLayout.standalonePointIndex(points: series.points),
-               let usage = series.points[index].usedPercent {
+            ForEach(isTotal ? UsageTrendChartLayout.isolatedPointIndices(points: series.points)
+                    : UsageTrendChartLayout.standalonePointIndex(points: series.points).map { [$0] } ?? [], id: \.self) { index in
+                let usage = series.points[index].usedPercent ?? 0
                 let point = coordinate(for: index, points: series.points, size: size, maximum: series.axisMaximum)
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(trendColor(usage, range: range))
                     .strokeBorder(Color(nsColor: .windowBackgroundColor), lineWidth: 1.5)
                     .frame(width: 8, height: 8)
                     .position(point)
-                Text(percent(usage))
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .position(x: max(UsageTrendChartLayout.leading + 16, point.x - 18),
-                              y: max(UsageTrendChartLayout.top + 6, point.y - 13))
+                if !isTotal {
+                    Text(percent(usage))
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(trendColor(usage, range: range))
+                        .position(x: max(UsageTrendChartLayout.leading + 16, point.x - 18),
+                                  y: max(UsageTrendChartLayout.top + 6, point.y - 13))
+                }
             }
             ForEach(UsageTrendChartLayout.dateLabels(points: series.points, binHours: series.binHours, calendar: calendar), id: \.index) { label in
                 Text(label.text)
@@ -196,12 +241,12 @@ struct UsageTrendChart: View {
                 .stroke(Color.accentColor.opacity(0.8), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
                 if let usage = point.usedPercent {
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(trendColor(usage, range: range))
                         .strokeBorder(Color(nsColor: .windowBackgroundColor), lineWidth: 1.5)
                         .frame(width: 7, height: 7)
                         .position(x: x, y: UsageTrendChartLayout.yPosition(value: usage, axisMaximum: series.axisMaximum, height: size.height))
                 }
-                tooltip(for: point, series: series)
+                tooltip(for: point, series: series, range: range)
                     .frame(width: 166)
                     .position(x: min(max(83, x), max(83, size.width - 83)), y: -29)
                     .zIndex(3)
@@ -210,7 +255,7 @@ struct UsageTrendChart: View {
         .frame(width: size.width, height: size.height)
     }
 
-    private func tooltip(for point: UsageTrendPoint, series: UsageTrendSeries) -> some View {
+    private func tooltip(for point: UsageTrendPoint, series: UsageTrendSeries, range: ClosedRange<Double>?) -> some View {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
@@ -220,19 +265,24 @@ struct UsageTrendChart: View {
             Text(formatter.string(from: point.endAt) + " · 本地时间")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(secondary)
+            if totalPlan == nil {
+                HStack {
+                    Text("7 天额度剩余").foregroundStyle(secondary)
+                    Spacer(minLength: 4)
+                    Text(point.remainingPercent.map(percent) ?? "—")
+                        .foregroundStyle(Color.accentColor)
+                        .fontWeight(.bold)
+                }
+            }
             HStack {
-                Text("7 天额度剩余").foregroundStyle(secondary)
+                Text(UsageTrendChartText.intervalUsageLabel(binHours: series.binHours, isTotal: totalPlan != nil)).foregroundStyle(secondary)
                 Spacer(minLength: 4)
-                Text(point.remainingPercent.map(percent) ?? "—")
-                    .foregroundStyle(Color.accentColor)
+                Text(point.usedPercent.map(percent) ?? "—")
+                    .foregroundStyle(point.usedPercent.map { trendColor($0, range: range) } ?? secondary)
                     .fontWeight(.bold)
             }
-            HStack {
-                Text(UsageTrendChartText.intervalUsageLabel(binHours: series.binHours)).foregroundStyle(secondary)
-                Spacer(minLength: 4)
-                Text(point.usedPercent.map(percent) ?? "—").fontWeight(.bold)
-            }
-            Text(point.isMissing ? "缺测区间，额度未知" : point.crossesReset ? "跨重置区间" : point.isEstimated ? "线性估算" : "采样值")
+            Text(totalPlan.map { point.isMissing ? "采样覆盖不足" : "\($0) 等效 · 覆盖 \(totalAccountCount)/\(totalAccountCount) 个账号" }
+                 ?? (point.isMissing ? "缺测区间，额度未知" : point.crossesReset ? "跨重置区间" : point.isEstimated ? "线性估算" : "采样值"))
                 .font(.system(size: 9)).foregroundStyle(secondary)
         }
         .font(.system(size: 10))
@@ -250,16 +300,9 @@ struct UsageTrendChart: View {
         )
     }
 
-    private func lineSegments(points: [UsageTrendPoint]) -> [(from: Int, to: Int, dashed: Bool)] {
-        var result: [(from: Int, to: Int, dashed: Bool)] = []
-        var previous: Int?
-        for index in points.indices where points[index].usedPercent != nil {
-            if let previous {
-                result.append((previous, index, index != previous + 1 || points[index].crossesReset))
-            }
-            previous = index
-        }
-        return result
+    private func trendColor(_ value: Double, range: ClosedRange<Double>?) -> Color {
+        let rgb = UsageTrendColorScale.turboRGB(at: UsageTrendColorScale.fraction(value, in: range))
+        return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
     }
 
     private func percent(_ value: Double) -> String {

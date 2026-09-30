@@ -29,7 +29,7 @@ private actor PreviewHangingProvider: UsageProvider {
         ("alex@example.com", "Team", "Example Studio", 0, 99, 2),
         ("sam@example.com", "Team", "Example Studio", 33, 0, 7),
         ("codex@example.com", "Plus", nil, 68, 42, 64),
-        ("work@example.com", "Team", "Example Org", 13, nil, 180),
+        ("work@example.com", "Pro 20x", nil, 13, 55, 180),
     ]
     var snapshots: [UsageSnapshot] = []
     for (account, sample) in zip(accounts, samples) {
@@ -102,7 +102,11 @@ private actor PreviewHangingProvider: UsageProvider {
     }
     let trendSettings = UserSettings(
         accounts: accounts, defaultsSeeded: true, autoRefreshOnOpen: false,
-        refreshThresholdMinutes: 5, usageStatisticsEnabled: true
+        refreshThresholdMinutes: 5, usageStatisticsEnabled: true,
+        planOverrides: [
+            UsagePlanOverride(account: accounts[0], tier: .claudeTeamStandard),
+            UsagePlanOverride(account: accounts[1], tier: .claudeTeamPremium)
+        ]
     )
     let trendSnapshotStore = SnapshotStore(url: folder.appendingPathComponent("trend-snapshots.json"))
     for (index, account) in accounts.enumerated() {
@@ -138,6 +142,8 @@ private actor PreviewHangingProvider: UsageProvider {
     await trendModel.reloadTrends()
     try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-light.png"))
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-dark.png"))
+    trendModel.setTrendScope(.individual)
+    try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-individual-light.png"))
     trendModel.setTrendMode(false)
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-quota-expanded.png"))
     trendModel.showsSettings = true

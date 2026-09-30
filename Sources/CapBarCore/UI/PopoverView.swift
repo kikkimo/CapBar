@@ -63,29 +63,67 @@ struct CapBarPopoverView: View {
     }
 
     private var overview: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                if !model.rows.isEmpty && model.rows.allSatisfy({ $0.windows.isEmpty && !$0.isRefreshing && $0.error == nil }) {
-                    HStack(spacing: 7) {
-                        Image(systemName: "arrow.clockwise.circle")
-                        Text("尚未采集额度，点击右上角“全部刷新”")
-                        Spacer()
+        VStack(spacing: 0) {
+            if model.showsTrend && model.settings.usageStatisticsEnabled {
+                trendScopeBar
+            }
+            ScrollView {
+                VStack(spacing: 0) {
+                    if !model.rows.isEmpty && model.rows.allSatisfy({ $0.windows.isEmpty && !$0.isRefreshing && $0.error == nil }) {
+                        HStack(spacing: 7) {
+                            Image(systemName: "arrow.clockwise.circle")
+                            Text("尚未采集额度，点击右上角“全部刷新”")
+                            Spacer()
+                        }
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(secondary)
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(Color(nsColor: .controlBackgroundColor).opacity(0.72))
                     }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(secondary)
-                    .padding(.horizontal, 16).padding(.vertical, 10)
-                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+                    if model.rows.isEmpty {
+                        Text("尚未添加账号目录")
+                            .font(.system(size: 12)).foregroundStyle(secondary)
+                            .frame(maxWidth: .infinity).padding(.vertical, 32)
+                    }
+                    providerGroup(.claude, title: "CLAUDE CODE", dot: Color(red: 0.77, green: 0.49, blue: 0.35))
+                    providerGroup(.codex, title: "CODEX", dot: Color(red: 0.33, green: 0.66, blue: 0.52))
                 }
-                if model.rows.isEmpty {
-                    Text("尚未添加账号目录")
-                        .font(.system(size: 12)).foregroundStyle(secondary)
-                        .frame(maxWidth: .infinity).padding(.vertical, 32)
-                }
-                providerGroup(.claude, title: "CLAUDE CODE", dot: Color(red: 0.77, green: 0.49, blue: 0.35))
-                providerGroup(.codex, title: "CODEX", dot: Color(red: 0.33, green: 0.66, blue: 0.52))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var trendScopeBar: some View {
+        HStack(spacing: 10) {
+            Picker("走势图范围", selection: Binding(
+                get: { model.trendScope },
+                set: { model.setTrendScope($0) }
+            )) {
+                Text("总走势").tag(TrendScope.total)
+                Text("单账号").tag(TrendScope.individual)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(width: 153)
+            HStack(spacing: 5) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(LinearGradient(colors: (0...16).map { step in
+                        let rgb = UsageTrendColorScale.turboRGB(at: Double(step) / 16)
+                        return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
+                    }, startPoint: .leading, endPoint: .trailing))
+                    .frame(width: 38, height: 4)
+                Text("各服务低 → 高")
+                    .font(.system(size: 9)).foregroundStyle(secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            Text("近 7 日 · \(max(2, model.settings.samplingIntervalHours)) 小时/点")
+                .font(.system(size: 9)).foregroundStyle(secondary).lineLimit(1)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.68))
+        .overlay(alignment: .bottom) { line.frame(height: 1) }
     }
 
     @ViewBuilder private func providerGroup(_ provider: Provider, title: String, dot: Color) -> some View {
@@ -100,27 +138,37 @@ struct CapBarPopoverView: View {
             .padding(.horizontal, 16).padding(.vertical, 8)
             .background(Color(nsColor: .controlBackgroundColor).opacity(0.72))
             .overlay(alignment: .bottom) { line.frame(height: 1) }
-            ForEach(rows.indices, id: \.self) { index in
-                let row = rows[index]
-                let tinted = !model.showsTrend && row.isExhausted
-                CapBarAccountRow(
-                    row: row, width: model.settings.popoverSize.width,
-                    statisticsEnabled: model.settings.usageStatisticsEnabled,
-                    showsTrend: model.showsTrend,
-                    trend: model.trends[row.account]
-                ) { model.refresh(row.account) }
-                    .padding(.horizontal, 16)
-                    .background {
-                        if tinted {
-                            LinearGradient(
-                                colors: [Color(nsColor: .systemRed).opacity(0.14),
-                                         Color(nsColor: .systemRed).opacity(0.06)],
-                                startPoint: .leading, endPoint: .trailing
-                            )
+            if model.showsTrend && model.trendScope == .total {
+                CapBarTotalTrendCard(overview: model.trendOverview(for: provider), provider: provider) {
+                    model.showsSettings = true
+                }
+                .padding(.horizontal, 16)
+            } else {
+                let sharedColorRange = model.showsTrend
+                    ? UsageTrendColorScale.range(for: rows.compactMap { model.trends[$0.account] }) : nil
+                ForEach(rows.indices, id: \.self) { index in
+                    let row = rows[index]
+                    let tinted = !model.showsTrend && row.isExhausted
+                    CapBarAccountRow(
+                        row: row, width: model.settings.popoverSize.width,
+                        statisticsEnabled: model.settings.usageStatisticsEnabled,
+                        showsTrend: model.showsTrend,
+                        trend: model.trends[row.account],
+                        colorRange: sharedColorRange
+                    ) { model.refresh(row.account) }
+                        .padding(.horizontal, 16)
+                        .background {
+                            if tinted {
+                                LinearGradient(
+                                    colors: [Color(nsColor: .systemRed).opacity(0.14),
+                                             Color(nsColor: .systemRed).opacity(0.06)],
+                                    startPoint: .leading, endPoint: .trailing
+                                )
+                            }
                         }
+                    if index < rows.count - 1 && !tinted && (model.showsTrend || !rows[index + 1].isExhausted) {
+                        line.frame(height: 1).padding(.horizontal, 16)
                     }
-                if index < rows.count - 1 && !tinted && (model.showsTrend || !rows[index + 1].isExhausted) {
-                    line.frame(height: 1).padding(.horizontal, 16)
                 }
             }
         }
@@ -166,12 +214,72 @@ struct CapBarPopoverView: View {
     }
 }
 
+private struct CapBarTotalTrendCard: View {
+    let overview: ProviderTrendOverview
+    let provider: Provider
+    let openSettings: () -> Void
+
+    private var title: String { provider == .claude ? "Claude 用量合计" : "Codex 用量合计" }
+    private var latestUsage: Double? { overview.series?.points.last?.usedPercent }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.system(size: 13, weight: .semibold))
+                    Text("\(overview.accountCount) 个账号 · \(overview.baselinePlan.map { "以首账号 \($0.displayName) 为基准" } ?? "套餐待校准")")
+                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 4)
+                if let series = overview.series {
+                    let range = UsageTrendColorScale.range(for: [series])
+                    let rgb = UsageTrendColorScale.turboRGB(at: UsageTrendColorScale.fraction(latestUsage ?? .nan, in: range))
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(latestUsage.map { $0.formatted(.number.precision(.fractionLength(0...1))) + "%" } ?? "—")
+                            .font(.system(size: 16, weight: .bold)).monospacedDigit()
+                            .foregroundStyle(latestUsage == nil ? Color.secondary : Color(red: rgb.red, green: rgb.green, blue: rgb.blue))
+                        Text(latestUsage == nil ? "最近区间缺测" : "最近完整区间 · 估算")
+                            .font(.system(size: 9)).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if overview.uncalibratedCount > 0 {
+                HStack {
+                    Text("\(overview.uncalibratedCount) 个账号套餐待校准，暂不计算总走势")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                    Spacer(minLength: 4)
+                    Button("去设置") { openSettings() }
+                        .buttonStyle(.plain).font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                }
+                .frame(height: 128)
+            } else if overview.pendingHistoryCount > 0 {
+                Text("\(overview.pendingHistoryCount) 个账号的历史数据暂不可用")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 128)
+            } else {
+                UsageTrendChart(
+                    series: overview.series,
+                    colorRange: overview.series.flatMap { UsageTrendColorScale.range(for: [$0]) },
+                    totalPlan: overview.baselinePlan?.displayName,
+                    totalAccountCount: overview.accountCount
+                )
+            }
+            Text("套餐容量按估算系数换算 · 缺测区间留空")
+                .font(.system(size: 9)).foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 private struct CapBarAccountRow: View {
     let row: PopoverAccountRow
     let width: Int
     let statisticsEnabled: Bool
     let showsTrend: Bool
     let trend: UsageTrendSeries?
+    let colorRange: ClosedRange<Double>?
     let refresh: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -305,7 +413,7 @@ private struct CapBarAccountRow: View {
 
     @ViewBuilder private var content: some View {
         if showsTrend {
-            UsageTrendChart(series: trend)
+            UsageTrendChart(series: trend, colorRange: colorRange)
         } else {
             metrics.frame(height: statisticsEnabled ? 84 : nil, alignment: .center)
         }

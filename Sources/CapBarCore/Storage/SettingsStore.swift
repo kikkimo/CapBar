@@ -38,6 +38,7 @@ struct UserSettings: Codable, Sendable {
     var usageStatisticsEnabled: Bool
     var samplingIntervalHours: Int
     var samplingScheduleStartedAt: Date?
+    var planOverrides: [UsagePlanOverride]
     var popoverSize: PopoverSize
 
     init(
@@ -48,6 +49,7 @@ struct UserSettings: Codable, Sendable {
         usageStatisticsEnabled: Bool = false,
         samplingIntervalHours: Int = SamplingInterval.defaultHours,
         samplingScheduleStartedAt: Date? = nil,
+        planOverrides: [UsagePlanOverride] = [],
         popoverSize: PopoverSize = PopoverSize()
     ) {
         self.accounts = accounts
@@ -57,12 +59,13 @@ struct UserSettings: Codable, Sendable {
         self.usageStatisticsEnabled = usageStatisticsEnabled
         self.samplingIntervalHours = samplingIntervalHours
         self.samplingScheduleStartedAt = samplingScheduleStartedAt
+        self.planOverrides = planOverrides
         self.popoverSize = popoverSize
     }
 
     private enum CodingKeys: String, CodingKey {
         case accounts, defaultsSeeded, autoRefreshOnOpen, refreshThresholdMinutes
-        case usageStatisticsEnabled, samplingIntervalHours, samplingScheduleStartedAt, popoverSize
+        case usageStatisticsEnabled, samplingIntervalHours, samplingScheduleStartedAt, planOverrides, popoverSize
     }
 
     init(from decoder: Decoder) throws {
@@ -75,6 +78,7 @@ struct UserSettings: Codable, Sendable {
             usageStatisticsEnabled: try values.decodeIfPresent(Bool.self, forKey: .usageStatisticsEnabled) ?? false,
             samplingIntervalHours: try values.decodeIfPresent(Int.self, forKey: .samplingIntervalHours) ?? SamplingInterval.defaultHours,
             samplingScheduleStartedAt: try values.decodeIfPresent(Date.self, forKey: .samplingScheduleStartedAt),
+            planOverrides: try values.decodeIfPresent([UsagePlanOverride].self, forKey: .planOverrides) ?? [],
             popoverSize: try values.decodeIfPresent(PopoverSize.self, forKey: .popoverSize) ?? PopoverSize()
         )
     }

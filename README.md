@@ -25,13 +25,17 @@
 - **Refresh when you choose:** Refresh one account or all idle accounts. Opening the window shows saved snapshots by default. Optional refresh on open checks each account against a shared threshold of 5 minutes by default.
 - **Clear states:** Refreshing accounts show progress while keeping their previous values. A failed refresh preserves the last successful snapshot and marks the failure.
 - **Native macOS behavior:** Light and dark appearances, a resizable popover, a right-click menu, and an optional launch-at-login setting.
-- **Optional usage trends:** Track each account's 7-day quota consumption in a rolling chart. Enabling statistics also enables scheduled sampling while CapBar runs; the interval defaults to 4 hours and can be set to 1, 2, 3, 4, 6, or 8 hours. Manual refreshes contribute samples too. Chart bins match the selected interval, with a 2-hour minimum.
+- **Optional usage trends:** Switch between one total chart per provider and individual account charts. Totals convert each subscription to the first account's capacity before adding usage, and are labeled as estimates because provider 7-day capacity ratios are unverified. Ambiguous plans require a tier selection in Settings. Trend colors adapt to each provider's observed range. Enabling statistics also enables scheduled sampling while CapBar runs; the interval defaults to 4 hours and can be set to 1, 2, 3, 4, 6, or 8 hours. Manual refreshes contribute samples too. Chart bins match the selected interval, with a 2-hour minimum.
 
 | 7-day usage trend, dark appearance | 7-day usage trend, light appearance |
 | :---: | :---: |
 | ![CapBar usage trend in dark appearance](docs/images/trend-dark.png) | ![CapBar usage trend in light appearance](docs/images/trend-light.png) |
 
-*Trend illustrations use fictional accounts and sample history.*
+| Individual account trends |
+| :---: |
+| ![CapBar individual account usage trends](docs/images/trend-individual-light.png) |
+
+*Trend illustrations use fictional accounts and sample history. The aggregate view is in this development branch and is not part of the current 0.1.4 installer.*
 
 ## Install and use
 
@@ -56,7 +60,7 @@ On first launch, CapBar adds `~/.claude` and `~/.codex` as default entries. Add 
 
 The popover starts at 448 × 620 pt. Enter a precise width or height and submit it, or use the steppers in 10 pt increments. Wider windows rearrange account details horizontally. Snapshots and settings are stored as JSON under `~/Library/Application Support/CapBar/`.
 
-Usage statistics are off by default. Turning them on also starts scheduled quota probes while the app runs; turning them off stops the schedule. Successful probes are kept in a local SQLite history. Charts use UTC intervals and display dates in your local time zone. A complete interval needs enough observations before its usage can appear; missing intervals are not treated as zero usage.
+Usage statistics are off by default. Turning them on also starts scheduled quota probes while the app runs; turning them off stops the schedule. Successful probes are kept in a local SQLite history. Charts use UTC intervals and display dates in your local time zone. A complete interval needs enough observations before its usage can appear; missing intervals are not treated as zero usage. The development branch stores the detected or manually selected plan tier alongside new historical samples; older samples without a tier use the current calibrated tier for estimated totals.
 
 ## How quota refresh works
 

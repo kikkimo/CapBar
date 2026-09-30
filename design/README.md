@@ -4,13 +4,15 @@
 
 打开 [capbar-visual-study.html](capbar-visual-study.html) 查看可交互的独立设计稿。HTML 内含样式和演示交互，可直接在浏览器中打开；图片保存在 `assets/`。
 
+新增的 [总走势设计稿](usage-trend-overview-study.html) 展示在“走势”页切换“总走势 / 单账号”：Claude 与 Codex 各自以首账号的七日额度容量为基准，先换算各账号用量，再汇总同一 UTC 绘图区间；缺测区间留空。曲线默认使用 Google Research Turbo 色阶的柔和节选，页面外提供上一版配色对照。总走势中 Claude 与 Codex 各自按本图实际观测的最低、最高用量映射颜色；单账号走势中同一服务的所有账号共用观测范围。纵轴刻度独立计算，原有额度界面不改。识别方法和仍待验证的换算系数见[容量换算提案](usage-trend-capacity-proposal.md)。该页面使用虚构账号、示例容量系数与曲线；功能分支已实现对应的原生界面。
+
 已确认的刷新、快照与配置规则记录在 [plan.md](plan.md)，可验收的 [v1 规格](spec.md)和 [TDD 实施计划](implementation-plan.md)单独保存。主视觉方向已确认；下方状态对照补充了正常、刷新中、失败保留旧值和首次无快照的界面。
 
 HTML 是最终菜单栏弹窗的视觉基准。实现时应对齐信息层级、尺寸、间距、状态色和交互位置；透明材质、系统字体与控件由 macOS 原生组件呈现，允许随系统版本和浅色／深色外观有细微差异。
 
 菜单栏图标素材为 [capbar-menubar-template.png](assets/capbar-menubar-template.png)，运行时按 macOS 模板图像使用。应用图标为 [capbar-app-icon.png](assets/capbar-app-icon.png)，透明外角，构建时转换为 `CapBar.icns`。
 
-CapBar 区域使用 2026 年 9 月 25 日约 16:01 的本机账号与额度快照。**页面是静态设计稿，不连接账号，数值不会自行更新。** 设计稿包含真实账号邮箱，仅适合保存在私有仓库。
+设计稿使用虚构账号与示例额度。**页面是静态设计稿，不连接账号，数值不会自行更新。**
 
 设计约定：
 

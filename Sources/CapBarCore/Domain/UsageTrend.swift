@@ -6,6 +6,7 @@ struct UsageTrendPoint: Sendable {
     let remainingPercent: Double?
     let crossesReset: Bool
     let isEstimated: Bool
+    var planTier: UsagePlanTier? = nil
 
     var isMissing: Bool { usedPercent == nil }
 }
@@ -51,7 +52,8 @@ enum UsageTrendCalculator {
                 usedPercent: max(0, usage.amount),
                 remainingPercent: remaining(at: end, samples: ordered, spans: spans),
                 crossesReset: usage.crossesReset,
-                isEstimated: estimated
+                isEstimated: estimated,
+                planTier: usage.planTier
             )
         }
         let maximum = max(10, ceil((points.compactMap(\.usedPercent).max() ?? 0) / 10) * 10)
@@ -66,14 +68,19 @@ enum UsageTrendCalculator {
 
     private static func consumption(
         from start: TimeInterval, to end: TimeInterval, spans: [Span]
-    ) -> (amount: Double, crossesReset: Bool)? {
+    ) -> (amount: Double, crossesReset: Bool, planTier: UsagePlanTier?)? {
         var cursor = start
         var amount = 0.0
         var crossesReset = false
+        var planTier: UsagePlanTier?
+        var hasSpan = false
         while cursor < end - epsilon {
             guard let span = spans.first(where: {
                 $0.start <= cursor + epsilon && $0.end > cursor + epsilon
             }), span.isValid else { return nil }
+            if hasSpan && span.first.planTier != planTier { return nil }
+            planTier = span.first.planTier
+            hasSpan = true
             let stop = min(end, span.end)
             amount += span.unwrapped(at: stop) - span.unwrapped(at: cursor)
             if let reset = span.reset, reset > cursor + epsilon, reset <= stop + epsilon {
@@ -81,7 +88,7 @@ enum UsageTrendCalculator {
             }
             cursor = stop
         }
-        return (amount, crossesReset)
+        return (amount, crossesReset, planTier)
     }
 
     private static func containsSample(at time: TimeInterval, in samples: [UsageHistorySample]) -> Bool {
@@ -128,6 +135,7 @@ enum UsageTrendCalculator {
             } ?? false
             let allowedHours = isNearReset ? min(intervalHours, 2) : intervalHours
             isValid = endTime > startTime && endTime - startTime <= Double(allowedHours) * 3_600 + 15 * 60
+                && first.planTier == last.planTier
                 && (reset != nil || last.usedPercent >= first.usedPercent)
         }
 

@@ -5,6 +5,14 @@ struct UsageHistorySample: Sendable, Equatable {
     let capturedAt: Date
     let usedPercent: Double
     let resetsAt: Date?
+    let planTier: UsagePlanTier?
+
+    init(capturedAt: Date, usedPercent: Double, resetsAt: Date?, planTier: UsagePlanTier? = nil) {
+        self.capturedAt = capturedAt
+        self.usedPercent = usedPercent
+        self.resetsAt = resetsAt
+        self.planTier = planTier
+    }
 }
 
 enum UsageHistoryError: Error {
@@ -18,15 +26,16 @@ actor UsageHistoryStore {
         self.url = url
     }
 
-    func append(account: AccountID, snapshot: UsageSnapshot) throws -> Bool {
+    func append(account: AccountID, snapshot: UsageSnapshot, planTier: UsagePlanTier? = nil) throws -> Bool {
         guard let weekly = snapshot.windows.first(where: { $0.kind == .sevenDay }) else { return false }
         try withDatabase { database in
             let sql = """
-                INSERT INTO usage_samples(provider, directory, captured_at, used_percent, resets_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO usage_samples(provider, directory, captured_at, used_percent, resets_at, plan_tier)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(provider, directory, captured_at) DO UPDATE SET
                     used_percent = excluded.used_percent,
-                    resets_at = excluded.resets_at
+                    resets_at = excluded.resets_at,
+                    plan_tier = COALESCE(excluded.plan_tier, usage_samples.plan_tier)
                 """
             let statement = try prepare(sql, in: database)
             defer { sqlite3_finalize(statement) }
@@ -39,6 +48,11 @@ actor UsageHistoryStore {
             } else {
                 sqlite3_bind_null(statement, 5)
             }
+            if let planTier {
+                try bind(planTier.rawValue, to: 6, in: statement, database: database)
+            } else {
+                sqlite3_bind_null(statement, 6)
+            }
             guard sqlite3_step(statement) == SQLITE_DONE else { throw error(database) }
         }
         return true
@@ -47,7 +61,7 @@ actor UsageHistoryStore {
     func samples(account: AccountID, from start: Date, through end: Date) throws -> [UsageHistorySample] {
         try withDatabase { database in
             let sql = """
-                SELECT captured_at, used_percent, resets_at
+                SELECT captured_at, used_percent, resets_at, plan_tier
                 FROM usage_samples
                 WHERE provider = ? AND directory = ? AND captured_at >= ? AND captured_at <= ?
                 ORDER BY captured_at ASC
@@ -63,11 +77,15 @@ actor UsageHistoryStore {
                 let status = sqlite3_step(statement)
                 if status == SQLITE_DONE { return result }
                 guard status == SQLITE_ROW else { throw error(database) }
+                let tier = sqlite3_column_text(statement, 3).flatMap {
+                    UsagePlanTier(rawValue: String(cString: $0))
+                }
                 result.append(UsageHistorySample(
                     capturedAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 0)),
                     usedPercent: sqlite3_column_double(statement, 1),
                     resetsAt: sqlite3_column_type(statement, 2) == SQLITE_NULL
-                        ? nil : Date(timeIntervalSince1970: sqlite3_column_double(statement, 2))
+                        ? nil : Date(timeIntervalSince1970: sqlite3_column_double(statement, 2)),
+                    planTier: tier
                 ))
             }
         }
@@ -102,10 +120,23 @@ actor UsageHistoryStore {
                 captured_at REAL NOT NULL,
                 used_percent REAL NOT NULL,
                 resets_at REAL,
+                plan_tier TEXT,
                 PRIMARY KEY (provider, directory, captured_at)
             ) WITHOUT ROWID;
             """
         guard sqlite3_exec(database, schema, nil, nil, nil) == SQLITE_OK else { throw error(database) }
+        let columns = try prepare("PRAGMA table_info(usage_samples)", in: database)
+        var hasPlanTier = false
+        while sqlite3_step(columns) == SQLITE_ROW {
+            if let name = sqlite3_column_text(columns, 1), String(cString: name) == "plan_tier" {
+                hasPlanTier = true
+            }
+        }
+        sqlite3_finalize(columns)
+        if !hasPlanTier {
+            guard sqlite3_exec(database, "ALTER TABLE usage_samples ADD COLUMN plan_tier TEXT", nil, nil, nil) == SQLITE_OK
+            else { throw error(database) }
+        }
         return try work(database)
     }
 
