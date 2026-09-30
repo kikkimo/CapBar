@@ -75,6 +75,21 @@ import Foundation
     check(empty.points.allSatisfy { $0.usedPercent == nil }, "no history renders missing points without fabricated usage")
     check(empty.points.last?.endAt == Date(timeIntervalSince1970: 8 * hour), "incomplete current bin is not drawn")
 
+    let awaitingBoundarySample = UsageTrendCalculator.calculate(
+        samples: [
+            sample(2 + 20.0 / 3_600, used: 10, reset: 80),
+            sample(4 + 20.0 / 3_600, used: 15, reset: 80),
+            sample(6 + 20.0 / 3_600, used: 20, reset: 80)
+        ], intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour + 10)
+    )
+    let awaitingOverview = ProviderTrendOverview.build([
+        TrendOverviewAccount(label: "example@example.com", tier: .claudePro, series: awaitingBoundarySample)
+    ])
+    check(awaitingBoundarySample.points.last?.usedPercent == nil
+          && near(awaitingOverview.latestObservedPoint?.usedPercent, 5)
+          && awaitingOverview.latestObservedPoint?.endAt == Date(timeIntervalSince1970: 6 * hour),
+          "the headline falls back to the preceding measured bin while the just-ended bin awaits sampling")
+
     let expectedGrids: [(setting: Int, count: Int, lastHour: Double)] = [
         (1, 84, 10), (2, 84, 10), (3, 56, 9),
         (4, 42, 8), (6, 28, 6), (8, 21, 8)

@@ -208,7 +208,16 @@ private struct CapBarTotalTrendCard: View {
     let openSettings: () -> Void
 
     private var title: String { provider == .claude ? "Claude 用量合计" : "Codex 用量合计" }
-    private var latestUsage: Double? { overview.series?.points.last?.usedPercent }
+    private var latestUsage: Double? { overview.latestObservedPoint?.usedPercent }
+    private var latestIntervalLabel: String {
+        guard let endAt = overview.latestObservedPoint?.endAt else { return "最近区间缺测" }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.timeZone = .current
+        formatter.dateFormat = Calendar.current.isDate(endAt, equalTo: .now, toGranularity: .year)
+            ? "M月d日 HH:mm" : "yyyy年M月d日 HH:mm"
+        return "截至 \(formatter.string(from: endAt)) · 估算"
+    }
     private var statistics: ProviderTrendStatistics? { overview.statistics(calendar: .current) }
 
     var body: some View {
@@ -225,7 +234,7 @@ private struct CapBarTotalTrendCard: View {
                         Text(latestUsage.map { $0.formatted(.number.precision(.fractionLength(0...1))) + "%" } ?? "—")
                             .font(.system(size: 16, weight: .bold)).monospacedDigit()
                             .foregroundStyle(latestUsage == nil ? Color.secondary : Color.primary)
-                        Text(latestUsage == nil ? "最近区间缺测" : "最近完整区间 · 估算")
+                        Text(latestIntervalLabel)
                             .font(.system(size: 9)).foregroundStyle(.secondary)
                     }
                 }

@@ -97,6 +97,13 @@ struct ProviderTrendOverview: Sendable {
     let pendingHistoryCount: Int
     let series: UsageTrendSeries?
 
+    var latestObservedPoint: UsageTrendPoint? {
+        series?.points.last { point in
+            guard let used = point.usedPercent else { return false }
+            return used.isFinite && used >= 0
+        }
+    }
+
     static func build(_ accounts: [TrendOverviewAccount]) -> Self {
         let baseline = accounts.first?.tier
         let uncalibrated = accounts.filter { $0.tier == nil || $0.tier?.provider != baseline?.provider }.count

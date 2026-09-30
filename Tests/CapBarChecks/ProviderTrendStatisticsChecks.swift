@@ -28,6 +28,21 @@ import Foundation
     }
 
     let sparse = single([nil, 0, 2, 4, nil]).statistics(calendar: calendar)
+    let trailingGap = single([1, 4, nil])
+    check(near(trailingGap.latestObservedPoint?.usedPercent, 4)
+          && trailingGap.latestObservedPoint?.endAt == end.addingTimeInterval(-2 * hour),
+          "total headline uses the preceding observed interval while the newest bin awaits a sample")
+    check(single([0, nil]).latestObservedPoint?.usedPercent == 0,
+          "a measured zero remains available when the latest bin is missing")
+    check(single([nil, nil]).latestObservedPoint == nil,
+          "total headline remains unavailable when no interval has been observed")
+    let partiallyObservedTotal = ProviderTrendOverview.build([
+        TrendOverviewAccount(label: "one@example.com", tier: .claudePro, series: series([2, 4, 6])),
+        TrendOverviewAccount(label: "two@example.com", tier: .claudePro, series: series([1, 3, nil]))
+    ])
+    check(near(partiallyObservedTotal.latestObservedPoint?.usedPercent, 7)
+          && partiallyObservedTotal.latestObservedPoint?.endAt == end.addingTimeInterval(-2 * hour),
+          "total headline only falls back to a bin with observations for every account")
     check(near(sparse?.peak?.value, 4) && sparse?.peak?.endAt == end.addingTimeInterval(-2 * hour),
           "peak uses the largest observed interval and its ending time")
     check(near(sparse?.minimum, 0) && near(sparse?.average, 2) && near(sparse?.observedTotal, 6),
