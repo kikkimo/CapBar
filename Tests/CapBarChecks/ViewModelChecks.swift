@@ -113,7 +113,7 @@ private actor GatedTrendLoader {
         check(model.settings.usageStatisticsEnabled && model.settings.samplingScheduleStartedAt == enabledAt, "enabling statistics records first-schedule time")
         model.setTrendMode(true)
         check(model.showsTrend, "trend mode is available while statistics are enabled")
-        check(model.trendScope == .total, "opening the trend view defaults to provider totals")
+        check(model.trendScope == .individual, "opening the trend view defaults to individual accounts")
         model.setTrendScope(.individual)
         check(model.trendScope == .individual, "trend scope switches all providers to individual accounts")
         model.setTrendMode(false)

@@ -140,6 +140,7 @@ private actor PreviewHangingProvider: UsageProvider {
     }
     trendModel.setTrendMode(true, reload: false)
     await trendModel.reloadTrends()
+    trendModel.setTrendScope(.total)
     try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-light.png"))
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-dark.png"))
     trendModel.setTrendScope(.individual)

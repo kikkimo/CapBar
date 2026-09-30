@@ -170,6 +170,12 @@ import Foundation
     check(near(upgradedTotal?.points[0].usedPercent, 7)
           && near(upgradedTotal?.points[2].usedPercent, 44),
           "historical tier weights a past bin with its captured capacity, not today's tier")
+    let upgradedBreakdown = ProviderTrendOverview.build([
+        TrendOverviewAccount(label: "Pro", tier: .claudePro, series: pro),
+        TrendOverviewAccount(label: "Upgraded", tier: .claudeMax5, series: upgraded)
+    ]).contributions(at: pro.points[2].endAt)
+    check(near(upgradedBreakdown?[1].equivalentPercent, 40),
+          "tooltip contribution uses the historical tier behind the plotted total")
     let mismatched = trend([1, 2, 3], hours: [2, 5, 6])
     let mismatchedTotal = UsageTrendAggregator.aggregate(
         [WeightedUsageTrend(series: pro, capacity: 1), WeightedUsageTrend(series: mismatched, capacity: 1)],
@@ -217,12 +223,20 @@ import Foundation
           "candidate proposal factors convert each tier to provider base capacity")
 
     let overview = ProviderTrendOverview.build([
-        TrendOverviewAccount(tier: .claudePro, series: pro),
-        TrendOverviewAccount(tier: .claudeMax5, series: maxFive)
+        TrendOverviewAccount(label: "Pro account", tier: .claudePro, series: pro),
+        TrendOverviewAccount(label: "Max account", tier: .claudeMax5, series: maxFive)
     ])
     check(overview.accountCount == 2 && overview.baselinePlan == .claudePro
           && near(overview.series?.points[0].usedPercent, 7),
           "provider overview uses the first account plan as its display unit")
+    let breakdown = overview.contributions(at: pro.points[0].endAt)
+    check(breakdown?.map(\.label) == ["Pro account", "Max account"]
+          && near(breakdown?[0].equivalentPercent, 2)
+          && near(breakdown?[1].equivalentPercent, 5)
+          && near(breakdown?.reduce(0) { $0 + $1.equivalentPercent }, 7),
+          "total tooltip breaks down each account in the same baseline units as its plotted total")
+    check(overview.contributions(at: pro.points[1].endAt) == nil,
+          "total tooltip does not invent account values for an incomplete interval")
     let unknownOverview = ProviderTrendOverview.build([
         TrendOverviewAccount(tier: .claudePro, series: pro),
         TrendOverviewAccount(tier: nil, series: maxFive)

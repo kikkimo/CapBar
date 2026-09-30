@@ -120,11 +120,10 @@ struct UsageTrendChart: View {
     let series: UsageTrendSeries?
     var calendar: Calendar = .current
     var colorRange: ClosedRange<Double>? = nil
-    var totalPlan: String? = nil
-    var totalAccountCount = 0
+    var totalOverview: ProviderTrendOverview? = nil
 
     @State private var hoveredIndex: Int?
-    private var chartHeight: CGFloat { totalPlan == nil ? 84 : 128 }
+    private var chartHeight: CGFloat { totalOverview == nil ? 84 : 128 }
     private let secondary = Color(nsColor: .secondaryLabelColor)
 
     var body: some View {
@@ -165,7 +164,7 @@ struct UsageTrendChart: View {
     }
 
     private func chart(series: UsageTrendSeries, size: CGSize) -> some View {
-        let isTotal = totalPlan != nil
+        let isTotal = totalOverview != nil
         let segments = UsageTrendChartLayout.lineSegments(points: series.points, connectMissing: !isTotal)
         let range = colorRange ?? UsageTrendColorScale.range(for: [series])
         return ZStack(alignment: .topLeading) {
@@ -247,8 +246,9 @@ struct UsageTrendChart: View {
                         .position(x: x, y: UsageTrendChartLayout.yPosition(value: usage, axisMaximum: series.axisMaximum, height: size.height))
                 }
                 tooltip(for: point, series: series, range: range)
-                    .frame(width: 166)
-                    .position(x: min(max(83, x), max(83, size.width - 83)), y: -29)
+                    .frame(width: isTotal ? 238 : 166)
+                    .position(x: min(max(isTotal ? 119 : 83, x), max(isTotal ? 119 : 83, size.width - (isTotal ? 119 : 83))),
+                              y: isTotal ? 66 : -29)
                     .zIndex(3)
             }
         }
@@ -265,7 +265,7 @@ struct UsageTrendChart: View {
             Text(formatter.string(from: point.endAt) + " · 本地时间")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(secondary)
-            if totalPlan == nil {
+            if totalOverview == nil {
                 HStack {
                     Text("7 天额度剩余").foregroundStyle(secondary)
                     Spacer(minLength: 4)
@@ -275,15 +275,27 @@ struct UsageTrendChart: View {
                 }
             }
             HStack {
-                Text(UsageTrendChartText.intervalUsageLabel(binHours: series.binHours, isTotal: totalPlan != nil)).foregroundStyle(secondary)
+                Text(UsageTrendChartText.intervalUsageLabel(binHours: series.binHours, isTotal: totalOverview != nil)).foregroundStyle(secondary)
                 Spacer(minLength: 4)
                 Text(point.usedPercent.map(percent) ?? "—")
                     .foregroundStyle(point.usedPercent.map { trendColor($0, range: range) } ?? secondary)
                     .fontWeight(.bold)
             }
-            Text(totalPlan.map { point.isMissing ? "采样覆盖不足" : "\($0) 等效 · 覆盖 \(totalAccountCount)/\(totalAccountCount) 个账号" }
+            Text(totalOverview.map { point.isMissing ? "采样覆盖不足" : "\($0.baselinePlan?.displayName ?? "套餐") 等效 · \($0.accountCount) 个账号" }
                  ?? (point.isMissing ? "缺测区间，额度未知" : point.crossesReset ? "跨重置区间" : point.isEstimated ? "线性估算" : "采样值"))
                 .font(.system(size: 9)).foregroundStyle(secondary)
+            if let contributions = totalOverview?.contributions(at: point.endAt) {
+                Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 0.5).padding(.vertical, 2)
+                ForEach(contributions.indices, id: \.self) { index in
+                    HStack(spacing: 6) {
+                        Text(contributions[index].label).lineLimit(1).truncationMode(.middle)
+                            .foregroundStyle(secondary)
+                        Spacer(minLength: 4)
+                        Text(percent(contributions[index].equivalentPercent))
+                            .fontWeight(.semibold).monospacedDigit()
+                    }
+                }
+            }
         }
         .font(.system(size: 10))
         .padding(.horizontal, 9).padding(.vertical, 7)
@@ -301,6 +313,7 @@ struct UsageTrendChart: View {
     }
 
     private func trendColor(_ value: Double, range: ClosedRange<Double>?) -> Color {
+        guard totalOverview != nil else { return .accentColor }
         let rgb = UsageTrendColorScale.turboRGB(at: UsageTrendColorScale.fraction(value, in: range))
         return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
     }

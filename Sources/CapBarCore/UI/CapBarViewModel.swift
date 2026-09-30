@@ -15,7 +15,7 @@ import Foundation
     @Published private(set) var trends: [AccountID: UsageTrendSeries] = [:]
     @Published var showsSettings = false
     @Published private(set) var showsTrend = false
-    @Published private(set) var trendScope: TrendScope = .total
+    @Published private(set) var trendScope: TrendScope = .individual
     @Published var selectedProvider: Provider = .claude
     @Published var directoryInput = ""
     @Published var popoverWidthInput: String
@@ -152,7 +152,9 @@ import Foundation
     func trendOverview(for provider: Provider) -> ProviderTrendOverview {
         let accounts = settings.accounts.filter { $0.provider == provider }
         return ProviderTrendOverview.build(accounts.map { account in
-            TrendOverviewAccount(tier: planTier(for: account), series: trends[account])
+            let row = rows.first { $0.account == account }
+            let label = row?.title == "尚未识别" ? (row?.directoryLabel ?? account.directory) : (row?.title ?? account.directory)
+            return TrendOverviewAccount(label: label, tier: planTier(for: account), series: trends[account])
         })
     }
 
