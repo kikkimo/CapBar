@@ -41,6 +41,7 @@ import Foundation
         if filter == nil || filter == "UsageHistoryTests" { await runUsageHistoryChecks() }
         if filter == nil || filter == "UsageTrendTests" { runUsageTrendChecks() }
         if filter == nil || filter == "ProviderTrendStatisticsTests" { runProviderTrendStatisticsChecks() }
+        if filter == nil || filter == "HistoricalTrendStatisticsTests" { runHistoricalTrendStatisticsChecks() }
         if filter == nil || filter == "UsageSamplingTests" { await runUsageSamplingChecks() }
         if filter == nil || filter == "UsageTrendChartTests" { runUsageTrendChartChecks() }
         if filter == nil || filter == "TimeLabelTests" { runTimeLabelChecks() }

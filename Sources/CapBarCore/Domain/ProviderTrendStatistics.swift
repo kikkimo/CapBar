@@ -19,7 +19,7 @@ struct TrendUsageWindow: Sendable {
     var isComplete: Bool { validBinCount == expectedBinCount }
 }
 
-struct TrendHighUsagePeriod: Sendable {
+struct TrendUsagePeriod: Sendable {
     let startHour: Int
     let endHour: Int
 
@@ -34,7 +34,9 @@ struct ProviderTrendStatistics: Sendable {
     let validBinCount: Int
     let expectedBinCount: Int
     let leader: TrendAccountLeader?
-    let highUsagePeriod: TrendHighUsagePeriod?
+    let highUsagePeriod: TrendUsagePeriod?
+    let lowUsagePeriod: TrendUsagePeriod?
+    let usagePeriodsAreUniform: Bool
     let recent24Hours: TrendUsageWindow
     let changePercent: Double?
 }
@@ -62,6 +64,7 @@ extension ProviderTrendOverview {
         } else {
             change = nil
         }
+        let periods = usagePeriods(valid: valid, binHours: series.binHours, calendar: calendar)
 
         return ProviderTrendStatistics(
             peak: peak,
@@ -71,7 +74,9 @@ extension ProviderTrendOverview {
             validBinCount: valid.count,
             expectedBinCount: series.points.count,
             leader: total.flatMap { leadingAccount(total: $0, validEnds: valid.map(\.endAt)) },
-            highUsagePeriod: highUsagePeriod(valid: valid, binHours: series.binHours, calendar: calendar),
+            highUsagePeriod: periods.high,
+            lowUsagePeriod: periods.low,
+            usagePeriodsAreUniform: periods.uniform,
             recent24Hours: recent,
             changePercent: change
         )
@@ -102,12 +107,12 @@ extension ProviderTrendOverview {
                                 validBinCount: values.count, expectedBinCount: count)
     }
 
-    private func highUsagePeriod(valid: [(endAt: Date, usage: Double)], binHours: Int,
-                                 calendar: Calendar) -> TrendHighUsagePeriod? {
+    private func usagePeriods(valid: [(endAt: Date, usage: Double)], binHours: Int,
+                              calendar: Calendar) -> (high: TrendUsagePeriod?, low: TrendUsagePeriod?, uniform: Bool) {
         let duration = TimeInterval(binHours * 3_600)
         guard Double(valid.count) * duration >= 24 * 3_600,
               Set(valid.map { calendar.startOfDay(for: $0.endAt.addingTimeInterval(-duration / 2)) }).count >= 2
-        else { return nil }
+        else { return (nil, nil, false) }
 
         let periodHours = max(6, binHours)
         let periodCount = 24 / periodHours
@@ -130,13 +135,24 @@ extension ProviderTrendOverview {
             }
         }
 
-        var best: (index: Int, rate: Double)?
+        var highest: (index: Int, rate: Double)?
+        var lowest: (index: Int, rate: Double)?
+        var eligiblePeriodCount = 0
         for index in 0..<periodCount where observedDays[index].count >= 2 && observedSeconds[index] > 0 {
+            eligiblePeriodCount += 1
             let rate = usage[index] / observedSeconds[index]
-            if best == nil || rate > best!.rate { best = (index, rate) }
+            if highest == nil || rate > highest!.rate { highest = (index, rate) }
+            if lowest == nil || rate < lowest!.rate { lowest = (index, rate) }
         }
-        guard let best else { return nil }
-        return TrendHighUsagePeriod(startHour: best.index * periodHours,
-                                    endHour: (best.index + 1) * periodHours)
+        guard eligiblePeriodCount >= 2, let highest, let lowest else { return (nil, nil, false) }
+        guard abs(highest.rate - lowest.rate) > max(1e-12, abs(highest.rate) * 1e-9)
+        else { return (nil, nil, true) }
+        return (
+            TrendUsagePeriod(startHour: highest.index * periodHours,
+                             endHour: (highest.index + 1) * periodHours),
+            TrendUsagePeriod(startHour: lowest.index * periodHours,
+                             endHour: (lowest.index + 1) * periodHours),
+            false
+        )
     }
 }

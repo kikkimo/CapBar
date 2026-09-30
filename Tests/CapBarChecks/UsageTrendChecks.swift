@@ -132,6 +132,28 @@ import Foundation
     check(changedTier.points.last?.usedPercent == nil,
           "an interval crossing a subscription change is left blank instead of interpolated")
 
+    let historical = UsageTrendCalculator.calculateHistory(
+        samples: twoHourSamples, intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour)
+    )
+    check(historical.points.count == 4
+          && zip(historical.points, series.points.suffix(4)).allSatisfy {
+              $0.0.endAt == $0.1.endAt && $0.0.usedPercent == $0.1.usedPercent
+              && $0.0.crossesReset == $0.1.crossesReset
+          }, "all-time bin calculation matches the existing seven-day reset and interpolation rules")
+    let historicalGap = UsageTrendCalculator.calculateHistory(
+        samples: [sample(0, used: 30, reset: 80), sample(8, used: 50, reset: 80)],
+        intervalHours: 4, endingAt: Date(timeIntervalSince1970: 8 * hour)
+    )
+    check(historicalGap.points.count == 2 && historicalGap.points.allSatisfy { $0.usedPercent == nil },
+          "all-time calculation preserves missing intervals rather than filling them with zero")
+    let yearSamples = (0...(365 * 6)).map { sample(Double($0 * 4), used: 0, reset: 20_000) }
+    let year = UsageTrendCalculator.calculateHistory(
+        samples: yearSamples, intervalHours: 4,
+        endingAt: Date(timeIntervalSince1970: 365 * 24 * hour)
+    )
+    check(year.points.count == 365 * 6 && year.points.allSatisfy { $0.usedPercent == 0 },
+          "all-time calculation handles a year of indexed samples in one pass")
+
     func trend(_ values: [Double?], hours: [Double] = [2, 4, 6]) -> UsageTrendSeries {
         UsageTrendSeries(
             points: zip(hours, values).map { end, value in

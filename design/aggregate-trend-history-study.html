@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CapBar · 总走势统计界面稿</title>
+  <title>CapBar · 历史用量统计界面稿</title>
   <style>
     :root {
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
@@ -83,6 +83,19 @@
     .detail-line .emphasis { color: var(--blue); }
     .detail-line .positive { color: var(--green); }
     .detail-line .unknown { color: var(--muted); }
+    .history-head { display: flex; align-items: baseline; gap: 7px; margin-top: 9px; padding: 9px 2px 6px; border-top: 1px solid var(--hair); }
+    .history-head strong { font-size: 10px; font-weight: 700; }
+    .history-head small { margin-left: auto; color: var(--muted); font-size: 9px; }
+    .history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .history-item { min-width: 0; min-height: 68px; padding: 8px 9px; border: 1px solid var(--hair); border-radius: 7px; background: var(--soft); }
+    .history-item .label { display: block; color: var(--muted); font-size: 9px; font-weight: 580; white-space: nowrap; }
+    .history-item .reading { display: block; margin-top: 3px; color: var(--blue); font-size: 15px; font-weight: 710; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .history-item.low .reading { color: var(--teal); }
+    .history-item .range { display: block; overflow: hidden; margin-top: 4px; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .history-item.unavailable .reading { color: var(--muted); }
+    .state-buttons { display: inline-flex; gap: 5px; margin: 0 0 13px; }
+    .state-buttons button { padding: 6px 9px; border: 1px solid var(--hair); border-radius: 6px; background: var(--panel); color: var(--muted); font-size: 10px; }
+    .state-buttons button.active { border-color: var(--blue); color: var(--blue); font-weight: 680; }
     .footer { display: flex; align-items: center; gap: 9px; flex: none; height: 35px; padding: 4px 12px; border-top: 1px solid var(--hair); background: var(--header); }
     .footer .grow { flex: 1; }
     .footer a { color: var(--blue); font-size: 10px; font-weight: 640; text-decoration: none; }
@@ -101,7 +114,7 @@
 <body>
   <main class="page">
     <div class="page-head">
-      <div><h1>总走势 · 统计界面稿</h1><p>Claude 与 Codex 分别统计；示例账号和数值均为虚构数据。</p></div>
+      <div><h1>总走势 · 历史用量统计</h1><p>四项历史纪录同时呈现用量与时间；示例账号和数值均为虚构数据。</p></div>
       <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换浅色和深色外观">切换深色</button>
     </div>
     <div class="stage">
@@ -114,14 +127,15 @@
         <footer class="footer"><span class="segmented"><button type="button">额度</button><button type="button" class="active">走势</button></span><span class="grow"></span><a href="#design-notes">账号与设置</a><span class="separator"></span><span class="exit">退出</span></footer>
       </section>
       <aside class="side" id="design-notes">
-        <h2>排版说明</h2>
-        <article><strong>曲线仍是主体</strong><p>最高、最低、平均紧贴走势图。其余统计以行内信息呈现，避免把总走势变成仪表盘。</p></article>
-        <article><strong>累计必须带覆盖</strong><p>“已观测合计”与有效区间数并排。空缺区间不当作零，部分覆盖时不会暗示已算出完整 7 日总量。</p></article>
-        <article><strong>账号名称可截断</strong><p>贡献最高账号保留单行，完整账号在实际软件中可通过悬停查看。占比和等效用量分别标明。</p></article>
-        <article><strong>时段只作估计</strong><p>高、低用量时段都按本地时间估算。采样间隔越长，估计越粗；最近 24 小时对比在前一窗口缺测时不报变化值。</p></article>
+        <h2>界面状态</h2>
+        <div class="state-buttons"><button id="show-complete" class="active" type="button">完整数据</button><button id="show-incomplete" type="button">数据不足</button></div>
+        <article><strong>两行、四项</strong><p>历史最高与最低连续 7 日并列；历史最高单日与最高采样时段并列。每项大字显示用量，下方显示对应本地日期。</p></article>
+        <article><strong>仅比较完整窗口</strong><p>滚动 7 日按本地自然日逐日移动：1–7 日、2–8 日。缺测的 7 日窗口和单日不参与最高、最低纪录；缺少完整窗口时明确显示“—”。</p></article>
+        <article><strong>历史时段</strong><p>“最高时段”是数据库中已观测的单个采样区间，显示区间用量及本地日期和时间；它可以出现在不完整的单日中。</p></article>
+        <article><strong>数据读取</strong><p>四项纪录缓存到 SQLite。账号、套餐、采样间隔和原始采样均未变化时，弹窗直接读取缓存；数据变化时重算并覆盖缓存。</p></article>
       </aside>
     </div>
-    <p class="footnote">设计稿展示宽 462 px 的可调整弹窗；实际窗口较矮时内容在中间区域滚动。统计数值和曲线由示例数据生成，不读取真实账号。</p>
+    <p class="footnote">设计稿展示宽 462 px 的可调整弹窗；历史纪录位于现有 7 日统计之后，内容随弹窗高度滚动。所有数值均为示例，不读取真实账号。</p>
   </main>
   <script>
     (() => {
@@ -135,13 +149,18 @@
           values: [
             ...Array(11).fill(null),
             0,2.4,3.1,4.2,7.2,10.1,8.4,6.3,4.8,2.1,0,1.8,5.1,8.2,11.4,9.7,7.8,5.6,2.3,0,2.8,5.4,8.9,14.6,12.2,7.3,5.1,8.7,16.3,24.4,12.4
-          ], highPeriod: '18:00–24:00', lowPeriod: '00:00–06:00' },
+          ], highPeriod: '18:00–24:00', lowPeriod: '00:00–06:00',
+          history: { highWeek: [238.6, '9月10日–9月16日'], lowWeek: [102.4, '9月18日–9月24日'],
+                     highDay: [53.7, '9月29日'], highInterval: [24.4, '9月30日 12:00–16:00'] } },
         { key: 'codex', group: 'CODEX', title: 'Codex 用量合计', accounts: 2, plan: 'Plus', leader: 'builder@example.com', share: .821,
           values: [
             ...Array(10).fill(null),
             0,1.1,2.2,3.2,2.8,1.4,0,0,1.3,2.9,4.1,3.6,2.2,1.5,0,0,1.6,2.1,2.7,4.9,6.8,5.1,3.3,2.2,1.7,null,0.6,1.4,2.8,3.4,2.6,1.8
-          ], highPeriod: '06:00–12:00', lowPeriod: '18:00–24:00' }
+          ], highPeriod: '06:00–12:00', lowPeriod: '18:00–24:00',
+          history: { highWeek: [93.8, '9月14日–9月20日'], lowWeek: [41.7, '9月22日–9月28日'],
+                     highDay: [21.2, '9月29日'], highInterval: [6.8, '9月29日 08:00–12:00'] } }
       ];
+      let historyState = new URLSearchParams(location.search).get('state') === 'incomplete' ? 'incomplete' : 'complete';
       const esc = text => String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       const fmt = value => `${value.toFixed(1)}%`;
       const time = index => new Date(base - (count - 1 - index) * hours * 3600000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -174,6 +193,14 @@
         }
         return `<div class="plot"><svg viewBox="0 0 438 105" role="img" aria-label="近七日用量走势图"><defs>${gradients}</defs>${ticks}${paths}${dates.join('')}</svg></div>`;
       }
+      function historyItem(label, result, extraClass = '') {
+        const available = result !== null;
+        return `<div class="history-item ${extraClass} ${available ? '' : 'unavailable'}">
+          <span class="label">${label}</span>
+          <span class="reading">${available ? fmt(result[0]) : '—'}</span>
+          <span class="range">${available ? esc(result[1]) : label.includes('7 日') ? '尚无完整连续 7 日' : '尚无完整单日'}</span>
+        </div>`;
+      }
       function providerCard(f) {
         const valid = f.values.filter(v => v !== null), total = valid.reduce((a,b)=>a+b,0), highest = Math.max(...valid), lowest = Math.min(...valid), mean = total/valid.length;
         const peakIndex = f.values.lastIndexOf(highest);
@@ -183,6 +210,11 @@
         const delta = recentValid.length === 6 && previous.every(v=>v!==null) && previousTotal > 0
           ? `<span class="value positive">${recentTotal >= previousTotal ? '+' : ''}${((recentTotal/previousTotal-1)*100).toFixed(0)}%</span>`
           : `<span class="value unknown">—</span>`;
+        const history = historyState === 'complete' ? f.history : {
+          highWeek: null, lowWeek: null,
+          highDay: f.history.highDay,
+          highInterval: f.history.highInterval
+        };
         return `<div class="group-title"><span class="group-dot ${f.key==='codex'?'codex':''}"></span>${f.group}<small>${f.accounts} 个账号</small></div>
           <section class="total-card" aria-label="${f.title}统计">
             <div class="total-head"><div><strong>${f.title}</strong><small>${f.accounts} 个账号 · 以首账号 ${f.plan} 为基准</small></div><div class="latest"><b>${fmt(f.values.at(-1))}</b><small>最近完整区间 · 估算</small></div></div>
@@ -196,9 +228,23 @@
             <div class="detail-line leader-line"><span class="key">贡献最多</span><span class="value account-name" title="${esc(f.leader)}">${esc(f.leader)}</span><span class="sub teal push" title="按首账号套餐换算的用量；占比为该账号在本服务已观测合计中的比例">等效用量 ${fmt(total*f.share)} · 占比 ${fmt(f.share*100)}</span></div>
             <div class="detail-line" title="按本地时间和已观测用量估算；缺测区间不计入"><span class="key">高用量时段</span><span class="value amber">${f.highPeriod}</span><span class="key push">低用量时段</span><span class="value teal">${f.lowPeriod}</span></div>
             <div class="detail-line"><span class="key">最近 24 小时</span><span class="value emphasis">${fmt(recentTotal)}</span><span class="sub">覆盖 ${recentValid.length}/6</span><span class="key push">较前 24 小时</span>${delta}</div>
+            <div class="history-head"><strong>历史纪录</strong><small>完整窗口 · 本地日期</small></div>
+            <div class="history-grid">
+              ${historyItem('历史最高 · 连续 7 日', history.highWeek)}
+              ${historyItem('历史最低 · 连续 7 日', history.lowWeek, 'low')}
+              ${historyItem('历史最高 · 单日', history.highDay)}
+              ${historyItem('历史最高 · 单个时段', history.highInterval)}
+            </div>
           </section>`;
       }
-      document.querySelector('#providers').innerHTML = fixtures.map(providerCard).join('');
+      function render() {
+        document.querySelector('#providers').innerHTML = fixtures.map(providerCard).join('');
+        document.querySelector('#show-complete').classList.toggle('active', historyState === 'complete');
+        document.querySelector('#show-incomplete').classList.toggle('active', historyState === 'incomplete');
+      }
+      render();
+      document.querySelector('#show-complete').addEventListener('click', () => { historyState = 'complete'; render(); });
+      document.querySelector('#show-incomplete').addEventListener('click', () => { historyState = 'incomplete'; render(); });
       document.querySelector('#theme-toggle').addEventListener('click', event => {
         const dark = document.documentElement.dataset.theme !== 'dark';
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';

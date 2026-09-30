@@ -105,4 +105,68 @@ import SQLite3
     } catch {
         check(false, "legacy history migration should work: \(error)")
     }
+
+    do {
+        let cacheURL = folder.appendingPathComponent("historical-cache.sqlite3")
+        let cacheStore = UsageHistoryStore(url: cacheURL)
+        let account = AccountID(provider: .claude, directory: folder.appendingPathComponent("history-account").path)
+        let calibration = [HistoricalAccount(account: account, tier: .claudePro)]
+        let base = ISO8601DateFormatter().date(from: "2026-09-01T00:00:00Z")!
+        let farReset = base.addingTimeInterval(30 * 86_400)
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(secondsFromGMT: 0)!
+        func snapshot(_ index: Int, used: Double) throws -> UsageSnapshot {
+            UsageSnapshot(identity: identity,
+                          windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 100 - used,
+                                                    resetsAt: farReset)],
+                          capturedAt: base.addingTimeInterval(Double(index) * 8 * 3_600))
+        }
+        for index in 0...21 {
+            _ = try await cacheStore.append(account: account, snapshot: snapshot(index, used: Double(index * 2)),
+                                            planTier: .claudePro)
+        }
+        let first = try await cacheStore.historicalStatistics(accounts: calibration, intervalHours: 8, calendar: utc)
+        check(first?.fromCache == false && first?.statistics.highSevenDays?.usedPercent == 42,
+              "first all-time lookup calculates and stores seven complete days")
+        let second = try await cacheStore.historicalStatistics(accounts: calibration, intervalHours: 8, calendar: utc)
+        check(second?.fromCache == true && second?.statistics.highSevenDays?.usedPercent == 42,
+              "unchanged history reuses persisted SQLite statistics")
+        _ = try await cacheStore.append(account: account, snapshot: snapshot(21, used: 42), planTier: .claudePro)
+        let unchanged = try await cacheStore.historicalStatistics(accounts: calibration, intervalHours: 8, calendar: utc)
+        check(unchanged?.fromCache == true, "identical upsert does not invalidate the summary")
+        _ = try await cacheStore.append(account: account, snapshot: snapshot(21, used: 43), planTier: .claudePro)
+        let corrected = try await cacheStore.historicalStatistics(accounts: calibration, intervalHours: 8, calendar: utc)
+        check(corrected?.fromCache == false && corrected?.statistics.highSevenDays?.usedPercent == 43,
+              "same-timestamp correction invalidates and rebuilds persisted records")
+        let reopened = UsageHistoryStore(url: cacheURL)
+        let restored = try await reopened.historicalStatistics(accounts: calibration, intervalHours: 8, calendar: utc)
+        check(restored?.fromCache == true && restored?.statistics.highSevenDays?.usedPercent == 43,
+              "summary cache survives a store restart")
+        _ = try await cacheStore.append(account: account, snapshot: snapshot(21, used: 44), planTier: .claudePro)
+        let externalChange = try await reopened.historicalStatistics(accounts: calibration, intervalHours: 8, calendar: utc)
+        check(externalChange?.fromCache == false && externalChange?.statistics.highSevenDays?.usedPercent == 44,
+              "another store instance's write invalidates the persisted cache")
+        let anotherTier = try await reopened.historicalStatistics(
+            accounts: [HistoricalAccount(account: account, tier: .claudeMax5)], intervalHours: 8, calendar: utc)
+        check(anotherTier?.fromCache == false, "subscription calibration changes invalidate the cache")
+        let anotherInterval = try await reopened.historicalStatistics(accounts: calibration, intervalHours: 4, calendar: utc)
+        check(anotherInterval?.fromCache == false, "sampling interval changes invalidate the cache")
+        var local = utc
+        local.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let anotherZone = try await reopened.historicalStatistics(accounts: calibration, intervalHours: 8, calendar: local)
+        check(anotherZone?.fromCache == false, "local calendar time zone changes invalidate day boundaries")
+        let secondAccount = AccountID(provider: .claude, directory: folder.appendingPathComponent("history-max-account").path)
+        for index in 0...21 {
+            _ = try await reopened.append(account: secondAccount, snapshot: snapshot(index, used: Double(index)),
+                                          planTier: .claudeMax5)
+        }
+        let combined = try await reopened.historicalStatistics(
+            accounts: calibration + [HistoricalAccount(account: secondAccount, tier: .claudeMax5)],
+            intervalHours: 8, calendar: utc
+        )
+        check(combined?.fromCache == false && combined?.statistics.highSevenDays?.usedPercent == 149,
+              "all-time provider records convert historical Max usage into the first Pro account's capacity")
+    } catch {
+        check(false, "historical cache checks should complete: \(error)")
+    }
 }

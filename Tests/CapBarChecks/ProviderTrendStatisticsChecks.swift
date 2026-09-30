@@ -85,10 +85,27 @@ import Foundation
         .statistics(calendar: calendar)
     check(evenings?.highUsagePeriod?.label == "18:00–24:00",
           "high-use period follows local clock time across multiple observed days")
+    check(evenings?.lowUsagePeriod?.label == "00:00–06:00",
+          "low-use period picks the lowest observed local-time rate, including genuine quiet hours")
     let coarseValues: [Double] = [1, 1, 16, 1, 1, 16]
     let coarse = single(coarseValues, binHours: 8, endingAt: localStart.addingTimeInterval(48 * hour))
         .statistics(calendar: calendar)
     check(coarse?.highUsagePeriod?.label == "16:00–24:00",
           "eight-hour data uses broad eight-hour local periods rather than six-hour precision")
-    check(sparse?.highUsagePeriod == nil, "a few isolated bins do not claim a habitual time of day")
+    check(coarse?.lowUsagePeriod?.label == "00:00–08:00",
+          "low-use period respects the same broad buckets as high use")
+    let uniform = single(Array(repeating: 1.0, count: 24),
+                         endingAt: localStart.addingTimeInterval(48 * hour)).statistics(calendar: calendar)
+    check(uniform?.highUsagePeriod == nil && uniform?.lowUsagePeriod == nil
+          && uniform?.usagePeriodsAreUniform == true,
+          "equal use throughout the day does not invent a high or low period")
+    let oneObservedPeriod = single([8, nil, nil, 8, nil, nil, 8], binHours: 8,
+                                   endingAt: localStart.addingTimeInterval(56 * hour))
+        .statistics(calendar: calendar)
+    check(oneObservedPeriod?.highUsagePeriod == nil && oneObservedPeriod?.lowUsagePeriod == nil
+          && oneObservedPeriod?.usagePeriodsAreUniform == false,
+          "one observed time bucket cannot establish a high, low, or uniform daily pattern")
+    check(sparse?.highUsagePeriod == nil && sparse?.lowUsagePeriod == nil
+          && sparse?.usagePeriodsAreUniform == false,
+          "a few isolated bins do not claim habitual high or low periods")
 }

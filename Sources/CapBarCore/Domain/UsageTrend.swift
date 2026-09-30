@@ -66,6 +66,75 @@ enum UsageTrendCalculator {
         return UsageTrendSeries(points: points, binHours: binHours, axisMaximum: maximum, axisTicks: ticks, sampleCount: sampleCount)
     }
 
+    // Walk adjacent sample spans once. The seven-day chart can scan its small window;
+    // an all-time history must not repeat a scan of every sample for every bin.
+    static func calculateHistory(
+        samples: [UsageHistorySample], intervalHours: Int, endingAt now: Date
+    ) -> UsageTrendSeries {
+        let ordered = samples
+            .filter { $0.usedPercent.isFinite && (0...100).contains($0.usedPercent) && $0.capturedAt <= now }
+            .sorted { $0.capturedAt < $1.capturedAt }
+        let binHours = max(2, intervalHours)
+        let binSeconds = Double(binHours) * 3_600
+        guard let first = ordered.first, let last = ordered.last else {
+            return UsageTrendSeries(points: [], binHours: binHours, axisMaximum: 10,
+                                    axisTicks: [0, 5, 10], sampleCount: 0)
+        }
+        let firstEnd = floor(first.capturedAt.timeIntervalSince1970 / binSeconds) * binSeconds + binSeconds
+        let lastEnd = floor(last.capturedAt.timeIntervalSince1970 / binSeconds) * binSeconds
+        let spanSeconds = lastEnd - firstEnd
+        guard spanSeconds >= 0, spanSeconds <= 1_000_000 * binSeconds else {
+            return UsageTrendSeries(points: [], binHours: binHours, axisMaximum: 10,
+                                    axisTicks: [0, 5, 10], sampleCount: ordered.count)
+        }
+        let spans = zip(ordered, ordered.dropFirst()).map {
+            Span(first: $0.0, last: $0.1, intervalHours: max(1, intervalHours))
+        }
+        var spanIndex = 0
+        let pointCount = Int(spanSeconds / binSeconds) + 1
+        var points: [UsageTrendPoint] = []
+        points.reserveCapacity(pointCount)
+        var maximumUsage = 0.0
+        for index in 0..<pointCount {
+            let end = firstEnd + Double(index) * binSeconds
+            var cursor = end - binSeconds
+            var amount = 0.0
+            var crossesReset = false
+            var tier: UsagePlanTier?
+            var hasSpan = false
+            var valid = true
+            while cursor < end - epsilon {
+                while spanIndex < spans.count && spans[spanIndex].end <= cursor + epsilon {
+                    spanIndex += 1
+                }
+                guard spanIndex < spans.count else { valid = false; break }
+                let span = spans[spanIndex]
+                guard span.start <= cursor + epsilon, span.isValid,
+                      !hasSpan || span.first.planTier == tier else { valid = false; break }
+                tier = span.first.planTier
+                hasSpan = true
+                let stop = min(end, span.end)
+                amount += span.unwrapped(at: stop) - span.unwrapped(at: cursor)
+                if let reset = span.reset, reset > cursor + epsilon, reset <= stop + epsilon {
+                    crossesReset = true
+                }
+                cursor = stop
+            }
+            let value = valid && hasSpan ? max(0, amount) : nil
+            if let value { maximumUsage = max(maximumUsage, value) }
+            points.append(UsageTrendPoint(endAt: Date(timeIntervalSince1970: end),
+                                          usedPercent: value, remainingPercent: nil,
+                                          crossesReset: valid && crossesReset, isEstimated: false,
+                                          planTier: valid ? tier : nil))
+        }
+        let maximum = max(10, ceil(maximumUsage / 10) * 10)
+        let ticks = Int(maximum) % 30 == 0
+            ? [0, maximum / 3, maximum * 2 / 3, maximum]
+            : [0, maximum / 2, maximum]
+        return UsageTrendSeries(points: points, binHours: binHours, axisMaximum: maximum,
+                                axisTicks: ticks, sampleCount: ordered.count)
+    }
+
     private static func consumption(
         from start: TimeInterval, to end: TimeInterval, spans: [Span]
     ) -> (amount: Double, crossesReset: Bool, planTier: UsagePlanTier?)? {

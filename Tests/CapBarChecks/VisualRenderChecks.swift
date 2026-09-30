@@ -78,24 +78,25 @@ private actor PreviewHangingProvider: UsageProvider {
         let currentUsed = 100 - weekly.remainingPercent
         let hasReset = account == accounts[1]
         let resetAt = Date(timeIntervalSince1970: gridEnd - 60 * 3_600)
-        for index in 0...84 {
-            if account == accounts[2] && (27...32).contains(index) { continue }
+        for index in 0...120 {
+            let chartIndex = index - 36
+            if account == accounts[2] && (27...32).contains(chartIndex) { continue }
             let used: Double
             let nextReset: Date
-            if hasReset && index < 54 {
-                used = weightedUsed(index, count: 53, start: 12, end: 90, spike: 37)
+            if hasReset && chartIndex < 54 {
+                used = weightedUsed(max(0, chartIndex), count: 53, start: 12, end: 90, spike: 37)
                 nextReset = resetAt
             } else if hasReset {
-                used = weightedUsed(index - 54, count: 30, start: 2, end: currentUsed, spike: 22)
+                used = weightedUsed(chartIndex - 54, count: 30, start: 2, end: currentUsed, spike: 22)
                 nextReset = resetAt.addingTimeInterval(7 * 86_400)
             } else {
-                used = weightedUsed(index, count: 84, start: 0, end: currentUsed, spike: 38)
+                used = weightedUsed(max(0, chartIndex), count: 84, start: 0, end: currentUsed, spike: 38)
                 nextReset = weekly.resetsAt ?? now.addingTimeInterval(4 * 86_400)
             }
             let historySnapshot = UsageSnapshot(
                 identity: snapshot.identity,
                 windows: [try QuotaWindow(kind: .sevenDay, remainingPercent: 100 - used, resetsAt: nextReset)],
-                capturedAt: Date(timeIntervalSince1970: gridEnd - Double(84 - index) * 2 * 3_600)
+                capturedAt: Date(timeIntervalSince1970: gridEnd - Double(120 - index) * 2 * 3_600)
             )
             _ = try await historyStore.append(account: account, snapshot: historySnapshot)
         }
@@ -141,6 +142,9 @@ private actor PreviewHangingProvider: UsageProvider {
     trendModel.setTrendMode(true, reload: false)
     await trendModel.reloadTrends()
     trendModel.setTrendScope(.total)
+    for _ in 0..<100 where trendModel.historicalStatistics[.claude] == nil {
+        try await Task.sleep(for: .milliseconds(10))
+    }
     try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-light.png"))
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-dark.png"))
     let originalTrendSize = trendModel.settings.popoverSize

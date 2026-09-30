@@ -178,6 +178,14 @@ private actor GatedTrendLoader {
         let due = await sampler.nextDue(for: account)
         check(trendModel.trends[account]?.nextSampleAt == due,
               "empty-state hint uses the account's actual scheduled sampling time")
+        trendModel.setPlanOverride(.claudePro, for: account)
+        trendModel.setTrendScope(.total)
+        await trendModel.reloadTrends(endingAt: chartEnd)
+        for _ in 0..<100 where trendModel.historicalStatistics[.claude] == nil {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        check(trendModel.historicalStatistics[.claude]?.highInterval?.usedPercent == 10,
+              "total trend loads all-time records from SQLite for a calibrated provider")
 
         let gated = GatedTrendLoader(samples: [
             UsageHistorySample(capturedAt: initial.capturedAt, usedPercent: 30, resetsAt: chartEnd.addingTimeInterval(86_400)),
