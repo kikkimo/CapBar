@@ -127,40 +127,49 @@ struct UsageTrendChart: View {
     private let secondary = Color(nsColor: .secondaryLabelColor)
 
     var body: some View {
-        GeometryReader { geometry in
-            if let series, series.points.contains(where: { $0.usedPercent != nil }) {
-                chart(series: series, size: geometry.size)
-                    .contentShape(Rectangle())
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case .active(let location):
-                            hoveredIndex = UsageTrendChartLayout.nearestPointIndex(
-                                at: location.x, width: geometry.size.width, count: series.points.count
-                            )
-                        case .ended:
-                            hoveredIndex = nil
+        VStack(alignment: .leading, spacing: 0) {
+            GeometryReader { geometry in
+                if let series, series.points.contains(where: { $0.usedPercent != nil }) {
+                    chart(series: series, size: geometry.size)
+                        .contentShape(Rectangle())
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active(let location):
+                                hoveredIndex = UsageTrendChartLayout.nearestPointIndex(
+                                    at: location.x, width: geometry.size.width, count: series.points.count
+                                )
+                            case .ended:
+                                hoveredIndex = nil
+                            }
                         }
+                } else if let series {
+                    let lines = UsageTrendEmptyState.lines(
+                        sampleCount: series.sampleCount, binHours: series.binHours, nextSampleAt: series.nextSampleAt,
+                        now: Date(), calendar: calendar
+                    )
+                    VStack(spacing: 5) {
+                        Text(lines[0]).font(.system(size: 11, weight: .semibold))
+                        Text(lines[1]).font(.system(size: 10)).foregroundStyle(secondary)
+                        Text(lines[2]).font(.system(size: 10, weight: .medium)).foregroundStyle(Color.accentColor)
                     }
-            } else if let series {
-                let lines = UsageTrendEmptyState.lines(
-                    sampleCount: series.sampleCount, binHours: series.binHours, nextSampleAt: series.nextSampleAt,
-                    now: Date(), calendar: calendar
-                )
-                VStack(spacing: 5) {
-                    Text(lines[0]).font(.system(size: 11, weight: .semibold))
-                    Text(lines[1]).font(.system(size: 10)).foregroundStyle(secondary)
-                    Text(lines[2]).font(.system(size: 10, weight: .medium)).foregroundStyle(Color.accentColor)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(secondary.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
-            } else {
-                Text("正在读取历史采样记录…")
-                    .font(.system(size: 10)).foregroundStyle(secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(secondary.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                } else {
+                    Text("正在读取历史采样记录…")
+                        .font(.system(size: 10)).foregroundStyle(secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(secondary.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                }
+            }
+            .frame(height: chartHeight)
+            if let series, let hoveredIndex, series.points.indices.contains(hoveredIndex) {
+                tooltip(for: series.points[hoveredIndex], series: series,
+                        range: colorRange ?? UsageTrendColorScale.range(for: [series]))
+                    .padding(.leading, UsageTrendChartLayout.leading)
+                    .padding(.trailing, UsageTrendChartLayout.trailing)
+                    .padding(.top, 7)
             }
         }
-        .frame(height: chartHeight)
     }
 
     private func chart(series: UsageTrendSeries, size: CGSize) -> some View {
@@ -245,17 +254,22 @@ struct UsageTrendChart: View {
                         .frame(width: 7, height: 7)
                         .position(x: x, y: UsageTrendChartLayout.yPosition(value: usage, axisMaximum: series.axisMaximum, height: size.height))
                 }
-                tooltip(for: point, series: series, range: range)
-                    .frame(width: isTotal ? 238 : 166)
-                    .position(x: min(max(isTotal ? 119 : 83, x), max(isTotal ? 119 : 83, size.width - (isTotal ? 119 : 83))),
-                              y: isTotal ? 66 : -29)
-                    .zIndex(3)
             }
         }
         .frame(width: size.width, height: size.height)
     }
 
-    private func tooltip(for point: UsageTrendPoint, series: UsageTrendSeries, range: ClosedRange<Double>?) -> some View {
+    @ViewBuilder private func tooltip(for point: UsageTrendPoint, series: UsageTrendSeries,
+                                      range: ClosedRange<Double>?) -> some View {
+        if let totalOverview {
+            TotalTrendTooltip(point: point, series: series, overview: totalOverview, calendar: calendar)
+        } else {
+            individualTooltip(for: point, series: series, range: range)
+        }
+    }
+
+    private func individualTooltip(for point: UsageTrendPoint, series: UsageTrendSeries,
+                                   range: ClosedRange<Double>?) -> some View {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
@@ -265,41 +279,27 @@ struct UsageTrendChart: View {
             Text(formatter.string(from: point.endAt) + " · 本地时间")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(secondary)
-            if totalOverview == nil {
-                HStack {
-                    Text("7 天额度剩余").foregroundStyle(secondary)
-                    Spacer(minLength: 4)
-                    Text(point.remainingPercent.map(percent) ?? "—")
-                        .foregroundStyle(Color.accentColor)
-                        .fontWeight(.bold)
-                }
+            HStack {
+                Text("7 天额度剩余").foregroundStyle(secondary)
+                Spacer(minLength: 4)
+                Text(point.remainingPercent.map(percent) ?? "—")
+                    .foregroundStyle(Color.accentColor)
+                    .fontWeight(.bold)
             }
             HStack {
-                Text(UsageTrendChartText.intervalUsageLabel(binHours: series.binHours, isTotal: totalOverview != nil)).foregroundStyle(secondary)
+                Text(UsageTrendChartText.intervalUsageLabel(binHours: series.binHours)).foregroundStyle(secondary)
                 Spacer(minLength: 4)
                 Text(point.usedPercent.map(percent) ?? "—")
                     .foregroundStyle(point.usedPercent.map { trendColor($0, range: range) } ?? secondary)
                     .fontWeight(.bold)
             }
-            Text(totalOverview.map { point.isMissing ? "采样覆盖不足" : "\($0.baselinePlan?.displayName ?? "套餐") 等效 · \($0.accountCount) 个账号" }
-                 ?? (point.isMissing ? "缺测区间，额度未知" : point.crossesReset ? "跨重置区间" : point.isEstimated ? "线性估算" : "采样值"))
+            Text(point.isMissing ? "缺测区间，额度未知" : point.crossesReset ? "跨重置区间" : point.isEstimated ? "线性估算" : "采样值")
                 .font(.system(size: 9)).foregroundStyle(secondary)
-            if let contributions = totalOverview?.contributions(at: point.endAt) {
-                Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 0.5).padding(.vertical, 2)
-                ForEach(contributions.indices, id: \.self) { index in
-                    HStack(spacing: 6) {
-                        Text(contributions[index].label).lineLimit(1).truncationMode(.middle)
-                            .foregroundStyle(secondary)
-                        Spacer(minLength: 4)
-                        Text(percent(contributions[index].equivalentPercent))
-                            .fontWeight(.semibold).monospacedDigit()
-                    }
-                }
-            }
         }
         .font(.system(size: 10))
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 9).padding(.vertical, 7)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(nsColor: .separatorColor)))
         .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
         .allowsHitTesting(false)
@@ -316,6 +316,81 @@ struct UsageTrendChart: View {
         guard totalOverview != nil else { return .accentColor }
         let rgb = UsageTrendColorScale.turboRGB(at: UsageTrendColorScale.fraction(value, in: range))
         return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
+    }
+
+    private func percent(_ value: Double) -> String {
+        value.rounded() == value ? String(format: "%.0f%%", value) : String(format: "%.1f%%", value)
+    }
+}
+
+struct TotalTrendTooltip: View {
+    let point: UsageTrendPoint
+    let series: UsageTrendSeries
+    let overview: ProviderTrendOverview
+    let calendar: Calendar
+
+    private var secondary: Color { Color(nsColor: .secondaryLabelColor) }
+
+    private var dateLabel: String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter.string(from: point.endAt)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(dateLabel + " · 本地时间")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("这 \(series.binHours) 小时合计用量")
+                    .font(.system(size: 11, weight: .medium))
+                Spacer(minLength: 4)
+                Text(point.usedPercent.map(percent) ?? "—")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+            }
+            .padding(.top, 5)
+            Text(point.isMissing ? "采样覆盖不足" : "以 \(overview.baselinePlan?.displayName ?? "套餐") 为基准 · \(overview.accountCount) 个账号")
+                .font(.system(size: 10))
+                .foregroundStyle(secondary)
+                .padding(.top, 2)
+
+            if let contributions = overview.contributions(at: point.endAt) {
+                Rectangle().fill(Color(nsColor: .separatorColor).opacity(0.8))
+                    .frame(height: 1).padding(.vertical, 9)
+                HStack {
+                    Text("账号分摊")
+                    Spacer(minLength: 4)
+                    Text("等效用量")
+                }
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(secondary)
+                .padding(.bottom, 5)
+                ForEach(contributions.indices, id: \.self) { index in
+                    HStack(spacing: 8) {
+                        Text(contributions[index].label)
+                            .lineLimit(1).truncationMode(.middle)
+                            .foregroundStyle(Color.primary)
+                        Spacer(minLength: 4)
+                        Text(percent(contributions[index].equivalentPercent))
+                            .fontWeight(.semibold).monospacedDigit()
+                            .foregroundStyle(Color.primary)
+                    }
+                    .font(.system(size: 12))
+                    .frame(minHeight: 21)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor).opacity(0.7)))
+        .shadow(color: .black.opacity(0.24), radius: 11, y: 5)
+        .allowsHitTesting(false)
     }
 
     private func percent(_ value: Double) -> String {

@@ -145,6 +145,36 @@ private actor PreviewHangingProvider: UsageProvider {
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-dark.png"))
     trendModel.setTrendScope(.individual)
     try render(model: trendModel, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-trend-individual-light.png"))
+    let tooltipEnd = Date(timeIntervalSince1970: gridEnd)
+    let tooltipNames = ["alex-claude.team@example.com", "sam-claude.team@example.com",
+                        "lee-claude.team@example.com", "pat-claude.team@example.com",
+                        "kim-claude.team@example.com", "taylor-claude.team@example.com"]
+    let tooltipOverview = ProviderTrendOverview.build(zip(tooltipNames, [2.0, 0, 0, 0, 0, 7.0]).map { name, usage in
+        let points = [0.0, usage / 2, usage].enumerated().map { index, value in
+            UsageTrendPoint(endAt: tooltipEnd.addingTimeInterval(Double(index - 2) * 2 * 3_600),
+                            usedPercent: value, remainingPercent: nil,
+                            crossesReset: false, isEstimated: false)
+        }
+        let series = UsageTrendSeries(points: points, binHours: 2, axisMaximum: 10,
+                                      axisTicks: [0, 5, 10], sampleCount: 2)
+        return TrendOverviewAccount(label: name, tier: .claudeTeamPremium, series: series)
+    })
+    if let tooltipSeries = tooltipOverview.series, let point = tooltipSeries.points.last {
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            try render(view: VStack(alignment: .leading, spacing: 7) {
+                UsageTrendChart(series: tooltipSeries, totalOverview: tooltipOverview)
+                TotalTrendTooltip(point: point, series: tooltipSeries,
+                                  overview: tooltipOverview, calendar: .current)
+                    .padding(.leading, UsageTrendChartLayout.leading)
+                    .padding(.trailing, UsageTrendChartLayout.trailing)
+            }
+                .padding(16)
+                .frame(width: 448, height: 430, alignment: .top)
+                .background(Color(nsColor: .underPageBackgroundColor)),
+                size: CGSize(width: 448, height: 430), appearance: appearance,
+                to: URL(fileURLWithPath: "/tmp/capbar-preview-total-tooltip-\(name).png"))
+        }
+    }
     trendModel.setTrendMode(false)
     try render(model: trendModel, appearance: .darkAqua, to: URL(fileURLWithPath: "/tmp/capbar-preview-quota-expanded.png"))
     trendModel.showsSettings = true
@@ -221,9 +251,16 @@ private actor PreviewHangingProvider: UsageProvider {
 }
 
 @MainActor private func render(model: CapBarViewModel, appearance: NSAppearance.Name, to url: URL) throws {
-    let view = NSHostingView(rootView: CapBarPopoverView(model: model))
+    try render(view: CapBarPopoverView(model: model),
+               size: CGSize(width: model.settings.popoverSize.width, height: model.settings.popoverSize.height),
+               appearance: appearance, to: url)
+}
+
+@MainActor private func render<V: View>(view rootView: V, size: CGSize,
+                                         appearance: NSAppearance.Name, to url: URL) throws {
+    let view = NSHostingView(rootView: rootView)
     view.appearance = NSAppearance(named: appearance)
-    view.frame = NSRect(x: 0, y: 0, width: model.settings.popoverSize.width, height: model.settings.popoverSize.height)
+    view.frame = NSRect(origin: .zero, size: size)
     view.layoutSubtreeIfNeeded()
     guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
         throw NSError(domain: "CapBarVisual", code: 2)
