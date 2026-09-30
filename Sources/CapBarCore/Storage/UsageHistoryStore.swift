@@ -110,7 +110,11 @@ actor UsageHistoryStore {
         ))
         guard let signature = String(data: encodedSignature, encoding: .utf8) else { return nil }
         return try withDatabase { database in
-            let revisions = try accounts.map { try accountRevision($0.account, in: database) }
+            var revisions: [Int64] = []
+            revisions.reserveCapacity(accounts.count)
+            for configured in accounts {
+                revisions.append(try accountRevision(configured.account, in: database))
+            }
             let revisionKey = revisions.map(String.init).joined(separator: ",")
             let cached = try prepare("""
                 SELECT payload FROM history_statistics_cache
@@ -128,13 +132,15 @@ actor UsageHistoryStore {
             }
             guard cachedStatus == SQLITE_ROW || cachedStatus == SQLITE_DONE else { throw error(database) }
 
-            let weighted = try accounts.map { configured -> WeightedUsageTrend in
+            var weighted: [WeightedUsageTrend] = []
+            weighted.reserveCapacity(accounts.count)
+            for configured in accounts {
                 let samples = try allSamples(account: configured.account, in: database)
                 let series = UsageTrendCalculator.calculateHistory(
                     samples: samples, intervalHours: intervalHours,
                     endingAt: samples.last?.capturedAt ?? .distantPast
                 )
-                return WeightedUsageTrend(series: series, capacity: configured.tier.capacityFactor)
+                weighted.append(WeightedUsageTrend(series: series, capacity: configured.tier.capacityFactor))
             }
             let aggregate = UsageTrendAggregator.aggregate(weighted,
                                                            baselineCapacity: first.tier.capacityFactor)
