@@ -23,14 +23,16 @@ import Foundation
           "trend palette moves from cool low usage through green to warm high usage")
     check(UsageTrendColorScale.turboRGB(at: -1) == lowColor && UsageTrendColorScale.turboRGB(at: 2) == highColor,
           "trend palette clamps out-of-range values")
-    check(TotalTrendBreakdownScale.colorRange(for: [0, 2, 7]) == 0...7,
-          "account contribution colors adapt to the selected interval")
-    check(abs(TotalTrendBreakdownScale.barFraction(2, maximum: 7) - 2.0 / 7.0) < 0.001
-          && TotalTrendBreakdownScale.barFraction(0, maximum: 7) == 0
-          && TotalTrendBreakdownScale.barFraction(7, maximum: 7) == 1,
-          "contribution bars compare each account against the largest account")
-    check(TotalTrendBreakdownScale.barFraction(0, maximum: 0) == 0,
-          "an all-zero interval does not draw misleading full bars")
+    check(TotalTrendBreakdownScale.maximumPercent == 20
+          && abs(TotalTrendBreakdownScale.barFraction(3) - 0.15) < 0.001
+          && abs(TotalTrendBreakdownScale.barFraction(5) - 0.25) < 0.001,
+          "each contribution bar uses the fixed 0–20% scale")
+    check(TotalTrendBreakdownScale.barFraction(0) == 0
+          && TotalTrendBreakdownScale.barFraction(20) == 1
+          && TotalTrendBreakdownScale.barFraction(27) == 1
+          && TotalTrendBreakdownScale.barFraction(-3) == 0
+          && TotalTrendBreakdownScale.barFraction(.nan) == 0,
+          "empty, full and overflow contribution bars stay within their track")
 
     let now = ISO8601DateFormatter().date(from: "2026-09-28T04:25:00Z")!
     let next = ISO8601DateFormatter().date(from: "2026-09-28T08:00:00Z")!

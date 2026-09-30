@@ -328,10 +328,6 @@ struct TotalTrendTooltip: View {
 
     private var secondary: Color { Color(nsColor: .secondaryLabelColor) }
     private var contributions: [TrendContribution]? { overview.contributions(at: point.endAt) }
-    private var contributionRange: ClosedRange<Double>? {
-        contributions.flatMap { TotalTrendBreakdownScale.colorRange(for: $0.map(\.equivalentPercent)) }
-    }
-    private var largestContribution: Double { contributions?.map(\.equivalentPercent).max() ?? 0 }
 
     private var dateLabel: String {
         let formatter = DateFormatter()
@@ -366,39 +362,43 @@ struct TotalTrendTooltip: View {
                 Rectangle().fill(Color(nsColor: .separatorColor).opacity(0.8))
                     .frame(height: 1).padding(.vertical, 9)
                 HStack {
-                    Text("账号分摊")
+                    Text("账号列表")
                     Spacer(minLength: 4)
-                    Text("等效用量")
+                    Text("估算等效使用量")
                 }
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(secondary)
                 .padding(.bottom, 5)
                 ForEach(contributions.indices, id: \.self) { index in
                     let contribution = contributions[index]
-                    let color = scaleColor(contribution.equivalentPercent, in: contributionRange)
-                    VStack(spacing: 4) {
-                        HStack(spacing: 8) {
-                            Text(contribution.label)
-                                .lineLimit(1).truncationMode(.middle)
-                                .foregroundStyle(Color.primary)
-                            Spacer(minLength: 4)
-                            Text(percent(contribution.equivalentPercent))
-                                .fontWeight(.bold).monospacedDigit()
-                                .foregroundStyle(color)
-                        }
-                        .font(.system(size: 12))
+                    HStack(spacing: 10) {
+                        Text(contribution.label)
+                            .lineLimit(1).truncationMode(.middle)
+                            .foregroundStyle(Color.primary)
+                            .frame(width: 180, alignment: .leading)
                         GeometryReader { geometry in
                             Capsule().fill(Color(nsColor: .separatorColor).opacity(0.44))
                             if contribution.equivalentPercent > 0 {
-                                Capsule().fill(color)
-                                    .frame(width: geometry.size.width * TotalTrendBreakdownScale.barFraction(
-                                        contribution.equivalentPercent, maximum: largestContribution
-                                    ))
+                                LinearGradient(colors: (0...20).map { step in
+                                    scaleColor(Double(step), in: 0...TotalTrendBreakdownScale.maximumPercent)
+                                }, startPoint: .leading, endPoint: .trailing)
+                                .frame(width: geometry.size.width, height: 7)
+                                .frame(width: geometry.size.width * TotalTrendBreakdownScale.barFraction(
+                                    contribution.equivalentPercent
+                                ), height: 7, alignment: .leading)
+                                .clipped()
+                                .clipShape(Capsule())
                             }
                         }
-                        .frame(height: 5)
+                        .frame(height: 7)
+                        Text(percent(contribution.equivalentPercent))
+                            .fontWeight(.bold).monospacedDigit()
+                            .foregroundStyle(scaleColor(contribution.equivalentPercent,
+                                                        in: 0...TotalTrendBreakdownScale.maximumPercent))
+                            .frame(width: 35, alignment: .trailing)
                     }
-                    .padding(.bottom, index == contributions.count - 1 ? 0 : 7)
+                    .font(.system(size: 11))
+                    .frame(height: 26)
                 }
             }
         }
@@ -421,14 +421,10 @@ struct TotalTrendTooltip: View {
 }
 
 enum TotalTrendBreakdownScale {
-    static func colorRange(for values: [Double]) -> ClosedRange<Double>? {
-        let finite = values.filter(\.isFinite)
-        guard let minimum = finite.min(), let maximum = finite.max() else { return nil }
-        return minimum...maximum
-    }
+    static let maximumPercent = 20.0
 
-    static func barFraction(_ value: Double, maximum: Double) -> Double {
-        guard value.isFinite, maximum.isFinite, maximum > 0 else { return 0 }
-        return min(1, max(0, value / maximum))
+    static func barFraction(_ value: Double) -> Double {
+        guard value.isFinite else { return 0 }
+        return min(1, max(0, value / maximumPercent))
     }
 }
