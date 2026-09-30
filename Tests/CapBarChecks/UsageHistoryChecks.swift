@@ -131,6 +131,19 @@ import SQLite3
         let second = try await cacheStore.historicalStatistics(accounts: calibration, intervalHours: 8, calendar: utc)
         check(second?.fromCache == true && second?.statistics.highSevenDays?.usedPercent == 42,
               "unchanged history reuses persisted SQLite statistics")
+        var cacheDatabase: OpaquePointer?
+        if sqlite3_open(cacheURL.path, &cacheDatabase) == SQLITE_OK, let cacheDatabase {
+            let downgradeSignature = #"UPDATE history_statistics_cache SET signature = REPLACE(signature, '"version":2', '"version":1')"#
+            check(sqlite3_exec(cacheDatabase, downgradeSignature, nil, nil, nil) == SQLITE_OK,
+                  "legacy summary signature fixture updates")
+            sqlite3_close(cacheDatabase)
+            let rebuilt = try await cacheStore.historicalStatistics(accounts: calibration, intervalHours: 8, calendar: utc)
+            check(rebuilt?.fromCache == false && rebuilt?.statistics.highSevenDays?.usedPercent == 42,
+                  "an older calculation version invalidates cached historical records")
+        } else {
+            if let cacheDatabase { sqlite3_close(cacheDatabase) }
+            check(false, "historical cache fixture opens for version migration")
+        }
         _ = try await cacheStore.append(account: account, snapshot: snapshot(21, used: 42), planTier: .claudePro)
         let unchanged = try await cacheStore.historicalStatistics(accounts: calibration, intervalHours: 8, calendar: utc)
         check(unchanged?.fromCache == true, "identical upsert does not invalidate the summary")

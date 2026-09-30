@@ -138,6 +138,31 @@ import Foundation
     ], intervalHours: 2, endingAt: Date(timeIntervalSince1970: 2 * hour))
     check(stableTier.points.last?.planTier == .claudePro && near(stableTier.points.last?.usedPercent, 20),
           "a measured interval carries its historical subscription tier")
+    let newlyRecordedTierSamples = [
+        UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 0), usedPercent: 10,
+                           resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: nil),
+        UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 2 * hour + 20), usedPercent: 20,
+                           resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudePro),
+        UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 4 * hour + 20), usedPercent: 30,
+                           resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudePro)
+    ]
+    let newlyRecordedTier = UsageTrendCalculator.calculate(
+        samples: newlyRecordedTierSamples, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 4 * hour + 30)
+    )
+    check(newlyRecordedTier.points.suffix(2).allSatisfy { $0.usedPercent != nil }
+          && newlyRecordedTier.points.last?.usedPercent.map { abs($0 - 10) < 0.01 } == true
+          && newlyRecordedTier.points.last?.planTier == .claudePro,
+          "a newly populated tier field does not erase intervals on either side of its sample")
+    let newlyRecordedHistory = UsageTrendCalculator.calculateHistory(
+        samples: newlyRecordedTierSamples, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 4 * hour + 30)
+    )
+    check(newlyRecordedHistory.points.count == 2
+          && newlyRecordedHistory.points.allSatisfy { $0.usedPercent != nil }
+          && newlyRecordedHistory.points.last?.usedPercent.map { abs($0 - 10) < 0.01 } == true
+          && newlyRecordedHistory.points.last?.planTier == .claudePro,
+          "all-time history also bridges missing tier metadata without inventing a plan change")
     let changedTier = UsageTrendCalculator.calculate(samples: [
         UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 0), usedPercent: 10,
                            resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudePro),
@@ -146,6 +171,16 @@ import Foundation
     ], intervalHours: 2, endingAt: Date(timeIntervalSince1970: 2 * hour))
     check(changedTier.points.last?.usedPercent == nil,
           "an interval crossing a subscription change is left blank instead of interpolated")
+    let changedTierHistory = UsageTrendCalculator.calculateHistory(
+        samples: [
+            UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 0), usedPercent: 10,
+                               resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudePro),
+            UsageHistorySample(capturedAt: Date(timeIntervalSince1970: 2 * hour), usedPercent: 30,
+                               resetsAt: Date(timeIntervalSince1970: 80 * hour), planTier: .claudeMax5)
+        ], intervalHours: 2, endingAt: Date(timeIntervalSince1970: 2 * hour)
+    )
+    check(changedTierHistory.points.last?.usedPercent == nil,
+          "all-time history still leaves a confirmed subscription change blank")
 
     let historical = UsageTrendCalculator.calculateHistory(
         samples: twoHourSamples, intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour)
