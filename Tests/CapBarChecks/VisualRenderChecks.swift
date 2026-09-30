@@ -149,7 +149,7 @@ private actor PreviewHangingProvider: UsageProvider {
     let tooltipNames = ["alex-claude.team@example.com", "sam-claude.team@example.com",
                         "lee-claude.team@example.com", "pat-claude.team@example.com",
                         "kim-claude.team@example.com", "taylor-claude.team@example.com"]
-    let tooltipOverview = ProviderTrendOverview.build(zip(tooltipNames, [3.0, 5, 0, 12, 18, 20]).map { name, usage in
+    let tooltipOverview = ProviderTrendOverview.build(zip(tooltipNames, [3.0, 5, 0, 12, 15.04, 20]).map { name, usage in
         let points = [0.0, usage / 2, usage].enumerated().map { index, value in
             UsageTrendPoint(endAt: tooltipEnd.addingTimeInterval(Double(index - 2) * 2 * 3_600),
                             usedPercent: value, remainingPercent: nil,

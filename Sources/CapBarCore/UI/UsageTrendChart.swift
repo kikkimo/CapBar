@@ -393,9 +393,11 @@ struct TotalTrendTooltip: View {
                         .frame(height: 7)
                         Text(percent(contribution.equivalentPercent))
                             .fontWeight(.bold).monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                             .foregroundStyle(scaleColor(contribution.equivalentPercent,
                                                         in: 0...TotalTrendBreakdownScale.maximumPercent))
-                            .frame(width: 35, alignment: .trailing)
+                            .frame(width: 52, alignment: .trailing)
                     }
                     .font(.system(size: 11))
                     .frame(height: 26)
