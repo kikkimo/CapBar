@@ -4,7 +4,7 @@
 
 打开 [capbar-visual-study.html](capbar-visual-study.html) 查看可交互的独立设计稿。HTML 内含样式和演示交互，可直接在浏览器中打开；图片保存在 `assets/`。
 
-新增的 [总走势设计稿](usage-trend-overview-study.html) 展示在“走势”页切换“总走势 / 单账号”：Claude 与 Codex 各自以首账号的七日额度容量为基准，先换算各账号用量，再汇总同一 UTC 绘图区间；缺测区间留空。曲线默认使用 Google Research Turbo 色阶的柔和节选，页面外提供上一版配色对照。总走势中 Claude 与 Codex 各自按本图实际观测的最低、最高用量映射颜色；单账号走势中同一服务的所有账号共用观测范围。纵轴刻度独立计算，原有额度界面不改。识别方法和仍待验证的换算系数见[容量换算提案](usage-trend-capacity-proposal.md)。该页面使用虚构账号、示例容量系数与曲线；功能分支已实现对应的原生界面。
+新增的 [总走势设计稿](usage-trend-overview-study.html) 展示在“走势”页切换“总走势 / 单账号”：Claude 与 Codex 各自以首账号的七日额度容量为基准，先换算各账号用量，再汇总同一 UTC 绘图区间实际观测到的用量；只有所有账号均缺测的区间留空。曲线默认使用 Google Research Turbo 色阶的柔和节选，页面外提供上一版配色对照。总走势中 Claude 与 Codex 各自按本图实际观测的最低、最高用量映射颜色；单账号走势中同一服务的所有账号共用观测范围。纵轴刻度独立计算，原有额度界面不改。识别方法和仍待验证的换算系数见[容量换算提案](usage-trend-capacity-proposal.md)。该页面使用虚构账号、示例容量系数与曲线；功能分支已实现对应的原生界面。
 
 已确认的刷新、快照与配置规则记录在 [plan.md](plan.md)，可验收的 [v1 规格](spec.md)和 [TDD 实施计划](implementation-plan.md)单独保存。主视觉方向已确认；下方状态对照补充了正常、刷新中、失败保留旧值和首次无快照的界面。
 

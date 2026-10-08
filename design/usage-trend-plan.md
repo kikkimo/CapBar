@@ -22,7 +22,7 @@
 
 - 旧 `settings.json` 缺少统计字段：应迁移为关闭和 4 小时，测试属于任务 1。
 - 同一账号手动刷新与定时点重叠：应只启动一次，测试属于任务 5。
-- 重置前后已用值从 90% 到 95%：应算 105% 并用虚线，测试属于任务 3。
+- 重置前后已用值从 90% 到 95%：旧记录缺少边界采样时仅计重置后观测到的 95%，不自动补旧周期剩余额度；有重置前后近距离采样时，再依据同周期增长趋势判断是否估算补足最后一小段。跨重置区间仍用虚线，测试属于任务 3。
 - 应用休眠越过多个点：唤醒仅补采一次，测试属于任务 5。
 - 无 7 日额度、SQLite 写失败或记录中断：保留最新 JSON，不虚构图表值，测试属于任务 2、4。
 
@@ -76,7 +76,7 @@
 
 **Files:** 新建 `Sources/CapBarCore/Refresh/UsageSamplingSchedule.swift`、`UsageSamplingController.swift`；`Sources/CapBarCore/UI/CapBarAppLauncher.swift`；`Tests/CapBarChecks/UsageSamplingChecks.swift`；`Tests/CapBarChecks/Runner.swift`。
 
-**Interfaces:** 纯计划器计算下一个 UTC 常规点和已知 resetAt 的 N 小时前逐小时点及 resetAt+5 分钟点；控制器维护每账号下一次应采样时间，调度到期时调用 coordinator，不拥有新的探测客户端。
+**Interfaces:** 纯计划器计算下一个 UTC 常规点、已知 resetAt 的 N 小时前逐小时点及 resetAt 前后各 5 分钟的点；控制器维护每账号下一次应采样时间，调度到期时调用 coordinator，不拥有新的探测客户端。
 
 - [x] 写六档 UTC 点、启用后的首个点、6/8 小时重置窗口、重合去重、禁用停止、睡眠唤醒与重启一次补采测试。
 - [x] 跑 `UsageSamplingTests` 见红；实现计划器与控制器，并在应用启动、唤醒、退出时接线。

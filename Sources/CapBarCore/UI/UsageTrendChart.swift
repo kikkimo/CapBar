@@ -362,7 +362,7 @@ struct TotalTrendTooltip: View {
                     .foregroundStyle(point.usedPercent.map { scaleColor($0, in: UsageTrendColorScale.range(for: [series])) } ?? secondary)
             }
             .padding(.top, 5)
-            Text(point.isMissing ? "采样覆盖不足" : "以 \(overview.baselinePlan?.displayName ?? "套餐") 为基准 · \(overview.accountCount) 个账号")
+            Text(point.isMissing ? "本区间无有效采样" : "以 \(overview.baselinePlan?.displayName ?? "套餐") 为基准 · 估算")
                 .font(.system(size: 10))
                 .foregroundStyle(secondary)
                 .padding(.top, 2)

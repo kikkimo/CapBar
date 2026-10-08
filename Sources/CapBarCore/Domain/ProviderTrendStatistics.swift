@@ -85,17 +85,15 @@ extension ProviderTrendOverview {
     private func leadingAccount(total: Double, validEnds: [Date]) -> TrendAccountLeader? {
         guard total > 0, !accounts.isEmpty else { return nil }
         var totals = [Double](repeating: 0, count: accounts.count)
-        var labels: [String] = []
         for endAt in validEnds {
-            guard let contributions = contributions(at: endAt), contributions.count == totals.count else { continue }
-            if labels.isEmpty { labels = contributions.map(\.label) }
-            for (index, contribution) in contributions.enumerated() {
-                totals[index] += contribution.equivalentPercent
+            guard let contributions = contributions(at: endAt) else { continue }
+            for contribution in contributions where totals.indices.contains(contribution.accountIndex) {
+                totals[contribution.accountIndex] += contribution.equivalentPercent
             }
         }
-        guard let index = totals.indices.max(by: { totals[$0] < totals[$1] }), totals[index] > 0,
-              labels.indices.contains(index) else { return nil }
-        return TrendAccountLeader(label: labels[index], equivalentPercent: totals[index],
+        guard let index = totals.indices.max(by: { totals[$0] < totals[$1] }), totals[index] > 0 else { return nil }
+        let label = accounts[index].label.isEmpty ? "账号 \(index + 1)" : accounts[index].label
+        return TrendAccountLeader(label: label, equivalentPercent: totals[index],
                                   sharePercent: totals[index] / total * 100)
     }
 

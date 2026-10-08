@@ -40,9 +40,9 @@ import Foundation
         TrendOverviewAccount(label: "one@example.com", tier: .claudePro, series: series([2, 4, 6])),
         TrendOverviewAccount(label: "two@example.com", tier: .claudePro, series: series([1, 3, nil]))
     ])
-    check(near(partiallyObservedTotal.latestObservedPoint?.usedPercent, 7)
-          && partiallyObservedTotal.latestObservedPoint?.endAt == end.addingTimeInterval(-2 * hour),
-          "total headline only falls back to a bin with observations for every account")
+    check(near(partiallyObservedTotal.latestObservedPoint?.usedPercent, 6)
+          && partiallyObservedTotal.latestObservedPoint?.endAt == end,
+          "total headline includes the latest observed usage even when another account is missing")
     check(near(sparse?.peak?.value, 4) && sparse?.peak?.endAt == end.addingTimeInterval(-2 * hour),
           "peak uses the largest observed interval and its ending time")
     check(near(sparse?.minimum, 0) && near(sparse?.average, 2) && near(sparse?.observedTotal, 6),
@@ -67,12 +67,12 @@ import Foundation
         TrendOverviewAccount(label: "Pro account", tier: .claudePro, series: series([1, 2, nil])),
         TrendOverviewAccount(label: "Max account", tier: .claudeMax5, series: series([2, 1, 3]))
     ]).statistics(calendar: calendar)
-    check(near(weighted?.observedTotal, 18) && weighted?.validBinCount == 2,
-          "provider statistics use only complete bins after subscription conversion")
+    check(near(weighted?.observedTotal, 33) && weighted?.validBinCount == 3,
+          "provider statistics include every bin with at least one observed account")
     check(weighted?.leader?.label == "Max account"
-          && near(weighted?.leader?.equivalentPercent, 15)
-          && near(weighted?.leader?.sharePercent, 15 / 18 * 100),
-          "leader sums baseline-equivalent account contributions only where total bins are valid")
+          && near(weighted?.leader?.equivalentPercent, 30)
+          && near(weighted?.leader?.sharePercent, 30 / 33 * 100),
+          "leader sums each account's observed equivalent usage across changing participation")
 
     let twoDays = single(Array(repeating: 1.0, count: 12) + Array(repeating: 2.0, count: 12))
         .statistics(calendar: calendar)

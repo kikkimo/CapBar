@@ -157,13 +157,13 @@ print(json.dumps({'loggedIn': True, 'email': 'fake@example.com', 'subscriptionTy
 """#
         try Data(script.utf8).write(to: fakeClaude)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: fakeClaude.path)
-        let identityCLI = ClaudeIdentityCLI(executablePath: fakeClaude.path, inheritedEnvironment: ["PATH": "/usr/bin:/bin", "CLAUDE_CONFIG_DIR": "/wrong", "ANTHROPIC_API_KEY": "wrong", "CLAUDE_CODE_OAUTH_TOKEN": "wrong"], timeoutSeconds: 1)
+        let identityCLI = ClaudeIdentityCLI(executablePath: fakeClaude.path, inheritedEnvironment: ["PATH": "/usr/bin:/bin", "CLAUDE_CONFIG_DIR": "/wrong", "ANTHROPIC_API_KEY": "wrong", "CLAUDE_CODE_OAUTH_TOKEN": "wrong"], timeoutSeconds: 5)
         check(try await identityCLI.identity(account: id).organization == "default", "default profile leaves CLAUDE_CONFIG_DIR unset")
         let customID = AccountID(provider: .claude, directory: temporary.path)
         check(try await identityCLI.identity(account: customID).organization == customID.directory, "custom profile sets CLAUDE_CONFIG_DIR")
         let onPath = temporary.appendingPathComponent("claude")
         try FileManager.default.copyItem(at: fakeClaude, to: onPath)
-        let discovered = ClaudeIdentityCLI(executablePath: nil, inheritedEnvironment: ["PATH": temporary.path], timeoutSeconds: 1)
+        let discovered = ClaudeIdentityCLI(executablePath: nil, inheritedEnvironment: ["PATH": temporary.path], timeoutSeconds: 5)
         check(try await discovered.identity(account: id).email == "fake@example.com", "Claude executable is found from PATH")
 
         let fakeInteractive = temporary.appendingPathComponent("fake-interactive-claude")

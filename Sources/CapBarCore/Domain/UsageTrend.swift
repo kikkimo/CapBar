@@ -29,8 +29,9 @@ enum UsageTrendCalculator {
         let ordered = samples
             .filter { $0.usedPercent.isFinite && (0...100).contains($0.usedPercent) }
             .sorted { $0.capturedAt < $1.capturedAt }
-        let spans = zip(ordered, ordered.dropFirst()).map {
-            Span(first: $0.0, last: $0.1, intervalHours: max(1, intervalHours))
+        let spans = ordered.dropLast().enumerated().map { index, first in
+            Span(first: first, last: ordered[index + 1], prior: index > 0 ? ordered[index - 1] : nil,
+                 intervalHours: max(1, intervalHours))
         }
         let binHours = max(2, intervalHours)
         let binSeconds = Double(binHours) * 3_600
@@ -87,8 +88,9 @@ enum UsageTrendCalculator {
             return UsageTrendSeries(points: [], binHours: binHours, axisMaximum: 10,
                                     axisTicks: [0, 5, 10], sampleCount: ordered.count)
         }
-        let spans = zip(ordered, ordered.dropFirst()).map {
-            Span(first: $0.0, last: $0.1, intervalHours: max(1, intervalHours))
+        let spans = ordered.dropLast().enumerated().map { index, first in
+            Span(first: first, last: ordered[index + 1], prior: index > 0 ? ordered[index - 1] : nil,
+                 intervalHours: max(1, intervalHours))
         }
         var spanIndex = 0
         let pointCount = Int(spanSeconds / binSeconds) + 1
@@ -183,10 +185,11 @@ enum UsageTrendCalculator {
         let start: TimeInterval
         let end: TimeInterval
         let reset: TimeInterval?
+        let oldCycleTail: Double
         let isValid: Bool
         var observedPlanTier: UsagePlanTier? { first.planTier ?? last.planTier }
 
-        init(first: UsageHistorySample, last: UsageHistorySample, intervalHours: Int) {
+        init(first: UsageHistorySample, last: UsageHistorySample, prior: UsageHistorySample?, intervalHours: Int) {
             self.first = first
             self.last = last
             let startTime = first.capturedAt.timeIntervalSince1970
@@ -201,6 +204,20 @@ enum UsageTrendCalculator {
             } else {
                 reset = nil
             }
+            if let reset, let prior,
+               reset - startTime <= 10 * 60, endTime - reset <= 10 * 60,
+               prior.resetsAt == first.resetsAt,
+               prior.usedPercent <= first.usedPercent,
+               first.capturedAt.timeIntervalSince(prior.capturedAt) > 0,
+               first.capturedAt.timeIntervalSince(prior.capturedAt) <= Double(intervalHours) * 3_600 + 15 * 60,
+               prior.planTier == nil || first.planTier == nil || prior.planTier == first.planTier {
+                let observedRate = (first.usedPercent - prior.usedPercent) /
+                    first.capturedAt.timeIntervalSince(prior.capturedAt)
+                let projected = first.usedPercent + observedRate * (reset - startTime)
+                oldCycleTail = projected >= 100 ? max(0, 100 - first.usedPercent) : 0
+            } else {
+                oldCycleTail = 0
+            }
             let isNearReset = oldReset.map {
                 startTime >= $0 - Double(intervalHours) * 3_600 && startTime <= $0
             } ?? false
@@ -214,11 +231,11 @@ enum UsageTrendCalculator {
             guard let reset else {
                 return first.usedPercent + (last.usedPercent - first.usedPercent) * (time - start) / (end - start)
             }
-            if time >= end { return 100 + last.usedPercent }
+            if time >= end { return first.usedPercent + oldCycleTail + last.usedPercent }
             if time <= reset {
-                return first.usedPercent + (100 - first.usedPercent) * (time - start) / (reset - start)
+                return first.usedPercent + oldCycleTail * (time - start) / (reset - start)
             }
-            return 100 + last.usedPercent * (time - reset) / (end - reset)
+            return first.usedPercent + oldCycleTail + last.usedPercent * (time - reset) / (end - reset)
         }
 
         func used(at time: TimeInterval) -> Double {

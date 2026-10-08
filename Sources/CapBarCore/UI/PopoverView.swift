@@ -249,8 +249,8 @@ private struct CapBarTotalTrendCard: View {
                         .foregroundStyle(Color.accentColor)
                 }
                 .frame(height: 128)
-            } else if overview.pendingHistoryCount > 0 {
-                Text("\(overview.pendingHistoryCount) 个账号的历史数据暂不可用")
+            } else if overview.series == nil {
+                Text("暂无可计算的历史用量区间")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 128)
             } else {

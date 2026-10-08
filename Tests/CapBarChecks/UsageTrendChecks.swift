@@ -28,10 +28,62 @@ import Foundation
     check(series.sampleCount == 5, "trend reports real samples within the rolling seven days")
     check(near(last[0].usedPercent, 10) && near(last[1].usedPercent, 10), "two adjacent two-hour intervals each consume ten points")
     check(near(last[2].usedPercent, 40), "six-hour sample makes a forty-point bin")
-    check(near(last[3].usedPercent, 15), "reset computes one hundred minus ninety plus five")
+    check(near(last[3].usedPercent, 5), "old reset records do not invent use of the unobserved remainder")
     check(last[3].crossesReset && !last[2].crossesReset, "only reset-crossing bin is dashed")
     check(near(last[3].remainingPercent, 95), "tooltip has post-reset weekly remainder")
     check(series.points.last?.endAt == Date(timeIntervalSince1970: 8 * hour), "chart end uses UTC two-hour grid")
+    let oldIdleAcrossReset = [
+        sample(18, used: 42, reset: 20),
+        sample(19, used: 42, reset: 20),
+        sample(20 + 1.0 / 60, used: 0, reset: 188),
+        sample(22, used: 0, reset: 188)
+    ]
+    let oldIdleTrend = UsageTrendCalculator.calculate(
+        samples: oldIdleAcrossReset, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 22 * hour)
+    )
+    check(near(oldIdleTrend.points[oldIdleTrend.points.count - 2].usedPercent, 0)
+          && near(oldIdleTrend.points.last?.usedPercent, 0),
+          "idle account crossing reset does not turn unused 58 percent into consumption")
+    let oldIdleHistory = UsageTrendCalculator.calculateHistory(
+        samples: oldIdleAcrossReset, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 22 * hour)
+    )
+    check(oldIdleHistory.points.allSatisfy { $0.usedPercent == 0 },
+          "all-time statistics exclude the unused old-cycle remainder")
+    let reachingLimit = [
+        sample(18, used: 70, reset: 20),
+        sample(20 - 5.0 / 60, used: 99, reset: 20),
+        sample(20 + 5.0 / 60, used: 5, reset: 188),
+        sample(22, used: 5, reset: 188)
+    ]
+    let reachingTrend = UsageTrendCalculator.calculate(
+        samples: reachingLimit, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 22 * hour)
+    )
+    check(near(reachingTrend.points[reachingTrend.points.count - 2].usedPercent, 30)
+          && near(reachingTrend.points.last?.usedPercent, 5),
+          "nearby rising observations that reach the limit credit the final old-cycle point")
+    let reachingHistory = UsageTrendCalculator.calculateHistory(
+        samples: reachingLimit, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 22 * hour)
+    )
+    check(near(reachingHistory.points[0].usedPercent, 30)
+          && near(reachingHistory.points[1].usedPercent, 5),
+          "all-time statistics use the same boundary evidence")
+    let stayingBelowLimit = [
+        sample(18, used: 40, reset: 20),
+        sample(20 - 5.0 / 60, used: 42, reset: 20),
+        sample(20 + 5.0 / 60, used: 5, reset: 188),
+        sample(22, used: 5, reset: 188)
+    ]
+    let stayingTrend = UsageTrendCalculator.calculate(
+        samples: stayingBelowLimit, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 22 * hour)
+    )
+    check(near(stayingTrend.points[stayingTrend.points.count - 2].usedPercent, 2)
+          && near(stayingTrend.points.last?.usedPercent, 5),
+          "slow nearby growth does not invent exhaustion of the old cycle")
     let withOldSample = UsageTrendCalculator.calculate(
         samples: [sample(-169, used: 10, reset: 7)] + twoHourSamples,
         intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour)
@@ -42,14 +94,15 @@ import Foundation
         samples: [sample(6, used: 90, reset: 7), sample(8, used: 95, reset: 175)],
         intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour)
     )
-    check(near(high.points.last?.usedPercent, 105), "reset is detected from time even when used percentage increases")
-    check(high.axisMaximum == 110, "axis expands past one hundred without clipping")
+    check(near(high.points.last?.usedPercent, 95), "reset is detected from time even when used percentage increases")
+    check(high.axisMaximum == 100, "axis follows the observed post-reset usage")
 
     let extreme = UsageTrendCalculator.calculate(
-        samples: [sample(6, used: 0, reset: 7), sample(8, used: 100, reset: 175)],
+        samples: [sample(6, used: 0, reset: 7), sample(6.95, used: 100, reset: 7),
+                  sample(8, used: 100, reset: 175)],
         intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour)
     )
-    check(near(extreme.points.last?.usedPercent, 200), "extreme reset segment can consume two hundred points")
+    check(near(extreme.points.last?.usedPercent, 200), "two hundred remains possible when use before and after reset was observed")
     check(extreme.axisMaximum == 200 && extreme.axisTicks == [0, 100, 200], "dynamic axis shows two hundred with three readable ticks")
 
     let noResetMetadata = UsageTrendCalculator.calculate(
@@ -114,8 +167,8 @@ import Foundation
         samples: samples, intervalHours: 4, endingAt: Date(timeIntervalSince1970: 8 * hour)
     )
     check(fourHour.points.count == 42 && near(fourHour.points[40].usedPercent, 20)
-          && near(fourHour.points[41].usedPercent, 55),
-          "four-hour chart aggregates 0–4 and 4–8, including manual six-hour sample and reset")
+          && near(fourHour.points[41].usedPercent, 45),
+          "four-hour chart aggregates the observed 4–6 rise and post-reset use")
     check(fourHour.points.last?.crossesReset == true, "four-hour bin records a reset inside the interval")
 
     let hourly = UsageTrendCalculator.calculate(
@@ -219,9 +272,9 @@ import Foundation
         [WeightedUsageTrend(series: pro, capacity: 1), WeightedUsageTrend(series: maxFive, capacity: 5)],
         baselineCapacity: 1
     )
-    check(near(summed?.points[0].usedPercent, 7) && summed?.points[1].usedPercent == nil
+    check(near(summed?.points[0].usedPercent, 7) && near(summed?.points[1].usedPercent, 3)
           && near(summed?.points[2].usedPercent, 14),
-          "total converts plan capacities before summing and leaves incomplete bins blank")
+          "total converts plan capacities and sums only the accounts observed in each interval")
     check(summed?.axisMaximum == 20 && summed?.axisTicks == [0, 10, 20],
           "total axis expands to the weighted observed peak")
     let maxBased = UsageTrendAggregator.aggregate(
@@ -253,8 +306,24 @@ import Foundation
         [WeightedUsageTrend(series: pro, capacity: 1), WeightedUsageTrend(series: mismatched, capacity: 1)],
         baselineCapacity: 1
     )
-    check(mismatchedTotal?.points[1].usedPercent == nil,
-          "samples with different UTC interval ends cannot be combined by array position")
+    check(mismatchedTotal?.points.map(\.endAt) == [2, 4, 5, 6].map { Date(timeIntervalSince1970: $0 * hour) }
+          && near(mismatchedTotal?.points[1].usedPercent, 3)
+          && near(mismatchedTotal?.points[2].usedPercent, 2),
+          "the total uses the union of observed UTC intervals instead of dropping one account's dates")
+    let noObservedUsage = UsageTrendAggregator.aggregate([
+        WeightedUsageTrend(series: trend([nil, nil, nil]), capacity: 1),
+        WeightedUsageTrend(series: trend([nil, nil, nil]), capacity: 5)
+    ], baselineCapacity: 1)
+    check(noObservedUsage?.points.allSatisfy { $0.usedPercent == nil } == true,
+          "a bin with no account observations remains missing rather than becoming zero")
+    let observedZero = UsageTrendAggregator.aggregate([
+        WeightedUsageTrend(series: trend([nil, nil, nil]), capacity: 1),
+        WeightedUsageTrend(series: trend([nil, 0, nil]), capacity: 5)
+    ], baselineCapacity: 1)
+    check(observedZero?.points[0].usedPercent == nil
+          && observedZero?.points[1].usedPercent == 0
+          && observedZero?.points[2].usedPercent == nil,
+          "a measured zero from one account remains distinguishable from no observations")
     check(UsageTrendAggregator.aggregate([WeightedUsageTrend(series: pro, capacity: 0)], baselineCapacity: 1) == nil,
           "unknown or invalid capacity does not create a misleading total")
 
@@ -264,7 +333,7 @@ import Foundation
           "all Claude account charts use one observed color range")
     check(codexRange?.lowerBound == 10 && codexRange?.upperBound == 30,
           "Codex account colors are independent from Claude")
-    check(UsageTrendColorScale.range(for: [summed!])?.lowerBound == 7
+    check(UsageTrendColorScale.range(for: [summed!])?.lowerBound == 3
           && UsageTrendColorScale.range(for: [summed!])?.upperBound == 14,
           "a total chart maps its own observed minimum and maximum")
     check(UsageTrendColorScale.fraction(1, in: sharedClaudeRange) == 0
@@ -307,8 +376,9 @@ import Foundation
           && near(breakdown?[1].equivalentPercent, 5)
           && near(breakdown?.reduce(0) { $0 + $1.equivalentPercent }, 7),
           "total tooltip breaks down each account in the same baseline units as its plotted total")
-    check(overview.contributions(at: pro.points[1].endAt) == nil,
-          "total tooltip does not invent account values for an incomplete interval")
+    check(overview.contributions(at: pro.points[1].endAt)?.map(\.label) == ["Pro account"]
+          && near(overview.contributions(at: pro.points[1].endAt)?.first?.equivalentPercent, 3),
+          "total tooltip lists only accounts observed in the selected interval")
     let unknownOverview = ProviderTrendOverview.build([
         TrendOverviewAccount(tier: .claudePro, series: pro),
         TrendOverviewAccount(tier: nil, series: maxFive)
@@ -319,6 +389,18 @@ import Foundation
         TrendOverviewAccount(tier: .claudePro, series: pro),
         TrendOverviewAccount(tier: .claudeMax5, series: nil)
     ])
-    check(pendingOverview.pendingHistoryCount == 1 && pendingOverview.series == nil,
-          "a missing account trend waits for history instead of treating it as zero")
+    check(pendingOverview.pendingHistoryCount == 1
+          && near(pendingOverview.series?.points[1].usedPercent, 3)
+          && pendingOverview.contributions(at: pro.points[1].endAt)?.map(\.label) == ["账号 1"],
+          "an account without any history does not block the observed total")
+    let missingBaselineHistory = ProviderTrendOverview.build([
+        TrendOverviewAccount(label: "Baseline", tier: .claudePro, series: nil),
+        TrendOverviewAccount(label: "Observed", tier: .claudeMax5, series: maxFive)
+    ])
+    check(near(missingBaselineHistory.series?.points[0].usedPercent, 5)
+          && missingBaselineHistory.series?.points[1].usedPercent == nil
+          && missingBaselineHistory.contributions(at: maxFive.points[0].endAt)?.map(\.label) == ["Observed"],
+          "the first account still sets the unit even when only another account has observations")
+    check(missingBaselineHistory.statistics(calendar: Calendar.current)?.leader?.label == "Observed",
+          "the leading account can be determined despite missing baseline account history")
 }

@@ -104,7 +104,7 @@ actor UsageHistoryStore {
         let signatureEncoder = JSONEncoder()
         signatureEncoder.outputFormatting = [.sortedKeys]
         let encodedSignature = try signatureEncoder.encode(HistoricalCacheSignature(
-            version: 2, accounts: accounts, intervalHours: intervalHours,
+            version: 4, accounts: accounts, intervalHours: intervalHours,
             calendar: String(describing: calendar.identifier),
             timeZone: calendar.timeZone.identifier
         ))
