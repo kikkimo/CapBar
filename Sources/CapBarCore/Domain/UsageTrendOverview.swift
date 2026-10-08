@@ -85,6 +85,7 @@ struct TrendOverviewAccount: Sendable {
 }
 
 struct TrendContribution: Sendable {
+    let accountIndex: Int
     let label: String
     let equivalentPercent: Double
 }
@@ -108,7 +109,7 @@ struct ProviderTrendOverview: Sendable {
         let baseline = accounts.first?.tier
         let uncalibrated = accounts.filter { $0.tier == nil || $0.tier?.provider != baseline?.provider }.count
         let pending = accounts.filter { $0.series == nil }.count
-        guard uncalibrated == 0, pending == 0, let baseline else {
+        guard uncalibrated == 0, let baseline else {
             return Self(accounts: accounts, accountCount: accounts.count, baselinePlan: baseline,
                         uncalibratedCount: uncalibrated, pendingHistoryCount: pending, series: nil)
         }
@@ -118,43 +119,46 @@ struct ProviderTrendOverview: Sendable {
         }
         return Self(
             accounts: accounts, accountCount: accounts.count, baselinePlan: baseline, uncalibratedCount: 0,
-            pendingHistoryCount: 0,
+            pendingHistoryCount: pending,
             series: UsageTrendAggregator.aggregate(weighted, baselineCapacity: baseline.capacityFactor)
         )
     }
 
     func contributions(at endAt: Date) -> [TrendContribution]? {
         guard let baselinePlan, series?.points.first(where: { $0.endAt == endAt })?.usedPercent != nil else { return nil }
-        let inputs = accounts.compactMap { account -> WeightedUsageTrend? in
+        let available = accounts.enumerated().compactMap { index, account -> (index: Int, account: TrendOverviewAccount, weighted: WeightedUsageTrend)? in
             guard let tier = account.tier, let series = account.series else { return nil }
-            return WeightedUsageTrend(series: series, capacity: tier.capacityFactor)
+            return (index, account, WeightedUsageTrend(series: series, capacity: tier.capacityFactor))
         }
-        guard inputs.count == accounts.count else { return nil }
-        let aligned = inputs.map { $0.series.points.first { $0.endAt == endAt } }
-        guard let values = UsageTrendAggregator.contributionValues(aligned, inputs: inputs,
+        let aligned = available.map { $0.weighted.series.points.first { $0.endAt == endAt } }
+        guard let values = UsageTrendAggregator.contributionValues(aligned, inputs: available.map(\.weighted),
                                                                     baselineCapacity: baselinePlan.capacityFactor) else { return nil }
-        return zip(accounts, values).enumerated().map { index, pair in
-            TrendContribution(label: pair.0.label.isEmpty ? "账号 \(index + 1)" : pair.0.label,
-                              equivalentPercent: pair.1)
+        return values.map { value in
+            let source = available[value.index]
+            return TrendContribution(accountIndex: source.index,
+                                     label: source.account.label.isEmpty ? "账号 \(source.index + 1)" : source.account.label,
+                                     equivalentPercent: value.equivalentPercent)
         }
     }
 }
 
 enum UsageTrendAggregator {
     static func aggregate(_ inputs: [WeightedUsageTrend], baselineCapacity: Double) -> UsageTrendSeries? {
-        guard let first = inputs.first, !first.series.points.isEmpty,
+        guard let first = inputs.first(where: { !$0.series.points.isEmpty }),
               baselineCapacity.isFinite, baselineCapacity > 0,
               inputs.allSatisfy({ $0.capacity.isFinite && $0.capacity > 0 && $0.series.binHours == first.series.binHours })
         else { return nil }
 
-        let remaining = inputs.dropFirst().map { input in
+        let alignedPoints = inputs.map { input in
             Dictionary(input.series.points.map { ($0.endAt, $0) }, uniquingKeysWith: { _, latest in latest })
         }
-        let points = first.series.points.map { point in
-            let aligned: [UsageTrendPoint?] = [point] + remaining.map { $0[point.endAt] }
-            let total = contributionValues(aligned, inputs: inputs, baselineCapacity: baselineCapacity)?.reduce(0, +)
+        let ends = Set(inputs.flatMap { $0.series.points.map(\.endAt) }).sorted()
+        let points = ends.map { endAt in
+            let aligned = alignedPoints.map { $0[endAt] }
+            let total = contributionValues(aligned, inputs: inputs, baselineCapacity: baselineCapacity)?
+                .reduce(0) { $0 + $1.equivalentPercent }
             return UsageTrendPoint(
-                endAt: point.endAt, usedPercent: total, remainingPercent: nil,
+                endAt: endAt, usedPercent: total, remainingPercent: nil,
                 crossesReset: false, isEstimated: false
             )
         }
@@ -170,16 +174,17 @@ enum UsageTrendAggregator {
     }
 
     static func contributionValues(_ points: [UsageTrendPoint?], inputs: [WeightedUsageTrend],
-                                   baselineCapacity: Double) -> [Double]? {
+                                   baselineCapacity: Double) -> [(index: Int, equivalentPercent: Double)]? {
         guard points.count == inputs.count, baselineCapacity.isFinite, baselineCapacity > 0 else { return nil }
-        var values: [Double] = []
-        for (point, input) in zip(points, inputs) {
-            guard let point, let used = point.usedPercent, used.isFinite, used >= 0 else { return nil }
+        var values: [(index: Int, equivalentPercent: Double)] = []
+        for (index, pair) in zip(points, inputs).enumerated() {
+            let (point, input) = pair
+            guard let point, let used = point.usedPercent, used.isFinite, used >= 0 else { continue }
             let value = used * (point.planTier?.capacityFactor ?? input.capacity) / baselineCapacity
-            guard value.isFinite else { return nil }
-            values.append(value)
+            guard value.isFinite && value >= 0 else { continue }
+            values.append((index, value))
         }
-        return values
+        return values.isEmpty ? nil : values
     }
 }
 

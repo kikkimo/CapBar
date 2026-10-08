@@ -133,7 +133,7 @@ import SQLite3
               "unchanged history reuses persisted SQLite statistics")
         var cacheDatabase: OpaquePointer?
         if sqlite3_open(cacheURL.path, &cacheDatabase) == SQLITE_OK, let cacheDatabase {
-            let downgradeSignature = #"UPDATE history_statistics_cache SET signature = REPLACE(signature, '"version":2', '"version":1')"#
+            let downgradeSignature = #"UPDATE history_statistics_cache SET signature = REPLACE(signature, '"version":3', '"version":2')"#
             check(sqlite3_exec(cacheDatabase, downgradeSignature, nil, nil, nil) == SQLITE_OK,
                   "legacy summary signature fixture updates")
             sqlite3_close(cacheDatabase)
@@ -179,6 +179,17 @@ import SQLite3
         )
         check(combined?.fromCache == false && combined?.statistics.highSevenDays?.usedPercent == 149,
               "all-time provider records convert historical Max usage into the first Pro account's capacity")
+        let missingBaseline = HistoricalAccount(
+            account: AccountID(provider: .claude, directory: folder.appendingPathComponent("history-empty-account").path),
+            tier: .claudePro
+        )
+        let observedSecond = try await reopened.historicalStatistics(
+            accounts: [missingBaseline, HistoricalAccount(account: secondAccount, tier: .claudeMax5)],
+            intervalHours: 8, calendar: utc
+        )
+        check(observedSecond?.statistics.highSevenDays?.usedPercent == 105
+              && observedSecond?.statistics.highInterval?.usedPercent == 5,
+              "historical statistics include observed accounts when the first account has no samples")
     } catch {
         check(false, "historical cache checks should complete: \(error)")
     }

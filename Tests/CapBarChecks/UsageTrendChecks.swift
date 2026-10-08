@@ -219,9 +219,9 @@ import Foundation
         [WeightedUsageTrend(series: pro, capacity: 1), WeightedUsageTrend(series: maxFive, capacity: 5)],
         baselineCapacity: 1
     )
-    check(near(summed?.points[0].usedPercent, 7) && summed?.points[1].usedPercent == nil
+    check(near(summed?.points[0].usedPercent, 7) && near(summed?.points[1].usedPercent, 3)
           && near(summed?.points[2].usedPercent, 14),
-          "total converts plan capacities before summing and leaves incomplete bins blank")
+          "total converts plan capacities and sums only the accounts observed in each interval")
     check(summed?.axisMaximum == 20 && summed?.axisTicks == [0, 10, 20],
           "total axis expands to the weighted observed peak")
     let maxBased = UsageTrendAggregator.aggregate(
@@ -253,8 +253,24 @@ import Foundation
         [WeightedUsageTrend(series: pro, capacity: 1), WeightedUsageTrend(series: mismatched, capacity: 1)],
         baselineCapacity: 1
     )
-    check(mismatchedTotal?.points[1].usedPercent == nil,
-          "samples with different UTC interval ends cannot be combined by array position")
+    check(mismatchedTotal?.points.map(\.endAt) == [2, 4, 5, 6].map { Date(timeIntervalSince1970: $0 * hour) }
+          && near(mismatchedTotal?.points[1].usedPercent, 3)
+          && near(mismatchedTotal?.points[2].usedPercent, 2),
+          "the total uses the union of observed UTC intervals instead of dropping one account's dates")
+    let noObservedUsage = UsageTrendAggregator.aggregate([
+        WeightedUsageTrend(series: trend([nil, nil, nil]), capacity: 1),
+        WeightedUsageTrend(series: trend([nil, nil, nil]), capacity: 5)
+    ], baselineCapacity: 1)
+    check(noObservedUsage?.points.allSatisfy { $0.usedPercent == nil } == true,
+          "a bin with no account observations remains missing rather than becoming zero")
+    let observedZero = UsageTrendAggregator.aggregate([
+        WeightedUsageTrend(series: trend([nil, nil, nil]), capacity: 1),
+        WeightedUsageTrend(series: trend([nil, 0, nil]), capacity: 5)
+    ], baselineCapacity: 1)
+    check(observedZero?.points[0].usedPercent == nil
+          && observedZero?.points[1].usedPercent == 0
+          && observedZero?.points[2].usedPercent == nil,
+          "a measured zero from one account remains distinguishable from no observations")
     check(UsageTrendAggregator.aggregate([WeightedUsageTrend(series: pro, capacity: 0)], baselineCapacity: 1) == nil,
           "unknown or invalid capacity does not create a misleading total")
 
@@ -264,7 +280,7 @@ import Foundation
           "all Claude account charts use one observed color range")
     check(codexRange?.lowerBound == 10 && codexRange?.upperBound == 30,
           "Codex account colors are independent from Claude")
-    check(UsageTrendColorScale.range(for: [summed!])?.lowerBound == 7
+    check(UsageTrendColorScale.range(for: [summed!])?.lowerBound == 3
           && UsageTrendColorScale.range(for: [summed!])?.upperBound == 14,
           "a total chart maps its own observed minimum and maximum")
     check(UsageTrendColorScale.fraction(1, in: sharedClaudeRange) == 0
@@ -307,8 +323,9 @@ import Foundation
           && near(breakdown?[1].equivalentPercent, 5)
           && near(breakdown?.reduce(0) { $0 + $1.equivalentPercent }, 7),
           "total tooltip breaks down each account in the same baseline units as its plotted total")
-    check(overview.contributions(at: pro.points[1].endAt) == nil,
-          "total tooltip does not invent account values for an incomplete interval")
+    check(overview.contributions(at: pro.points[1].endAt)?.map(\.label) == ["Pro account"]
+          && near(overview.contributions(at: pro.points[1].endAt)?.first?.equivalentPercent, 3),
+          "total tooltip lists only accounts observed in the selected interval")
     let unknownOverview = ProviderTrendOverview.build([
         TrendOverviewAccount(tier: .claudePro, series: pro),
         TrendOverviewAccount(tier: nil, series: maxFive)
@@ -319,6 +336,18 @@ import Foundation
         TrendOverviewAccount(tier: .claudePro, series: pro),
         TrendOverviewAccount(tier: .claudeMax5, series: nil)
     ])
-    check(pendingOverview.pendingHistoryCount == 1 && pendingOverview.series == nil,
-          "a missing account trend waits for history instead of treating it as zero")
+    check(pendingOverview.pendingHistoryCount == 1
+          && near(pendingOverview.series?.points[1].usedPercent, 3)
+          && pendingOverview.contributions(at: pro.points[1].endAt)?.map(\.label) == ["账号 1"],
+          "an account without any history does not block the observed total")
+    let missingBaselineHistory = ProviderTrendOverview.build([
+        TrendOverviewAccount(label: "Baseline", tier: .claudePro, series: nil),
+        TrendOverviewAccount(label: "Observed", tier: .claudeMax5, series: maxFive)
+    ])
+    check(near(missingBaselineHistory.series?.points[0].usedPercent, 5)
+          && missingBaselineHistory.series?.points[1].usedPercent == nil
+          && missingBaselineHistory.contributions(at: maxFive.points[0].endAt)?.map(\.label) == ["Observed"],
+          "the first account still sets the unit even when only another account has observations")
+    check(missingBaselineHistory.statistics(calendar: Calendar.current)?.leader?.label == "Observed",
+          "the leading account can be determined despite missing baseline account history")
 }
