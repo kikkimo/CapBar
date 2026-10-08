@@ -1,7 +1,7 @@
 # CapBar
 
 [![CI](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml)
-[![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-2F80ED?style=flat-square)](scripts/Info.plist)
+[![Version 0.2.1](https://img.shields.io/badge/version-0.2.1-2F80ED?style=flat-square)](scripts/Info.plist)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#install-and-use)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](Package.swift)
 [![Apple Silicon](https://img.shields.io/badge/arch-Apple%20Silicon-0A7F75?style=flat-square)](#build-from-source)
@@ -25,8 +25,8 @@
 - **Refresh when you choose:** Refresh one account or all idle accounts. Opening the window shows saved snapshots by default. Optional refresh on open checks each account against a shared threshold of 5 minutes by default.
 - **Clear states:** Refreshing accounts show progress while keeping their previous values. A failed refresh preserves the last successful snapshot and marks the failure.
 - **Native macOS behavior:** Light and dark appearances, a resizable popover, a right-click menu, and an optional launch-at-login setting.
-- **Optional usage trends:** Switch between one total chart per provider and individual account charts. Totals convert each subscription to the first account's capacity and add the observed account usage in each interval; a missing account does not hide the others. Totals are labeled as estimates because provider 7-day capacity ratios are unverified. Ambiguous plans require a tier selection in Settings. Trend colors adapt to each provider's observed range. Enabling statistics also enables scheduled sampling while CapBar runs; the interval defaults to 4 hours and can be set to 1, 2, 3, 4, 6, or 8 hours. Manual refreshes contribute samples too. Chart bins match the selected interval, with a 2-hour minimum.
-- **Usage analysis:** The provider view shows observed 7-day totals, peak, minimum, average, coverage, leading account, active time periods, and recent 24-hour change. Historical records track rolling 7-day highs and lows, the highest single day, and the highest interval. Missing intervals stay blank; the headline uses the latest fully observed interval.
+- **Optional usage trends:** Switch between one total chart per provider and individual account charts. Totals convert each subscription to the first account's capacity and add the observed account usage in each interval; a missing account does not hide the others. Totals are labeled as estimates because provider 7-day capacity ratios are unverified. Ambiguous plans require a tier selection in Settings. Trend colors adapt to each provider's observed range. Enabling statistics also enables scheduled sampling while CapBar runs; the interval defaults to 4 hours and can be set to 1, 2, 3, 4, 6, or 8 hours. CapBar also probes about five minutes before and after a known 7-day reset. Manual refreshes contribute samples too. Chart bins match the selected interval, with a 2-hour minimum.
+- **Usage analysis:** The provider view shows observed 7-day totals, peak, minimum, average, coverage, leading account, active time periods, and recent 24-hour change. Historical records track rolling 7-day highs and lows, the highest single day, and the highest interval. Missing intervals stay blank; the headline uses the latest observed interval. A reset does not automatically count unused old-cycle allowance as consumption.
 
 | 7-day usage trend, dark appearance | 7-day usage trend, light appearance |
 | :---: | :---: |
@@ -44,10 +44,10 @@
 
 ## Install and use
 
-CapBar 0.2.0 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
+CapBar 0.2.1 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
 
-1. Download `CapBar-0.2.0.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
-2. Open `CapBar-0.2.0.pkg`. The installer places the app at `/Applications/CapBar.app`.
+1. Download `CapBar-0.2.1.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
+2. Open `CapBar-0.2.1.pkg`. The installer places the app at `/Applications/CapBar.app`.
 3. Launch CapBar from Applications. It appears in the menu bar, without a Dock icon.
 4. Click the menu bar item to view snapshots. Select **Refresh All (全部刷新)** or refresh an individual account when you want current data.
 
@@ -83,7 +83,7 @@ cd CapBar
 ./scripts/package-installer.sh
 ```
 
-The script runs the checks, builds `dist/CapBar.app`, verifies the app bundle, and creates `dist/CapBar-0.2.0.pkg`. It verifies that the package targets `/Applications` **without relocating** to an existing development copy.
+The script runs the checks, builds `dist/CapBar.app`, verifies the app bundle, and creates `dist/CapBar-0.2.1.pkg`. It verifies that the package targets `/Applications` **without relocating** to an existing development copy.
 
 ```sh
 swift run CapBarChecks
