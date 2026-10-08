@@ -2,7 +2,7 @@ import Foundation
 
 enum UsageSamplingSchedule {
     private static let hour: TimeInterval = 3_600
-    private static let postResetDelay: TimeInterval = 5 * 60
+    private static let resetProbeOffset: TimeInterval = 5 * 60
     private static let epsilon: TimeInterval = 0.000_001
 
     static func nextRegular(after time: Date, intervalHours: Int) -> Date {
@@ -31,11 +31,12 @@ enum UsageSamplingSchedule {
             regular = regular.addingTimeInterval(-period)
         }
         let start = resetAt.addingTimeInterval(-period)
-        let post = resetAt.addingTimeInterval(postResetDelay)
+        let pre = resetAt.addingTimeInterval(-resetProbeOffset)
+        let post = resetAt.addingTimeInterval(resetProbeOffset)
         if time >= post { return max(regular, post) }
+        if time >= pre { return max(regular, pre) }
         guard time >= start else { return regular }
-        let latestPreReset = min(time.timeIntervalSince1970, resetAt.timeIntervalSince1970 - epsilon)
-        let steps = floor((latestPreReset - start.timeIntervalSince1970) / hour)
+        let steps = floor(time.timeIntervalSince(start) / hour)
         let special = start.addingTimeInterval(max(0, steps) * hour)
         return max(regular, special)
     }
@@ -46,9 +47,11 @@ enum UsageSamplingSchedule {
         if time < resetAt {
             let steps = floor(time.timeIntervalSince(start) / hour) + 1
             let hourly = start.addingTimeInterval(steps * hour)
-            if hourly < resetAt - epsilon { return hourly }
+            let pre = resetAt.addingTimeInterval(-resetProbeOffset)
+            if hourly < pre - epsilon { return hourly }
+            if time < pre { return pre }
         }
-        let post = resetAt.addingTimeInterval(postResetDelay)
+        let post = resetAt.addingTimeInterval(resetProbeOffset)
         return time < post ? post : nil
     }
 }

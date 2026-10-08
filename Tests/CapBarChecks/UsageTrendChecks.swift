@@ -28,10 +28,62 @@ import Foundation
     check(series.sampleCount == 5, "trend reports real samples within the rolling seven days")
     check(near(last[0].usedPercent, 10) && near(last[1].usedPercent, 10), "two adjacent two-hour intervals each consume ten points")
     check(near(last[2].usedPercent, 40), "six-hour sample makes a forty-point bin")
-    check(near(last[3].usedPercent, 15), "reset computes one hundred minus ninety plus five")
+    check(near(last[3].usedPercent, 5), "old reset records do not invent use of the unobserved remainder")
     check(last[3].crossesReset && !last[2].crossesReset, "only reset-crossing bin is dashed")
     check(near(last[3].remainingPercent, 95), "tooltip has post-reset weekly remainder")
     check(series.points.last?.endAt == Date(timeIntervalSince1970: 8 * hour), "chart end uses UTC two-hour grid")
+    let oldIdleAcrossReset = [
+        sample(18, used: 42, reset: 20),
+        sample(19, used: 42, reset: 20),
+        sample(20 + 1.0 / 60, used: 0, reset: 188),
+        sample(22, used: 0, reset: 188)
+    ]
+    let oldIdleTrend = UsageTrendCalculator.calculate(
+        samples: oldIdleAcrossReset, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 22 * hour)
+    )
+    check(near(oldIdleTrend.points[oldIdleTrend.points.count - 2].usedPercent, 0)
+          && near(oldIdleTrend.points.last?.usedPercent, 0),
+          "idle account crossing reset does not turn unused 58 percent into consumption")
+    let oldIdleHistory = UsageTrendCalculator.calculateHistory(
+        samples: oldIdleAcrossReset, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 22 * hour)
+    )
+    check(oldIdleHistory.points.allSatisfy { $0.usedPercent == 0 },
+          "all-time statistics exclude the unused old-cycle remainder")
+    let reachingLimit = [
+        sample(18, used: 70, reset: 20),
+        sample(20 - 5.0 / 60, used: 99, reset: 20),
+        sample(20 + 5.0 / 60, used: 5, reset: 188),
+        sample(22, used: 5, reset: 188)
+    ]
+    let reachingTrend = UsageTrendCalculator.calculate(
+        samples: reachingLimit, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 22 * hour)
+    )
+    check(near(reachingTrend.points[reachingTrend.points.count - 2].usedPercent, 30)
+          && near(reachingTrend.points.last?.usedPercent, 5),
+          "nearby rising observations that reach the limit credit the final old-cycle point")
+    let reachingHistory = UsageTrendCalculator.calculateHistory(
+        samples: reachingLimit, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 22 * hour)
+    )
+    check(near(reachingHistory.points[0].usedPercent, 30)
+          && near(reachingHistory.points[1].usedPercent, 5),
+          "all-time statistics use the same boundary evidence")
+    let stayingBelowLimit = [
+        sample(18, used: 40, reset: 20),
+        sample(20 - 5.0 / 60, used: 42, reset: 20),
+        sample(20 + 5.0 / 60, used: 5, reset: 188),
+        sample(22, used: 5, reset: 188)
+    ]
+    let stayingTrend = UsageTrendCalculator.calculate(
+        samples: stayingBelowLimit, intervalHours: 2,
+        endingAt: Date(timeIntervalSince1970: 22 * hour)
+    )
+    check(near(stayingTrend.points[stayingTrend.points.count - 2].usedPercent, 2)
+          && near(stayingTrend.points.last?.usedPercent, 5),
+          "slow nearby growth does not invent exhaustion of the old cycle")
     let withOldSample = UsageTrendCalculator.calculate(
         samples: [sample(-169, used: 10, reset: 7)] + twoHourSamples,
         intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour)
@@ -42,14 +94,15 @@ import Foundation
         samples: [sample(6, used: 90, reset: 7), sample(8, used: 95, reset: 175)],
         intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour)
     )
-    check(near(high.points.last?.usedPercent, 105), "reset is detected from time even when used percentage increases")
-    check(high.axisMaximum == 110, "axis expands past one hundred without clipping")
+    check(near(high.points.last?.usedPercent, 95), "reset is detected from time even when used percentage increases")
+    check(high.axisMaximum == 100, "axis follows the observed post-reset usage")
 
     let extreme = UsageTrendCalculator.calculate(
-        samples: [sample(6, used: 0, reset: 7), sample(8, used: 100, reset: 175)],
+        samples: [sample(6, used: 0, reset: 7), sample(6.95, used: 100, reset: 7),
+                  sample(8, used: 100, reset: 175)],
         intervalHours: 2, endingAt: Date(timeIntervalSince1970: 8 * hour)
     )
-    check(near(extreme.points.last?.usedPercent, 200), "extreme reset segment can consume two hundred points")
+    check(near(extreme.points.last?.usedPercent, 200), "two hundred remains possible when use before and after reset was observed")
     check(extreme.axisMaximum == 200 && extreme.axisTicks == [0, 100, 200], "dynamic axis shows two hundred with three readable ticks")
 
     let noResetMetadata = UsageTrendCalculator.calculate(
@@ -114,8 +167,8 @@ import Foundation
         samples: samples, intervalHours: 4, endingAt: Date(timeIntervalSince1970: 8 * hour)
     )
     check(fourHour.points.count == 42 && near(fourHour.points[40].usedPercent, 20)
-          && near(fourHour.points[41].usedPercent, 55),
-          "four-hour chart aggregates 0–4 and 4–8, including manual six-hour sample and reset")
+          && near(fourHour.points[41].usedPercent, 45),
+          "four-hour chart aggregates the observed 4–6 rise and post-reset use")
     check(fourHour.points.last?.crossesReset == true, "four-hour bin records a reset inside the interval")
 
     let hourly = UsageTrendCalculator.calculate(
