@@ -12,7 +12,8 @@ struct HistoricalTrendStatistics: Codable, Equatable, Sendable {
     let highDay: HistoricalUsageRecord?
     let highInterval: HistoricalUsageRecord?
 
-    static func calculate(series: UsageTrendSeries, calendar: Calendar) -> Self {
+    static func calculate(series: UsageTrendSeries, calendar: Calendar,
+                          firstSampleAt: Date? = nil, endingAt: Date? = nil) -> Self {
         let duration = TimeInterval(series.binHours * 3_600)
         var days: [Date: (usage: Double, covered: TimeInterval)] = [:]
         var highInterval: HistoricalUsageRecord?
@@ -38,28 +39,36 @@ struct HistoricalTrendStatistics: Codable, Equatable, Sendable {
             }
         }
 
-        let completeDays = days.compactMap { start, day -> HistoricalUsageRecord? in
-            guard let interval = calendar.dateInterval(of: .day, for: start),
-                  abs(day.covered - interval.duration) < 1 else { return nil }
-            return HistoricalUsageRecord(usedPercent: day.usage, startsAt: start, endsAt: interval.end)
+        // Missing intervals contribute zero. Only elapsed local calendar days qualify;
+        // never invent history before the first sample's local date.
+        let firstObserved = series.points.first { $0.usedPercent != nil }
+        let firstDate = firstSampleAt ?? firstObserved?.endAt.addingTimeInterval(-duration)
+        let endDate = endingAt ?? series.points.map(\.endAt).max()
+        guard let firstDate, let endDate else {
+            return Self(highSevenDays: nil, lowSevenDays: nil, highDay: nil, highInterval: highInterval)
         }
-        let byStart = Dictionary(uniqueKeysWithValues: completeDays.map { ($0.startsAt, $0) })
-        let highDay = completeDays.max { $0.usedPercent < $1.usedPercent }
-
+        let completedBefore = calendar.startOfDay(for: endDate)
+        var cursor = calendar.startOfDay(for: firstDate)
+        var records: [HistoricalUsageRecord] = []
+        var highDay: HistoricalUsageRecord?
         var highWeek: HistoricalUsageRecord?
         var lowWeek: HistoricalUsageRecord?
-        for start in completeDays.map(\.startsAt).sorted() {
-            var total = 0.0
-            var complete = true
-            for offset in 0..<7 {
-                guard let dayStart = calendar.date(byAdding: .day, value: offset, to: start),
-                      let day = byStart[dayStart] else { complete = false; break }
-                total += day.usedPercent
+        var rollingTotal = 0.0
+        while cursor < completedBefore {
+            guard let end = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            let record = HistoricalUsageRecord(usedPercent: days[cursor]?.usage ?? 0,
+                                               startsAt: cursor, endsAt: end)
+            records.append(record)
+            if highDay == nil || record.usedPercent > highDay!.usedPercent { highDay = record }
+            rollingTotal += record.usedPercent
+            if records.count > 7 { rollingTotal -= records[records.count - 8].usedPercent }
+            if records.count >= 7 {
+                let week = HistoricalUsageRecord(usedPercent: max(0, rollingTotal),
+                    startsAt: records[records.count - 7].startsAt, endsAt: end)
+                if highWeek == nil || week.usedPercent > highWeek!.usedPercent { highWeek = week }
+                if lowWeek == nil || week.usedPercent < lowWeek!.usedPercent { lowWeek = week }
             }
-            guard complete, let end = calendar.date(byAdding: .day, value: 7, to: start) else { continue }
-            let record = HistoricalUsageRecord(usedPercent: total, startsAt: start, endsAt: end)
-            if highWeek == nil || total > highWeek!.usedPercent { highWeek = record }
-            if lowWeek == nil || total < lowWeek!.usedPercent { lowWeek = record }
+            cursor = end
         }
         return Self(highSevenDays: highWeek, lowSevenDays: lowWeek,
                     highDay: highDay, highInterval: highInterval)

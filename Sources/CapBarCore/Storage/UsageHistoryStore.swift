@@ -31,6 +31,7 @@ struct HistoricalStatisticsLoad: Sendable {
 
 private struct HistoricalCacheSignature: Codable {
     let version: Int
+    let completedBefore: Date
     let accounts: [HistoricalAccount]
     let intervalHours: Int
     let calendar: String
@@ -97,14 +98,14 @@ actor UsageHistoryStore {
     }
 
     func historicalStatistics(accounts: [HistoricalAccount], intervalHours: Int,
-                              calendar: Calendar) throws -> HistoricalStatisticsLoad? {
+                              calendar: Calendar, now: Date = Date()) throws -> HistoricalStatisticsLoad? {
         guard let first = accounts.first, intervalHours > 0,
               accounts.allSatisfy({ $0.account.provider == first.account.provider && $0.tier.provider == first.account.provider })
         else { return nil }
         let signatureEncoder = JSONEncoder()
         signatureEncoder.outputFormatting = [.sortedKeys]
         let encodedSignature = try signatureEncoder.encode(HistoricalCacheSignature(
-            version: 4, accounts: accounts, intervalHours: intervalHours,
+            version: 5, completedBefore: calendar.startOfDay(for: now), accounts: accounts, intervalHours: intervalHours,
             calendar: String(describing: calendar.identifier),
             timeZone: calendar.timeZone.identifier
         ))
@@ -132,10 +133,14 @@ actor UsageHistoryStore {
             }
             guard cachedStatus == SQLITE_ROW || cachedStatus == SQLITE_DONE else { throw error(database) }
 
+            var firstSampleAt: Date?
             var weighted: [WeightedUsageTrend] = []
             weighted.reserveCapacity(accounts.count)
             for configured in accounts {
                 let samples = try allSamples(account: configured.account, in: database)
+                if let first = samples.first?.capturedAt {
+                    firstSampleAt = min(firstSampleAt ?? first, first)
+                }
                 let series = UsageTrendCalculator.calculateHistory(
                     samples: samples, intervalHours: intervalHours,
                     endingAt: samples.last?.capturedAt ?? .distantPast
@@ -146,7 +151,8 @@ actor UsageHistoryStore {
                                                            baselineCapacity: first.tier.capacityFactor)
             let empty = UsageTrendSeries(points: [], binHours: max(2, intervalHours), axisMaximum: 10,
                                          axisTicks: [0, 5, 10], sampleCount: 0)
-            let statistics = HistoricalTrendStatistics.calculate(series: aggregate ?? empty, calendar: calendar)
+            let statistics = HistoricalTrendStatistics.calculate(series: aggregate ?? empty, calendar: calendar,
+                                                                  firstSampleAt: firstSampleAt, endingAt: now)
             let payload = String(data: try JSONEncoder().encode(statistics), encoding: .utf8)!
             let save = try prepare("""
                 INSERT INTO history_statistics_cache(provider, signature, revisions, payload)

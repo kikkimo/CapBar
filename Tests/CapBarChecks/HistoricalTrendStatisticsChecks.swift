@@ -44,15 +44,24 @@ import Foundation
           && near(sevenDays.lowSevenDays?.usedPercent, 168),
           "exactly seven complete days form one valid rolling window")
     let missingBin = HistoricalTrendStatistics.calculate(series: series(days: 9, missing: [4 * 6 + 2]), calendar: utc)
-    check(missingBin.highSevenDays == nil && missingBin.lowSevenDays == nil,
-          "a missing bin invalidates every seven-day window that crosses it")
+    check(near(missingBin.highSevenDays?.usedPercent, 247) && near(missingBin.lowSevenDays?.usedPercent, 163),
+          "missing bins count as zero for both seven-day records")
     check(near(missingBin.highDay?.usedPercent, 54)
           && near(missingBin.highInterval?.usedPercent, 9),
           "an incomplete week does not hide complete-day and valid-interval records")
     let partial = HistoricalTrendStatistics.calculate(series: series(days: 1, missing: [0]), calendar: utc)
-    check(partial.highSevenDays == nil && partial.highDay == nil
+    check(partial.highSevenDays == nil && near(partial.highDay?.usedPercent, 5)
           && near(partial.highInterval?.usedPercent, 1),
-          "partial day has no day or week record but retains observed interval use")
+          "elapsed day includes observed use despite missing bins; fewer than seven days has no week")
+    let gapDay = HistoricalTrendStatistics.calculate(
+        series: series(days: 7, missing: Set(12..<18)), calendar: utc)
+    check(near(gapDay.highSevenDays?.usedPercent, 150)
+          && near(gapDay.lowSevenDays?.usedPercent, 150),
+          "an entirely missing day participates as zero in a seven-day window")
+    let early = HistoricalTrendStatistics.calculate(series: series(days: 9), calendar: utc,
+        firstSampleAt: origin.addingTimeInterval(2 * day), endingAt: origin.addingTimeInterval(8.5 * day))
+    check(early.highSevenDays == nil && near(early.highDay?.usedPercent, 48),
+          "exclude dates before first sample and the unfinished current day")
     let empty = HistoricalTrendStatistics.calculate(series: series(days: 0), calendar: utc)
     check(empty.highSevenDays == nil && empty.lowSevenDays == nil
           && empty.highDay == nil && empty.highInterval == nil,

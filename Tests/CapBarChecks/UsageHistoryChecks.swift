@@ -133,7 +133,7 @@ import SQLite3
               "unchanged history reuses persisted SQLite statistics")
         var cacheDatabase: OpaquePointer?
         if sqlite3_open(cacheURL.path, &cacheDatabase) == SQLITE_OK, let cacheDatabase {
-            let downgradeSignature = #"UPDATE history_statistics_cache SET signature = REPLACE(signature, '"version":4', '"version":3')"#
+            let downgradeSignature = #"UPDATE history_statistics_cache SET signature = REPLACE(signature, '"version":5', '"version":4')"#
             check(sqlite3_exec(cacheDatabase, downgradeSignature, nil, nil, nil) == SQLITE_OK,
                   "legacy summary signature fixture updates")
             sqlite3_close(cacheDatabase)

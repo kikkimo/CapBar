@@ -61,6 +61,7 @@ import Foundation
         let weeklyResetsAt: Date?
     }
     private struct HistoryKey: Equatable {
+        let completedBefore: Date
         let accounts: [HistoricalAccountKey]
         let intervalHours: Int
         let timeZone: String
@@ -274,7 +275,7 @@ import Foundation
                     newHistoryKeys.removeValue(forKey: provider)
                     continue
                 }
-                let key = HistoryKey(accounts: calibrated.map { configured in
+                let key = HistoryKey(completedBefore: calendar.startOfDay(for: now), accounts: calibrated.map { configured in
                     let snapshot = records[configured.account]?.snapshot
                     let weekly = snapshot?.windows.first { $0.kind == .sevenDay }
                     return HistoricalAccountKey(account: configured.account, tier: configured.tier,
