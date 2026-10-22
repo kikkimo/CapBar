@@ -295,7 +295,7 @@ private struct CapBarHistoricalTrendStatistics: View {
             HStack {
                 Text("历史纪录").font(.system(size: 10, weight: .semibold))
                 Spacer()
-                Text("完整窗口 · 本地日期").font(.system(size: 9)).foregroundStyle(secondary)
+                Text("本地自然日 · 缺测计 0").font(.system(size: 9)).foregroundStyle(secondary)
             }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
                 record("历史最高 · 连续 7 日", statistics?.highSevenDays,
