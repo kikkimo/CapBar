@@ -20,9 +20,10 @@ struct RetryRunner: Sendable {
         self.chooseDelay = chooseDelay
     }
 
-    func run<Value: Sendable>(_ operation: @escaping @Sendable () async throws -> Value) async throws -> Value {
+    func run<Value: Sendable>(progress: @escaping @Sendable (Int, Bool) async -> Void = { _, _ in }, _ operation: @escaping @Sendable () async throws -> Value) async throws -> Value {
         for attempt in 1...policy.maxAttempts {
             try Task.checkCancellation()
+            await progress(attempt, false)
             do {
                 return try await attemptWithTimeout(operation)
             } catch ProbeFailure.permanent(let message) {
@@ -33,6 +34,7 @@ struct RetryRunner: Sendable {
                 try Task.checkCancellation()
                 if attempt == policy.maxAttempts { throw error }
                 let delay = chooseDelay(policy.retryDelayMinSeconds...policy.retryDelayMaxSeconds)
+                await progress(attempt, true)
                 await pause(min(max(delay, policy.retryDelayMinSeconds), policy.retryDelayMaxSeconds))
             }
         }

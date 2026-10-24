@@ -9,6 +9,18 @@ struct CoordinatorViewState: Sendable {
     let refreshing: Set<AccountID>
 }
 
+struct RefreshExecution: Sendable {
+    let id: UUID
+    let account: AccountID
+    let startedAt: Date
+    var state = "running"
+    var attempt = 0
+    var finishedAt: Date?
+    var record: AccountRecord?
+    var historyWrite = "not_requested"
+    var isFinished: Bool { finishedAt != nil }
+}
+
 actor RefreshCoordinator {
     private let settingsStore: SettingsStore
     private let snapshotStore: SnapshotStore
@@ -20,6 +32,26 @@ actor RefreshCoordinator {
     private var refreshing: Set<AccountID> = []
     private var activeTasks: [AccountID: Task<Void, Never>] = [:]
     private var shuttingDown = false
+    private var executionIDs: [AccountID: UUID] = [:]
+    private var executions: [UUID: RefreshExecution] = [:]
+
+    func activeExecutions() -> [AccountID: RefreshExecution] { executionIDs.compactMapValues { executions[$0] } }
+
+    func activeExecution(_ account: AccountID) -> RefreshExecution? {
+        executionIDs[account].flatMap { executions[$0] }
+    }
+    func latestExecution(_ account: AccountID, since date: Date) -> RefreshExecution? {
+        executions.values.filter { $0.account == account && $0.startedAt >= date }.max { $0.startedAt < $1.startedAt }
+    }
+    func execution(_ id: UUID) -> RefreshExecution? { executions[id] }
+
+    // Actor-atomic enrollment: UI, scheduled and external refreshes share this path.
+    func joinOrRefresh(_ account: AccountID, recordHistory: Bool, planTierOverride: UsagePlanTier?) async -> (UUID, Bool)? {
+        if let existing = executionIDs[account] { return (existing, false) }
+        let id = UUID()
+        guard await beginRefresh(account, executionID: id, recordHistory: recordHistory, planTierOverride: planTierOverride) else { return nil }
+        return (id, true)
+    }
 
     init(
         settingsStore: SettingsStore,
@@ -50,8 +82,16 @@ actor RefreshCoordinator {
     func isRefreshing(_ id: AccountID) -> Bool { refreshing.contains(id) }
 
     func requestRefresh(_ id: AccountID, recordHistory: Bool = false, planTierOverride: UsagePlanTier? = nil) async -> Bool {
+        await beginRefresh(id, executionID: UUID(), recordHistory: recordHistory, planTierOverride: planTierOverride)
+    }
+
+    private func beginRefresh(_ id: AccountID, executionID: UUID, recordHistory: Bool, planTierOverride: UsagePlanTier?) async -> Bool {
         guard !shuttingDown, !refreshing.contains(id), let provider = providers[id.provider] else { return false }
         refreshing.insert(id)
+        executionIDs[id] = executionID
+        executions[executionID] = RefreshExecution(id: executionID, account: id, startedAt: now(), historyWrite: recordHistory ? "pending" : "not_requested")
+        let completed = executions.values.filter(\.isFinished).sorted { $0.startedAt < $1.startedAt }
+        for old in completed.prefix(max(0, executions.count - 1000)) { executions.removeValue(forKey: old.id) }
         let previous = records[id]
         var record = previous ?? AccountRecord(id: id, snapshot: nil, lastAttemptAt: nil, lastError: nil)
         record.lastAttemptAt = now()
@@ -61,11 +101,11 @@ actor RefreshCoordinator {
             try await snapshotStore.update(record)
         } catch {
             records[id] = previous
-            refreshing.remove(id)
+            finishExecution(id, state: "failed", record: previous)
             return false
         }
         if shuttingDown {
-            refreshing.remove(id)
+            finishExecution(id, state: "interrupted", record: previous)
             return false
         }
 
@@ -117,10 +157,14 @@ actor RefreshCoordinator {
         let previousSnapshot = record.snapshot
         var successfulSnapshot: UsageSnapshot?
         do {
-            let result = try await runner.run { try await provider.probe(account: id) }
+            let result = try await runner.run(progress: { attempt, waiting in
+                await self.setProgress(id, attempt: attempt, waiting: waiting)
+            }) { try await provider.probe(account: id) }
             record.snapshot = result
             record.lastError = nil
             successfulSnapshot = result
+        } catch is CancellationError {
+            record.lastError = "探测已中断"
         } catch ProbeFailure.permanent {
             record.lastError = "账号不可用，请检查登录或目录"
         } catch {
@@ -143,13 +187,31 @@ actor RefreshCoordinator {
                 let tier = override?.provider == id.provider ? override
                     : UsagePlanTier.detect(provider: id.provider, rawPlan: successfulSnapshot.identity.plan)
                 _ = try await historyStore.append(account: id, snapshot: successfulSnapshot, planTier: tier)
+                if let executionID = executionIDs[id] { executions[executionID]?.historyWrite = "stored" }
             } catch {
+                if let executionID = executionIDs[id] { executions[executionID]?.historyWrite = "failed" }
                 record.lastError = "历史记录未能保存"
                 try? await snapshotStore.update(record)
             }
         }
         records[id] = record
-        refreshing.remove(id)
-        activeTasks.removeValue(forKey: id)
+        finishExecution(id, state: Task.isCancelled ? "interrupted" : successfulSnapshot == nil ? "failed" : "succeeded", record: record)
+    }
+
+    private func setProgress(_ account: AccountID, attempt: Int, waiting: Bool) {
+        guard let id = executionIDs[account] else { return }
+        executions[id]?.attempt = attempt
+        executions[id]?.state = waiting ? "retry_wait" : "running"
+    }
+
+    private func finishExecution(_ account: AccountID, state: String, record: AccountRecord?) {
+        if let id = executionIDs.removeValue(forKey: account) {
+            executions[id]?.state = state
+            executions[id]?.finishedAt = now()
+            executions[id]?.record = record
+            if executions[id]?.historyWrite == "pending" { executions[id]?.historyWrite = "not_requested" }
+        }
+        refreshing.remove(account)
+        activeTasks.removeValue(forKey: account)
     }
 }

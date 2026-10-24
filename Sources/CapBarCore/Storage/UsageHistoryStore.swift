@@ -182,6 +182,31 @@ actor UsageHistoryStore {
         return status == SQLITE_ROW ? sqlite3_column_int64(statement, 0) : 0
     }
 
+    func revisionSignature(accounts: [AccountID]) throws -> String {
+        try withDatabase { database in
+            try accounts.map { String(try accountRevision($0, in: database)) }.joined(separator: ",")
+        }
+    }
+
+    func sampleBounds(accounts: [AccountID]) throws -> (Date?, Date?) {
+        try withDatabase { database in
+            var first: Double?, last: Double?
+            for account in accounts {
+                let statement = try prepare("SELECT MIN(captured_at), MAX(captured_at) FROM usage_samples WHERE provider = ? AND directory = ?", in: database)
+                defer { sqlite3_finalize(statement) }
+                try bind(account.provider.rawValue, to: 1, in: statement, database: database)
+                try bind(account.directory, to: 2, in: statement, database: database)
+                let status = sqlite3_step(statement)
+                guard status == SQLITE_ROW || status == SQLITE_DONE else { throw error(database) }
+                if status == SQLITE_ROW, sqlite3_column_type(statement, 0) != SQLITE_NULL {
+                    let a = sqlite3_column_double(statement, 0), b = sqlite3_column_double(statement, 1)
+                    first = min(first ?? a, a); last = max(last ?? b, b)
+                }
+            }
+            return (first.map(Date.init(timeIntervalSince1970:)), last.map(Date.init(timeIntervalSince1970:)))
+        }
+    }
+
     private func allSamples(account: AccountID, in database: OpaquePointer) throws -> [UsageHistorySample] {
         let statement = try prepare("""
             SELECT captured_at, used_percent, resets_at, plan_tier FROM usage_samples

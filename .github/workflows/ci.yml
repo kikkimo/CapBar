@@ -43,8 +43,11 @@ jobs:
           package="dist/CapBar-$version.pkg"
           test -s "$package"
           test "$(lipo -archs dist/CapBar.app/Contents/MacOS/CapBar)" = arm64
+          test "$(lipo -archs dist/CapBar.app/Contents/MacOS/capbar-mcp)" = arm64
+          dist/CapBar.app/Contents/MacOS/capbar-mcp --self-check
           codesign --verify --deep --strict dist/CapBar.app
           pkgutil --payload-files "$package" | grep -q 'CapBar.app/Contents/MacOS/CapBar'
+          pkgutil --payload-files "$package" | grep -q 'CapBar.app/Contents/MacOS/capbar-mcp'
 
       - name: Write release checksum
         if: startsWith(github.ref, 'refs/tags/')
