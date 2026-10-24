@@ -1,7 +1,7 @@
 # 外部接口本地验收记录
 
-日期：2026-10-24  
-分支：`codex/external-readonly-mcp`  
+日期：2026-10-24
+分支：`codex/external-readonly-mcp`
 状态：用户已完成本地安装及登录自启动验收，授权合并与发布 0.3.0。发布完成状态以 GitHub Release 和 CI 为准。
 
 ## TDD 证据
