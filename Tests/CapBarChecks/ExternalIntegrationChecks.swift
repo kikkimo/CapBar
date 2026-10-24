@@ -92,9 +92,13 @@ private actor ExternalGateProvider: UsageProvider {
         await probe.release([accounts[2]])
         for _ in 0..<100 { if await !coordinator.isRefreshing(accounts[2]) { break }; try? await Task.sleep(for: .milliseconds(10)) }
         await probe.release(accounts)
-        try await Task.sleep(for: .milliseconds(400))
         let jobID = job.value["data"]["job_id"].string!
-        let finished = try await request("/v1/refresh-jobs/" + jobID, method: "GET")
+        var finished = job
+        for _ in 0..<20 {
+            finished = try await request("/v1/refresh-jobs/" + jobID, method: "GET")
+            if finished.value["data"]["state"].string != "running" { break }
+            try await Task.sleep(for: .milliseconds(500))
+        }
         check(finished.value["data"]["state"].string == "completed", "queued batch completes as one-shot")
         check(await probe.count(accounts[2]) == 1, "queued account reuses UI execution that already completed")
         var conflict = bad; conflict["selector"] = .object(["account_ids": .array([ids[0]])])
@@ -117,8 +121,12 @@ private actor ExternalGateProvider: UsageProvider {
         settings.externalAccess.allowOneShotRefresh = false
         try await settingsStore.save(settings)
         await gate.release(accounts)
-        try await Task.sleep(for: .milliseconds(400))
-        let blockedResult = await blockedAPI.handle(method: "GET", path: "/v1/refresh-jobs/" + blockedJob.value["data"]["job_id"].string!, token: token)
+        var blockedResult = blockedJob
+        for _ in 0..<20 {
+            blockedResult = await blockedAPI.handle(method: "GET", path: "/v1/refresh-jobs/" + blockedJob.value["data"]["job_id"].string!, token: token)
+            if blockedResult.value["data"]["state"].string != "running" { break }
+            try await Task.sleep(for: .milliseconds(500))
+        }
         check(await gate.count(accounts[2]) == 0, "disabling permission prevents queued external probe from starting")
         check(blockedResult.value["data"]["items"].array?.last?["state"].string == "skipped", "queued revoked task reports skipped")
         await blockedCoordinator.cancelAll()

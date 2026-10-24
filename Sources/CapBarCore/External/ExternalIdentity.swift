@@ -18,7 +18,12 @@ struct ExternalIdentityRegistry: Codable {
 
 struct ExternalCredentials {
     static var directory: URL { StorageSupport.appSupportURL("ExternalAccess") }
-    static var socketDirectory: String { "/tmp/capbar-\(getuid())" }
+    static var socketDirectory: String {
+        var buffer = [CChar](repeating: 0, count: Int(PATH_MAX))
+        let count = confstr(_CS_DARWIN_USER_TEMP_DIR, &buffer, buffer.count)
+        precondition(count > 0 && count <= buffer.count, "macOS private temporary directory unavailable")
+        return URL(fileURLWithPath: String(cString: buffer)).appendingPathComponent("capbar-\(getuid())").path
+    }
     static var socketPath: String { socketDirectory + "/api.sock" }
     static func prepareDirectory(_ url: URL) throws {
         var info = stat()

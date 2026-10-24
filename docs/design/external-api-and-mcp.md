@@ -58,7 +58,7 @@ flowchart LR
 ```
 
 - 本地接口使用 HTTP/JSON over Unix Domain Socket，不开放 TCP 或局域网端口。
-- socket 默认 `/tmp/capbar-<uid>/api.sock`；目录 0700、socket 0600，校验所有者、符号链接与连接者 UID。
+- socket 默认 `<用户私有临时目录>/capbar-<uid>/api.sock`；目录 0700、socket 0600，校验所有者、符号链接与连接者 UID。
 - App 内提供唯一服务实例。MCP 是接入桥接器，不单独维护账号、快照、数据库或采样器。
 - 安装包内包含原生 `capbar-mcp`，无需另外安装 Node.js/Python。
 - App 未运行或外部访问关闭时，调用明确返回不可用；外部调用不自动启动 App。

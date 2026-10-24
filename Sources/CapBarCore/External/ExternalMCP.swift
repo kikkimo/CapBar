@@ -1,6 +1,7 @@
 import Foundation
 
 final class ExternalMCP {
+    static let supportedProtocolVersions = ["2025-11-25", "2025-06-18"]
     let call: (String, String, APIValue) -> ExternalResponse
     private var initialized = false
     init(call: @escaping (String, String, APIValue) -> ExternalResponse) { self.call = call }
@@ -21,9 +22,11 @@ final class ExternalMCP {
                   params["capabilities"].object != nil, params["clientInfo"].object != nil else {
                 return error(id: id, code: -32602, message: "Invalid initialization")
             }
+            let requested = params["protocolVersion"].string!
+            let negotiated = Self.supportedProtocolVersions.contains(requested) ? requested : Self.supportedProtocolVersions[0]
             initialized = true
             result = .object([
-                "protocolVersion": .string("2025-11-25"),
+                "protocolVersion": .string(negotiated),
                 "capabilities": .object(["tools": .object([:])]),
                 "serverInfo": .object(["name": .string("capbar"), "version": .string("1.0.0")]),
                 "instructions": .string("查询仅读取已有数据。只有用户要求更新且已开启许可时，才调用单次刷新；不可创建定时任务或修改配置。")

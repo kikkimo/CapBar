@@ -2,6 +2,8 @@ import Foundation
 @testable import CapBarCore
 
 @MainActor func runExternalHTTPChecks() {
+    check(!ExternalCredentials.socketDirectory.hasPrefix("/tmp/"), "production socket uses user-private temporary directory")
+    check(ExternalCredentials.socketPath.utf8.count < 104, "production socket fits Darwin sun_path")
     func parse(_ request: String) throws -> ExternalHTTPRequest { try .parse(Data(request.utf8)) }
     do {
         let get = try parse("GET /v1/status HTTP/1.1\r\nHost: capbar.local\r\nAuthorization: Bearer example\r\n\r\n")

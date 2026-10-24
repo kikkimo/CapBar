@@ -2,6 +2,12 @@ import Foundation
 @testable import CapBarCore
 
 @MainActor func runExternalMCPChecks() {
+    for (requested, expected) in [("2025-06-18", "2025-06-18"), ("unknown", "2025-11-25")] {
+        let bridge = ExternalMCP { _, _, _ in .failure(500, "UNEXPECTED", "unused") }
+        let response = bridge.receive(.object(["jsonrpc": .string("2.0"), "id": .number(1), "method": .string("initialize"),
+            "params": .object(["protocolVersion": .string(requested), "capabilities": .object([:]), "clientInfo": .object([:])])]))
+        check(response?["result"]["protocolVersion"].string == expected, "MCP negotiates requested version or supported fallback")
+    }
     var calls = 0
     var allowed = false
     let mcp = ExternalMCP { method, path, body in

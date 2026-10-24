@@ -35,16 +35,16 @@ codex mcp add capbar -- /Applications/CapBar.app/Contents/MacOS/capbar-mcp
 
 ## 本地接口
 
-HTTP/JSON 运行于 `/tmp/capbar-<uid>/api.sock`，不监听 TCP 端口。
+HTTP/JSON 运行于 `<用户私有临时目录>/capbar-<uid>/api.sock`，不监听 TCP 端口。
 
 ```sh
-curl --unix-socket "/tmp/capbar-$(id -u)/api.sock" \
+curl --unix-socket "$(getconf DARWIN_USER_TEMP_DIR)capbar-$(id -u)/api.sock" \
   --header @"$HOME/Library/Application Support/CapBar/ExternalAccess/authorization.header" \
   http://capbar.local/v1/status
 ```
 
 ```sh
-curl --unix-socket "/tmp/capbar-$(id -u)/api.sock" \
+curl --unix-socket "$(getconf DARWIN_USER_TEMP_DIR)capbar-$(id -u)/api.sock" \
   --header @"$HOME/Library/Application Support/CapBar/ExternalAccess/authorization.header" \
   --header 'Content-Type: application/json' \
   --data '{"selector":{"all":true}}' \
