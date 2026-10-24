@@ -32,6 +32,7 @@ struct PopoverSize: Codable, Sendable, Equatable {
 
 struct UserSettings: Codable, Sendable {
     var accounts: [AccountID]
+    var externalAccess = ExternalAccessSettings()
     var defaultsSeeded: Bool
     var autoRefreshOnOpen: Bool
     var refreshThresholdMinutes: Int
@@ -64,6 +65,7 @@ struct UserSettings: Codable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case externalAccess = "external_access"
         case accounts, defaultsSeeded, autoRefreshOnOpen, refreshThresholdMinutes
         case usageStatisticsEnabled, samplingIntervalHours, samplingScheduleStartedAt, planOverrides, popoverSize
     }
@@ -81,6 +83,7 @@ struct UserSettings: Codable, Sendable {
             planOverrides: try values.decodeIfPresent([UsagePlanOverride].self, forKey: .planOverrides) ?? [],
             popoverSize: try values.decodeIfPresent(PopoverSize.self, forKey: .popoverSize) ?? PopoverSize()
         )
+        externalAccess = try values.decodeIfPresent(ExternalAccessSettings.self, forKey: .externalAccess) ?? ExternalAccessSettings()
     }
 }
 

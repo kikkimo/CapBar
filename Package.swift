@@ -4,9 +4,11 @@ import PackageDescription
 let package = Package(
     name: "CapBar",
     platforms: [.macOS(.v14)],
-    products: [.executable(name: "CapBar", targets: ["CapBar"])],
+    products: [.executable(name: "CapBar", targets: ["CapBar"]),
+               .executable(name: "capbar-mcp", targets: ["CapBarMCP"])],
     targets: [
         .target(name: "CapBarCore", resources: [.process("Resources")], linkerSettings: [.linkedLibrary("sqlite3")]),
+        .executableTarget(name: "CapBarMCP", dependencies: ["CapBarCore"]),
         .executableTarget(name: "CapBar", dependencies: ["CapBarCore"]),
         .executableTarget(name: "CapBarChecks", dependencies: ["CapBarCore"], path: "Tests/CapBarChecks"),
     ]

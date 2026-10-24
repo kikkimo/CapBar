@@ -1,0 +1,11 @@
+{
+  "requestsPerMinute": 120,
+  "requestBurst": 20,
+  "refreshBatchesPerMinute": 6,
+  "refreshBurst": 2,
+  "maximumConcurrentProbes": 2,
+  "maximumQueuedAccounts": 200,
+  "maximumActiveJobs": 5,
+  "maximumRetainedJobs": 1000,
+  "jobRetentionSeconds": 86400
+}

@@ -58,6 +58,7 @@ import SwiftUI
     private var statusTimer: Timer?
     private var samplingTimer: Timer?
     private var samplingController: UsageSamplingController?
+    private var externalAccessController: ExternalAccessController?
     private var wakeObserver: NSObjectProtocol?
     private var outsideClickMonitor: Any?
     private var statusRightClickMonitor: Any?
@@ -150,6 +151,12 @@ import SwiftUI
                     await sampler.update(settings: changed)
                 }
             }
+            let external = ExternalAccessController(settingsStore: settingsStore, coordinator: coordinator, history: historyStore)
+            externalAccessController = external
+            model.onExternalAccessChange = { [weak external] value in try await external?.update(value) }
+            model.onExternalKeyReset = { [weak external] in try await external?.resetKey() }
+            do { try await external.update(settings.externalAccess) }
+            catch { model.externalAccessMessage = "外部服务未能启动：请检查是否已有其他 CapBar 实例" }
             viewModel = model
 
             let panel = NSPopover()
@@ -273,6 +280,7 @@ import SwiftUI
         viewModel?.closed()
         Task {
             await viewModel?.flushSettings()
+            externalAccessController?.stop()
             await samplingController?.stop()
             await coordinator.cancelAll()
             sender.reply(toApplicationShouldTerminate: true)

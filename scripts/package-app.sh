@@ -7,11 +7,13 @@ CAPBAR_CONTENTS="$CAPBAR_APP/Contents"
 
 swift run --package-path "$CAPBAR_ROOT" CapBarChecks
 swift build --package-path "$CAPBAR_ROOT" -c release --product CapBar
+swift build --package-path "$CAPBAR_ROOT" -c release --product capbar-mcp
 
 mkdir -p "$CAPBAR_ROOT/dist"
 rm -rf "$CAPBAR_APP"
 mkdir -p "$CAPBAR_CONTENTS/MacOS" "$CAPBAR_CONTENTS/Resources"
 cp "$CAPBAR_ROOT/.build/release/CapBar" "$CAPBAR_CONTENTS/MacOS/CapBar"
+cp "$CAPBAR_ROOT/.build/release/capbar-mcp" "$CAPBAR_CONTENTS/MacOS/capbar-mcp"
 cp "$CAPBAR_ROOT/scripts/Info.plist" "$CAPBAR_CONTENTS/Info.plist"
 cp -R "$CAPBAR_ROOT/.build/release/CapBar_CapBarCore.bundle" "$CAPBAR_CONTENTS/Resources/CapBar_CapBarCore.bundle"
 
@@ -32,4 +34,5 @@ codesign --force --deep --sign - "$CAPBAR_APP"
 xattr -cr "$CAPBAR_APP"
 codesign --verify --deep --strict "$CAPBAR_APP"
 "$CAPBAR_CONTENTS/MacOS/CapBar" --self-check
+"$CAPBAR_CONTENTS/MacOS/capbar-mcp" --self-check
 print "Packaged $CAPBAR_APP"

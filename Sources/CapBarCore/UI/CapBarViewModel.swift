@@ -22,6 +22,7 @@ import Foundation
     @Published var popoverWidthInput: String
     @Published var popoverHeightInput: String
     @Published var settingsMessage: String?
+    @Published var externalAccessMessage: String?
 
     let settingsStore: SettingsStore
     let coordinator: RefreshCoordinator
@@ -43,6 +44,8 @@ import Foundation
             completion(response == .OK ? panel.url : nil)
         }
     }
+    var onExternalAccessChange: ((ExternalAccessSettings) async throws -> Void)?
+    var onExternalKeyReset: (() async throws -> Void)?
     var onSamplingSettingsChange: ((UserSettings) -> Void)?
 
     private var timer: Timer?
@@ -426,6 +429,39 @@ import Foundation
         onFolderPickerFinished?()
     }
 
+    func setExternalAccessEnabled(_ enabled: Bool) {
+        settings.externalAccess.enabled = enabled
+        externalAccessMessage = nil
+        enqueueSave()
+    }
+
+    func setExternalRefreshAllowed(_ enabled: Bool) {
+        guard settings.externalAccess.enabled else { return }
+        settings.externalAccess.allowOneShotRefresh = enabled
+        externalAccessMessage = nil
+        enqueueSave()
+    }
+
+    func copyMCPConfiguration() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(ExternalAccessController.mcpConfiguration(), forType: .string)
+        externalAccessMessage = "已复制 MCP 配置，不包含访问密钥"
+    }
+
+    func copyLocalAccessInformation() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(ExternalAccessController.localAccessInformation, forType: .string)
+        externalAccessMessage = "已复制本地接入信息，不包含访问密钥"
+    }
+
+    func resetExternalAccessKey() {
+        Task {
+            await flushSettings()
+            do { try await onExternalKeyReset?(); externalAccessMessage = "访问密钥已更新，旧密钥立即失效" }
+            catch { externalAccessMessage = "密钥未能更新，请检查本地目录权限" }
+        }
+    }
+
     private func enqueueSave() {
         let previous = saveTask
         let value = settings
@@ -434,6 +470,8 @@ import Foundation
             await previous?.value
             do {
                 try await store.save(value)
+                do { try await onExternalAccessChange?(value.externalAccess) }
+                catch { externalAccessMessage = "外部服务未能启动：请检查是否运行了另一个 CapBar 或目录权限" }
             } catch {
                 settingsMessage = "设置未能保存"
             }

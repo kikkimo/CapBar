@@ -83,6 +83,36 @@ struct CapBarSettingsView: View {
                 Text("仅可选 1、2、3、4、6、8 小时，默认 4 小时。走势图按所选间隔分组；1 小时采样时按 2 小时绘图。关闭统计也会停止定时采样。")
                     .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
 
+                sectionTitle("外部访问 · MCP / 本地接口").padding(.top, 20)
+                Toggle("启用外部访问", isOn: Binding(
+                    get: { model.settings.externalAccess.enabled },
+                    set: { model.setExternalAccessEnabled($0) }
+                ))
+                .font(.system(size: 12, weight: .medium)).toggleStyle(.switch).padding(.top, 10)
+                Text("允许本机工具只读查询账号身份、额度和已有用量统计。查询不会发起会话。")
+                    .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
+                Toggle("允许外部单次刷新", isOn: Binding(
+                    get: { model.settings.externalAccess.allowOneShotRefresh },
+                    set: { model.setExternalRefreshAllowed($0) }
+                ))
+                .font(.system(size: 12, weight: .medium)).toggleStyle(.switch).padding(.top, 12)
+                .disabled(!model.settings.externalAccess.enabled)
+                Text("允许发起一次额度探测，可能消耗少量 token；不会开启定时采样。更改后请重新连接 MCP 客户端。")
+                    .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
+                HStack(spacing: 12) {
+                    Button("复制 MCP 配置") { model.copyMCPConfiguration() }
+                    Button("复制本地接入信息") { model.copyLocalAccessInformation() }
+                }
+                .buttonStyle(.plain).font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Color.accentColor).padding(.top, 12)
+                .disabled(!model.settings.externalAccess.enabled)
+                Button("重置访问密钥") { model.resetExternalAccessKey() }
+                    .buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(secondary)
+                    .padding(.top, 9).disabled(!model.settings.externalAccess.enabled)
+                if let message = model.externalAccessMessage {
+                    Text(message).font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 5)
+                }
+
                 sectionTitle("启动").padding(.top, 20)
                 Toggle("登录时自动启动", isOn: Binding(
                     get: { launchAtLogin.isOn },

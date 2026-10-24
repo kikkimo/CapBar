@@ -36,6 +36,10 @@ import Foundation
             filter = nil
         }
 
+        if filter == nil || filter == "ExternalIntegrationTests" { await runExternalIntegrationChecks() }
+        if filter == nil || filter == "ExternalMCPTests" { runExternalMCPChecks() }
+        if filter == nil || filter == "ExternalHTTPTests" { runExternalHTTPChecks() }
+        if filter == nil || filter == "ExternalAccessTests" { await runExternalAccessChecks() }
         if filter == nil || filter == "ModelTests" { runModelChecks() }
         if filter == nil || filter == "StorageTests" { await runStorageChecks() }
         if filter == nil || filter == "UsageHistoryTests" { await runUsageHistoryChecks() }
