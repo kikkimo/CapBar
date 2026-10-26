@@ -15,7 +15,12 @@ import Foundation
     @Published private(set) var trends: [AccountID: UsageTrendSeries] = [:]
     @Published private(set) var historicalStatistics: [Provider: HistoricalTrendStatistics] = [:]
     @Published var showsSettings = false
+    @Published var settingsSection: CapBarSettingsSection = .accounts
     @Published private(set) var showsTrend = false
+    @Published private(set) var showsTokenUsage = false
+    let tokenUsage: TokenUsageController
+    private var tokenReportWindow: TokenUsageReportWindowController?
+    private var tokenObservation: AnyCancellable?
     @Published private(set) var trendScope: TrendScope = .individual
     @Published var selectedProvider: Provider = .claude
     @Published var directoryInput = ""
@@ -83,8 +88,10 @@ import Foundation
 
     init(
         settings: UserSettings, settingsStore: SettingsStore, coordinator: RefreshCoordinator,
-        historyStore: UsageHistoryStore? = nil, samplingController: UsageSamplingController? = nil
+        historyStore: UsageHistoryStore? = nil, samplingController: UsageSamplingController? = nil,
+        tokenScanner: TokenLogScanner = TokenLogScanner()
     ) {
+        self.tokenUsage = TokenUsageController(scanner: tokenScanner, settings: settings.tokenUsage, accounts: settings.accounts)
         self.settings = settings
         self.popoverWidthInput = String(settings.popoverSize.width)
         self.popoverHeightInput = String(settings.popoverSize.height)
@@ -92,6 +99,7 @@ import Foundation
         self.coordinator = coordinator
         self.historyStore = historyStore
         self.samplingController = samplingController
+        self.tokenObservation = tokenUsage.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
     }
 
     func opened() {
@@ -121,6 +129,7 @@ import Foundation
     private func reloadRows() async {
         let state = await coordinator.viewState()
         rows = PopoverPresentation.rows(settings: settings, state: state, now: Date(), calendar: .current)
+        tokenReportWindow?.report.labels = tokenAccountLabels
         onRowsChange?(rows)
         if showsTrend && settings.usageStatisticsEnabled { await reloadTrends() }
     }
@@ -143,9 +152,30 @@ import Foundation
     }
 
     func setTrendMode(_ enabled: Bool, reload: Bool = true) {
+        showsTokenUsage = false
         trendReloadGeneration += 1
         showsTrend = enabled && settings.usageStatisticsEnabled
         if showsTrend && reload { Task { await reloadTrends() } }
+    }
+
+    func showTokenUsage() { setTrendMode(false); showsTokenUsage = true }
+
+    func setTokenAutomatic(_ enabled: Bool) {
+        settings.tokenUsage.automatic = enabled; updateTokenConfiguration()
+    }
+    func setTokenInterval(_ minutes: Int) {
+        guard (1...1440).contains(minutes) else { return }
+        settings.tokenUsage.intervalMinutes = minutes; updateTokenConfiguration()
+    }
+    func setTokenSource(_ account: AccountID, enabled: Bool) {
+        guard settings.accounts.contains(account) else { return }
+        settings.tokenUsage.excludedAccounts.removeAll { $0 == account }
+        if !enabled { settings.tokenUsage.excludedAccounts.append(account) }
+        updateTokenConfiguration()
+    }
+    private func updateTokenConfiguration() {
+        tokenUsage.configure(settings: settings.tokenUsage, accounts: settings.accounts)
+        enqueueSave()
     }
 
     func setTrendScope(_ scope: TrendScope) {
@@ -170,6 +200,19 @@ import Foundation
         if showsTrend && trendScope == .total { Task { await reloadTrends() } }
         onSamplingSettingsChange?(settings)
         enqueueSave()
+    }
+
+    private var tokenAccountLabels: [AccountID: String] {
+        Dictionary(uniqueKeysWithValues: rows.map { ($0.account, $0.title == "尚未识别" ? $0.directoryLabel : $0.title) })
+    }
+    func showTokenReport() {
+        let labels = tokenAccountLabels
+        if let tokenReportWindow { tokenReportWindow.report.labels = labels; tokenReportWindow.show() }
+        else {
+            let controller = TokenUsageReportWindowController(source: tokenUsage, labels: labels)
+            tokenReportWindow = controller
+            controller.show()
+        }
     }
 
     func trendOverview(for provider: Provider) -> ProviderTrendOverview {
@@ -386,6 +429,7 @@ import Foundation
             return
         }
         settings.accounts.append(account)
+        tokenUsage.configure(settings: settings.tokenUsage, accounts: settings.accounts)
         trendReloadGeneration += 1
         historyKeys.removeValue(forKey: account.provider)
         historicalStatistics.removeValue(forKey: account.provider)
@@ -399,6 +443,8 @@ import Foundation
     func removeAccount(_ account: AccountID) {
         guard !rows.contains(where: { $0.account == account && $0.isRefreshing }) else { return }
         settings.accounts.removeAll { $0 == account }
+        settings.tokenUsage.excludedAccounts.removeAll { $0 == account }
+        tokenUsage.configure(settings: settings.tokenUsage, accounts: settings.accounts)
         settings.planOverrides.removeAll { $0.account == account }
         trendReloadGeneration += 1
         historyKeys.removeValue(forKey: account.provider)

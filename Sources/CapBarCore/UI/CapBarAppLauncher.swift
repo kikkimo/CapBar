@@ -32,6 +32,8 @@ import SwiftUI
 
     public static func selfCheck() -> Bool {
         guard (try? ProbePolicy.bundled()) != nil,
+              CapBarResources.url(forResource: "capbar-usage-engine", withExtension: "") != nil,
+              CapBarResources.url(forResource: "Zstandard-LICENSE", withExtension: "txt") != nil,
               CapBarResources.url(forResource: "capbar-menubar-template", withExtension: "png") != nil,
               Bundle.main.url(forResource: "CapBar", withExtension: "icns") != nil else {
             return false
@@ -168,6 +170,8 @@ import SwiftUI
             popover = panel
             installFocusDismissal()
 
+            if CommandLine.arguments.contains("--usage-report") { model.showTokenReport() }
+            Task { await model.tokenUsage.start() }
             model.updateRows()
             statusTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak model] _ in
                 Task { @MainActor in model?.updateRows() }
@@ -176,6 +180,7 @@ import SwiftUI
                 Task { @MainActor [weak self] in
                     guard let sampler = self?.samplingController else { return }
                     _ = await sampler.tick()
+                    await self?.viewModel?.tokenUsage.tick()
                 }
             }
             wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -184,6 +189,7 @@ import SwiftUI
                 Task { @MainActor [weak self] in
                     guard let sampler = self?.samplingController else { return }
                     _ = await sampler.tick()
+                    await self?.viewModel?.tokenUsage.tick()
                 }
             }
             _ = await sampler.tick()

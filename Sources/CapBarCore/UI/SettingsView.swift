@@ -1,9 +1,13 @@
 import SwiftUI
 import AppKit
 
+enum CapBarSettingsSection: String, CaseIterable { case accounts = "账号", quota = "额度走势", usage = "用量", access = "接口", general = "通用" }
+
 struct CapBarSettingsView: View {
     private enum SizeField: Hashable { case width, height }
 
+    private var group: CapBarSettingsSection { model.settingsSection }
+    @State private var customScanInterval = false
     @ObservedObject var model: CapBarViewModel
     @StateObject private var launchAtLogin = LaunchAtLoginController()
     @FocusState private var focusedSizeField: SizeField?
@@ -13,19 +17,27 @@ struct CapBarSettingsView: View {
     private var maximumHeight: Int { model.maximumPopoverHeight }
 
     var body: some View {
-        ScrollView {
+        VStack(spacing: 0) {
+            Picker("设置分组", selection: $model.settingsSection) {
+                ForEach(CapBarSettingsSection.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }.pickerStyle(.segmented).labelsHidden().controlSize(.small).padding(.horizontal, 16).padding(.vertical, 9)
+            ScrollView {
+
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    Text("账号与刷新").font(.system(size: 14, weight: .bold))
+                    Text(group == .accounts ? "账号与目录" : group == .quota ? "额度与走势" : group == .usage ? "Token 用量" : group == .access ? "外部访问" : "通用").font(.system(size: 14, weight: .bold))
                     Spacer()
                     Button("返回总览") { model.showsSettings = false }
                         .buttonStyle(.plain).foregroundStyle(Color.accentColor)
                         .font(.system(size: 11, weight: .semibold))
                 }
+                if group == .accounts {
                 Text("邮箱、套餐和组织由 Claude Code / Codex 自动识别。首次加入默认目录；移除后不会自动恢复。")
                     .font(.system(size: 11)).foregroundStyle(secondary)
                     .padding(.top, 10).padding(.bottom, 17)
 
+                }
+                if group == .quota {
                 sectionTitle("刷新行为")
                 Toggle("打开弹窗时自动刷新", isOn: Binding(
                     get: { model.settings.autoRefreshOnOpen },
@@ -83,6 +95,8 @@ struct CapBarSettingsView: View {
                 Text("仅可选 1、2、3、4、6、8 小时，默认 4 小时。走势图按所选间隔分组；1 小时采样时按 2 小时绘图。关闭统计也会停止定时采样。")
                     .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
 
+                }
+                if group == .access {
                 sectionTitle("外部访问 · MCP / 本地接口").padding(.top, 20)
                 Toggle("启用外部访问", isOn: Binding(
                     get: { model.settings.externalAccess.enabled },
@@ -113,6 +127,8 @@ struct CapBarSettingsView: View {
                     Text(message).font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 5)
                 }
 
+                }
+                if group == .general {
                 sectionTitle("启动").padding(.top, 20)
                 Toggle("登录时自动启动", isOn: Binding(
                     get: { launchAtLogin.isOn },
@@ -201,6 +217,8 @@ struct CapBarSettingsView: View {
                 Text("最小 448 × 620 pt；调整后立即生效，上限由当前屏幕决定。")
                     .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
 
+                }
+                if group == .accounts {
                 sectionTitle("已添加的账号").padding(.top, 20)
                 if model.rows.isEmpty {
                     Text("暂无账号目录").font(.system(size: 11)).foregroundStyle(secondary)
@@ -281,6 +299,9 @@ struct CapBarSettingsView: View {
                     Text(message).font(.system(size: 10)).foregroundStyle(Color(nsColor: .systemRed))
                         .padding(.top, 7)
                 }
+                }
+                if group == .usage { tokenUsageSettings }
+                if group == .general {
                 line.frame(height: 1).padding(.top, 22)
                 HStack {
                     Text("关于 CapBar")
@@ -290,8 +311,10 @@ struct CapBarSettingsView: View {
                         .font(.system(size: 11))
                 }
                 .padding(.top, 13)
+                }
             }
             .padding(16)
+        }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { launchAtLogin.refresh() }
@@ -302,6 +325,48 @@ struct CapBarSettingsView: View {
             if previous == .height && current != .height {
                 model.commitPopoverHeightInput(maximum: maximumHeight)
             }
+        }
+    }
+
+    private var tokenUsageSettings: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("读取本机日志，统计 token 与 API 等价金额。不调用模型，不消耗模型 token。")
+                .font(.system(size: 11)).foregroundStyle(secondary).padding(.top, 9)
+            sectionTitle("自动扫描")
+            Toggle("开启自动扫描", isOn: Binding(get: { model.settings.tokenUsage.automatic }, set: { model.setTokenAutomatic($0) }))
+                .font(.system(size: 12, weight: .medium)).toggleStyle(.switch)
+            HStack {
+                Text("扫描间隔").font(.system(size: 11))
+                Spacer()
+                Picker("扫描间隔", selection: Binding(get: {
+                    customScanInterval || ![15, 30, 60, 120].contains(model.settings.tokenUsage.intervalMinutes) ? 0 : model.settings.tokenUsage.intervalMinutes
+                }, set: { value in customScanInterval = value == 0; if value != 0 { model.setTokenInterval(value) } })) {
+                    Text("15 分钟").tag(15); Text("30 分钟 · 默认").tag(30)
+                    Text("1 小时").tag(60); Text("2 小时").tag(120); Text("自定义…").tag(0)
+                }.labelsHidden().frame(width: 145).controlSize(.small).disabled(!model.settings.tokenUsage.automatic)
+            }
+            if customScanInterval || ![15, 30, 60, 120].contains(model.settings.tokenUsage.intervalMinutes) {
+                Stepper(value: Binding(get: { model.settings.tokenUsage.intervalMinutes }, set: { model.setTokenInterval($0) }), in: 1...1440) {
+                    HStack { Text("自定义间隔"); Spacer(); TextField("分钟", value: Binding(get: { model.settings.tokenUsage.intervalMinutes }, set: { model.setTokenInterval($0) }), format: .number).frame(width: 55).textFieldStyle(.roundedBorder); Text("分钟") }
+                }.font(.system(size: 11)).disabled(!model.settings.tokenUsage.automatic)
+            }
+            Text("仅在 CapBar 运行时扫描。关闭后保留统计结果，仍可在用量页手动扫描。")
+                .font(.system(size: 10)).foregroundStyle(secondary)
+            sectionTitle("日志来源")
+            Text("勾选要统计的账号目录。目录只在账号页设置一次，新增或移除账号后列表同步更新。")
+                .font(.system(size: 10)).foregroundStyle(secondary)
+            if model.settings.accounts.isEmpty { Text("尚未添加账号目录").font(.system(size: 11)).foregroundStyle(secondary) }
+            ForEach(model.settings.accounts, id: \.self) { account in
+                Toggle(isOn: Binding(get: { !model.settings.tokenUsage.excludedAccounts.contains(account) }, set: { model.setTokenSource(account, enabled: $0) })) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(account.provider == .claude ? "Claude Code" : "Codex") · \(model.rows.first(where: { $0.account == account })?.title ?? "待识别")").font(.system(size: 11, weight: .medium)).lineLimit(1)
+                        Text(account.directory.replacingOccurrences(of: FileManager.default.homeDirectoryForCurrentUser.path, with: "~", options: .anchored)).font(.system(size: 10, design: .monospaced)).foregroundStyle(secondary).lineLimit(1).help(account.directory)
+                    }
+                }.toggleStyle(.checkbox).padding(.vertical, 4)
+            }
+            Button("管理账号目录 →") { model.settingsSection = .accounts }.buttonStyle(.plain).foregroundStyle(Color.accentColor).font(.system(size: 11))
+            Text("API 等价金额为估算，不代表实际账单；未知模型价格单独标记。价格使用随应用附带的离线快照。")
+                .font(.system(size: 10)).foregroundStyle(secondary).padding(.top, 4)
         }
     }
 

@@ -33,6 +33,7 @@ struct PopoverSize: Codable, Sendable, Equatable {
 struct UserSettings: Codable, Sendable {
     var accounts: [AccountID]
     var externalAccess = ExternalAccessSettings()
+    var tokenUsage = TokenUsageSettings()
     var defaultsSeeded: Bool
     var autoRefreshOnOpen: Bool
     var refreshThresholdMinutes: Int
@@ -66,6 +67,7 @@ struct UserSettings: Codable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case externalAccess = "external_access"
+        case tokenUsage = "token_usage"
         case accounts, defaultsSeeded, autoRefreshOnOpen, refreshThresholdMinutes
         case usageStatisticsEnabled, samplingIntervalHours, samplingScheduleStartedAt, planOverrides, popoverSize
     }
@@ -83,6 +85,7 @@ struct UserSettings: Codable, Sendable {
             planOverrides: try values.decodeIfPresent([UsagePlanOverride].self, forKey: .planOverrides) ?? [],
             popoverSize: try values.decodeIfPresent(PopoverSize.self, forKey: .popoverSize) ?? PopoverSize()
         )
+        tokenUsage = try values.decodeIfPresent(TokenUsageSettings.self, forKey: .tokenUsage) ?? TokenUsageSettings()
         externalAccess = try values.decodeIfPresent(ExternalAccessSettings.self, forKey: .externalAccess) ?? ExternalAccessSettings()
     }
 }
@@ -104,7 +107,7 @@ actor SettingsStore {
             let file = try StorageSupport.decoder().decode(SettingsFile.self, from: Data(contentsOf: url))
             guard file.schemaVersion == 1 else { throw StorageError.unsupportedSchema(file.schemaVersion) }
             guard file.settings.refreshThresholdMinutes > 0,
-                  SamplingInterval.isValid(file.settings.samplingIntervalHours) else { throw StorageError.invalidSettings }
+                  SamplingInterval.isValid(file.settings.samplingIntervalHours), file.settings.tokenUsage.isValid else { throw StorageError.invalidSettings }
             return file.settings
         }
 
@@ -123,7 +126,7 @@ actor SettingsStore {
 
     func save(_ value: UserSettings) throws {
         guard value.refreshThresholdMinutes > 0,
-              SamplingInterval.isValid(value.samplingIntervalHours) else { throw StorageError.invalidSettings }
+              SamplingInterval.isValid(value.samplingIntervalHours), value.tokenUsage.isValid else { throw StorageError.invalidSettings }
         try StorageSupport.write(SettingsFile(schemaVersion: 1, settings: value), to: url)
     }
 }
