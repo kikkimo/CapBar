@@ -1,0 +1,42 @@
+/* One globally configured app shell for usage and settings. Values are CSS-pixel mock equivalents of native pt. */
+:root{--app-width:462px;--app-height:840px;--stage:#dce1e7}
+:root[data-theme=dark]{--stage:#252931}
+.app-shell{width:var(--app-width)!important;min-width:var(--app-width);max-width:var(--app-width);height:var(--app-height);flex:none;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--hair);border-radius:13px;background:var(--panel);box-shadow:var(--shadow)}
+.app-header{height:62px;flex:none;display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--header);border-bottom:1px solid var(--hair)}
+.app-brand-icon{display:grid;place-items:center;width:29px;height:29px;border:1px solid var(--hair);border-radius:7px;background:var(--panel);font-size:17px;font-weight:750}
+.app-brand{flex:1;min-width:0}.app-brand strong{display:block;font-size:13px}.app-brand small{display:block;font-size:10px;color:var(--muted)}
+.app-footer{height:46px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px;border-top:1px solid var(--hair);background:var(--header);font-size:10px}.app-footer a{font-size:10px;text-decoration:none}
+/* The settings page uses the same presentation board as the usage mock. */
+body:has(.settings-stage){padding:28px 20px 40px}.page:has(.settings-stage){max-width:1020px}.intro{margin-bottom:18px}
+.settings-stage{display:flex;justify-content:center;align-items:start;gap:32px;padding:24px;border:1px solid var(--hair);border-radius:18px;background:var(--stage)}
+.settings-stage .layout{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.settings-stage .sidebar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));flex:none;gap:2px;overflow:visible;margin:0;padding:10px 16px;background:var(--panel);border:0;border-bottom:1px solid var(--hair)}
+.settings-stage .sidebar button{display:block;text-align:center;white-space:nowrap;min-width:0;border:0;border-radius:5px;padding:6px 2px;font-size:11px;color:var(--muted)}
+.settings-stage .sidebar button.active{background:var(--header);color:var(--ink);box-shadow:0 1px 3px #0002;font-weight:650}
+.settings-stage .content{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:16px;scrollbar-width:thin}
+.settings-stage .pane>h2{font-size:16px;letter-spacing:-.02em}.settings-stage .lead{font-size:11px;line-height:1.65;margin:5px 0 16px}.settings-stage .group-heading{margin:18px 0 7px;gap:8px}.settings-stage .group-heading h3{font-size:11px}.settings-stage .group-heading small{font-size:9px}
+.settings-stage .row{padding:11px 12px;gap:12px}.settings-stage .copy label,.settings-stage .copy strong{font-size:12px}.settings-stage .copy p{font-size:10px;line-height:1.6}.settings-stage .value select{max-width:139px;font-size:11px}.settings-stage .value input[type=number]{width:62px}.settings-stage .account{padding:12px}.settings-stage .account-tier select{max-width:152px}.settings-stage .form-grid{grid-template-columns:108px minmax(0,1fr);padding:12px;gap:10px}.settings-stage .form-actions{padding:0 12px 12px}.settings-stage .source-row{padding:12px}.settings-stage .callout{padding:10px 12px;font-size:10px}.settings-stage .hint{font-size:10px}.settings-stage .scan-status{font-size:10px}.settings-stage .size-preview{width:70px;height:45px}
+.shell-notes{max-width:320px;flex:1;padding-top:6px}.shell-notes h2{font-size:17px;margin:0 0 20px}.shell-notes article{border-top:1px solid var(--hair);padding-top:12px;margin-bottom:21px}.shell-notes h3{font-size:13px}.shell-notes p{font-size:13px;color:var(--muted);line-height:1.65;margin-top:5px}.shell-notes .mock-disclaimer{font-size:11px;margin-top:24px}
+/* Reports also follow the same configured width; wide numeric details scroll inside the page. */
+dialog#report{width:var(--app-width);max-width:var(--app-width);height:var(--app-height);max-height:calc(100vh - 24px);overflow:auto}
+dialog#report .window-head{padding:10px 16px;min-height:62px}dialog#report .window-head h2{font-size:16px}dialog#report .window-head p{font-size:10px}dialog#report .report-body{padding:16px}dialog#report .report-top{gap:8px}dialog#report .report-top p{font-size:10px}dialog#report table{font-size:11px}
+@media(max-width:800px){.settings-stage{flex-direction:column;align-items:center;padding:14px 8px}.shell-notes{max-width:462px;width:100%}.app-shell{height:var(--app-height)}.settings-stage .value select{max-width:128px}.settings-stage .content{padding:16px}.settings-stage .layout{display:flex}.settings-stage .sidebar{display:grid;padding:10px 16px}}
+
+@media(max-width:520px){.settings-stage,.stage{overflow-x:auto;align-items:flex-start;justify-content:flex-start}.app-shell{flex-shrink:0}}
+
+.settings-stage,.stage{flex-wrap:wrap}
+.settings-stage .value input[type=text]{width:54px;text-align:right;padding:5px}
+.settings-stage .value:has(.size-step){gap:4px}.size-step{width:23px;height:25px;padding:0;font-size:12px}
+.log-choice{display:flex;align-items:flex-start;gap:10px;padding:12px;cursor:pointer}.log-choice+.log-choice{border-top:1px solid var(--hair)}.log-choice input{margin:3px 0 0;accent-color:var(--blue);flex:none}.log-choice span{min-width:0}.log-choice strong{display:block;font-size:11px;font-weight:550;overflow-wrap:anywhere}.log-choice code{display:block;font:10px ui-monospace,monospace;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.mock-preview{padding:12px;background:var(--panel);border-radius:7px}.mock-preview label{display:block;font-size:11px;color:var(--muted);margin:10px 0 4px}.mock-preview label:first-child{margin-top:0}.mock-preview select{width:100%;font-size:11px}
+
+.coverage-audit{margin-top:22px;font-size:12px}.coverage-audit p{color:var(--muted);margin:10px 0}.coverage-audit table{width:100%;border-collapse:collapse;font-size:11px}.coverage-audit th,.coverage-audit td{text-align:left;border-bottom:1px solid var(--hair);padding:8px;vertical-align:top}
+
+.scan-times{display:inline-flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:4px 10px;font-variant-numeric:tabular-nums;text-align:right}.scan-policy .scan-times::before,.scan-times span::before{content:none!important}.scan-times time{white-space:nowrap}
+
+/* Scan timestamps use the quota page's quiet clock/capsule style. */
+.scan-item{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.scan-caption{color:var(--muted)}
+.scan-badge{--scan-color:var(--blue);display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:20px;color:var(--scan-color);background:color-mix(in srgb,var(--scan-color) 12%,transparent);font-size:10px;font-weight:600;line-height:1.4;white-space:nowrap}
+.scan-badge svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:1.4;flex:none}.scan-badge [hidden]{display:none!important}
+.scan-badge[data-tone=fresh]{--scan-color:#287f46}.scan-badge[data-tone=late]{--scan-color:#81560b}.scan-badge[data-tone=stale]{--scan-color:#b14335}.scan-badge[data-tone=planned]{--scan-color:#216bb5}.scan-badge[data-tone=manual]{--scan-color:var(--muted)}
+:root[data-theme=dark] .scan-badge[data-tone=fresh]{--scan-color:#7bd3a0}:root[data-theme=dark] .scan-badge[data-tone=late]{--scan-color:#edbd79}:root[data-theme=dark] .scan-badge[data-tone=stale]{--scan-color:#f59588}:root[data-theme=dark] .scan-badge[data-tone=planned]{--scan-color:#91c3ff}

@@ -1,7 +1,7 @@
 # CapBar
 
 [![CI](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml)
-[![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-2F80ED?style=flat-square)](scripts/Info.plist)
+[![Version 0.4.0](https://img.shields.io/badge/version-0.4.0-2F80ED?style=flat-square)](scripts/Info.plist)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#install-and-use)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](Package.swift)
 [![Apple Silicon](https://img.shields.io/badge/arch-Apple%20Silicon-0A7F75?style=flat-square)](#build-from-source)
@@ -21,6 +21,7 @@
 
 - **Local agent access:** Optional read-only MCP and local HTTP/JSON access to accounts, quotas, trends and statistics, with separately permitted one-shot refresh. Both permissions default to off. See the [connection guide](docs/external-access.md).
 
+- **Token usage:** A separate Usage page reads selected account logs locally, showing today, the last 7/30 days or a custom range, token breakdowns, daily charts, account/model summaries and API-equivalent USD estimates. Manual and automatic scans (30 minutes by default) do not call a model. Settings are grouped into Accounts, Quota/Trends, Usage, Access and General. See the [usage guide and pricing limits](docs/token-usage.md).
 - **Multiple accounts:** Add Claude Code and Codex configuration directories. CapBar identifies available email, plan, and organization details instead of asking for display names.
 - **Quota at a glance:** See available 5-hour and 7-day windows, remaining percentages, reset times, and the age of each account's snapshot. A window that the provider does not report stays hidden.
 - **Seven-day reset ring:** A small ring beside the exact weekly reset time shows how far the cycle has progressed. A depleted 7-day quota gives the account a pale red background; a depleted 5-hour quota highlights only its own value. Once the weekly reset time passes, the ring disappears and the old value is marked as awaiting refresh.
@@ -46,10 +47,10 @@
 
 ## Install and use
 
-CapBar 0.3.0 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
+CapBar 0.4.0 requires **macOS 14 or later** on **Apple Silicon**. Download the CI-built installer and checksum from [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest).
 
-1. Download `CapBar-0.3.0.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
-2. Open `CapBar-0.3.0.pkg`. The installer places the app at `/Applications/CapBar.app`.
+1. Download `CapBar-0.4.0.pkg` and `SHA256SUMS` from the release, then run `shasum -a 256 -c SHA256SUMS` in that folder.
+2. Open `CapBar-0.4.0.pkg`. The installer places the app at `/Applications/CapBar.app`.
 3. Launch CapBar from Applications. It appears in the menu bar, without a Dock icon.
 4. Click the menu bar item to view snapshots. Select **Refresh All (全部刷新)** or refresh an individual account when you want current data.
 
@@ -67,7 +68,7 @@ On first launch, CapBar adds `~/.claude` and `~/.codex` as default entries. Add 
 
 The popover starts at 448 × 620 pt. Enter a precise width or height and submit it, or use the steppers in 10 pt increments. Wider windows rearrange account details horizontally. Snapshots and settings are stored as JSON under `~/Library/Application Support/CapBar/`.
 
-Usage statistics are off by default. Turning them on also starts scheduled quota probes while the app runs; turning them off stops the schedule. Successful probes are kept in a local SQLite history. Charts use UTC intervals and display dates in your local time zone. A complete interval needs enough observations before its usage can appear; missing intervals are not treated as zero usage. New samples store the detected or selected plan tier; older samples without a tier use the current calibrated tier for estimated totals.
+Quota trend statistics are off by default. Turning them on also starts scheduled quota probes while the app runs; turning them off stops the schedule. Successful probes are kept in a local SQLite history. Charts use UTC intervals and display dates in your local time zone. A complete interval needs enough observations before its usage can appear; missing intervals are not treated as zero usage. New samples store the detected or selected plan tier; older samples without a tier use the current calibrated tier for estimated totals.
 
 ## How quota refresh works
 
@@ -85,7 +86,7 @@ cd CapBar
 ./scripts/package-installer.sh
 ```
 
-The script runs the checks, builds `dist/CapBar.app`, verifies the app bundle, and creates `dist/CapBar-0.3.0.pkg`. It verifies that the package targets `/Applications` **without relocating** to an existing development copy.
+The script runs the checks, builds `dist/CapBar.app`, verifies the app bundle, and creates `dist/CapBar-0.4.0.pkg`. It verifies that the package targets `/Applications` **without relocating** to an existing development copy.
 
 ```sh
 swift run CapBarChecks
