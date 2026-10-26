@@ -1,0 +1,17 @@
+[package]
+name = "capbar-usage-engine"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ccusage-adapter-claude = { path = "../Vendor/ccusage/rust/adapters/claude" }
+ccusage-adapter-codex = { path = "../Vendor/ccusage/rust/adapters/codex" }
+ccusage-core = { path = "../Vendor/ccusage/rust/crates/ccusage-core" }
+ccusage-cli = { path = "../Vendor/ccusage/rust/crates/ccusage-cli" }
+ccusage-pricing-snapshots = { path = "../Vendor/ccusage/rust/crates/ccusage-pricing-snapshots" }
+serde_json = "1.0.154"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = "symbols"

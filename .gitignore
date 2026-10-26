@@ -4,3 +4,7 @@ references/
 dist/
 DerivedData/
 *.xcuserstate
+
+# Local ccusage engine build outputs
+UsageEngine/target/
+Vendor/ccusage/rust/target/

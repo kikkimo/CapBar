@@ -24,6 +24,11 @@ import Foundation
 @main struct CheckRunner {
     @MainActor static func main() async {
         let arguments = CommandLine.arguments
+        if arguments.contains("--render-token-usage") {
+            do { try await renderTokenUsagePreview() }
+            catch { fputs("Token preview failed: \(error)\n", stderr); exit(1) }
+            return
+        }
         if arguments.contains("--render-popover") {
             do { try await renderPopoverPreview() }
             catch { fputs("Popover preview failed: \(error)\n", stderr); exit(1) }
@@ -40,6 +45,12 @@ import Foundation
         if filter == nil || filter == "ExternalMCPTests" { runExternalMCPChecks() }
         if filter == nil || filter == "ExternalHTTPTests" { runExternalHTTPChecks() }
         if filter == nil || filter == "ExternalAccessTests" { await runExternalAccessChecks() }
+        if filter == nil || filter == "TokenReportTests" { await runTokenReportChecks() }
+        if filter == nil || filter == "TokenEdgeTests" { await runTokenEdgeChecks() }
+        if filter == "TokenLiveTests" { await runTokenLiveChecks() }
+        if filter == nil || filter == "TokenControllerTests" { await runTokenControllerChecks() }
+        if filter == nil || filter == "TokenScannerTests" { await runTokenScannerChecks() }
+        if filter == nil || filter == "TokenUsageTests" { await runTokenUsageChecks() }
         if filter == nil || filter == "ModelTests" { runModelChecks() }
         if filter == nil || filter == "StorageTests" { await runStorageChecks() }
         if filter == nil || filter == "UsageHistoryTests" { await runUsageHistoryChecks() }

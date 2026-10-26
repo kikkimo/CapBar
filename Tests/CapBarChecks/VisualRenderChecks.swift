@@ -269,7 +269,7 @@ private actor PreviewHangingProvider: UsageProvider {
 
 @MainActor private func render<V: View>(view rootView: V, size: CGSize,
                                          appearance: NSAppearance.Name, to url: URL) throws {
-    let view = NSHostingView(rootView: rootView)
+    let view = NSHostingView(rootView: rootView.environment(\.colorScheme, appearance == .darkAqua ? .dark : .light))
     view.appearance = NSAppearance(named: appearance)
     view.frame = NSRect(origin: .zero, size: size)
     view.layoutSubtreeIfNeeded()
@@ -281,4 +281,85 @@ private actor PreviewHangingProvider: UsageProvider {
         throw NSError(domain: "CapBarVisual", code: 3)
     }
     try data.write(to: url)
+}
+
+@MainActor private func renderReport(view rootView: TokenUsageReportView, size: CGSize, appearance: NSAppearance.Name, to url: URL) async throws {
+    let host = NSHostingView(rootView: rootView.environment(\.colorScheme, appearance == .darkAqua ? .dark : .light))
+    let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false; window.appearance = NSAppearance(named: appearance)
+    window.contentView = host; window.makeKeyAndOrderFront(nil)
+    defer { window.close() }
+    for _ in 0..<10 { host.layoutSubtreeIfNeeded(); window.displayIfNeeded(); try await Task.sleep(for: .milliseconds(20)) }
+    guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { throw NSError(domain: "CapBarVisual", code: 2) }
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    guard let data = bitmap.representation(using: .png, properties: [:]) else { throw NSError(domain: "CapBarVisual", code: 3) }
+    try data.write(to: url)
+}
+
+@MainActor func renderTokenUsagePreview() async throws {
+    _ = NSApplication.shared
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let claude = AccountID(provider: .claude, directory: root.appendingPathComponent("claude").path)
+    let codex = AccountID(provider: .codex, directory: root.appendingPathComponent("codex").path)
+    let claudeB = AccountID(provider: .claude, directory: root.appendingPathComponent("claude-work").path)
+    let now = Date(), stamp = ISO8601DateFormatter()
+    for account in [claude, codex, claudeB] {
+        let dir = URL(fileURLWithPath: account.directory).appendingPathComponent(account.provider == .claude ? "projects/demo" : "sessions")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for day in 0..<30 {
+            let date = Calendar.current.date(byAdding: .day, value: -day, to: now)!
+            let weight = Int64((account == claudeB ? 2 : 5) + day % 8)
+            let object: [String: Any]
+            if account.provider == .claude {
+                object = ["type": "assistant", "timestamp": stamp.string(from: date), "sessionId": "demo", "requestId": "request-\(day)", "message": ["id": "msg_\(day)", "model": "claude-sonnet-4-5", "usage": ["input_tokens": weight * 40_000, "output_tokens": weight * 20_000, "cache_creation_input_tokens": weight * 90_000, "cache_read_input_tokens": weight * 400_000]]]
+            } else {
+                object = ["type": "event_msg", "timestamp": stamp.string(from: date), "payload": ["type": "token_count", "model": "gpt-5", "info": ["total_token_usage": ["input_tokens": weight * 300_000, "cached_input_tokens": weight * 280_000, "output_tokens": weight * 15_000]]]]
+            }
+            var data = try JSONSerialization.data(withJSONObject: object); data.append(10)
+            try data.write(to: dir.appendingPathComponent("session-\(day).jsonl"))
+        }
+    }
+    let store = SettingsStore(url: root.appendingPathComponent("settings.json"))
+    let snapshots = SnapshotStore(url: root.appendingPathComponent("snapshots.json"))
+    let settings = UserSettings(accounts: [claude, codex, claudeB], defaultsSeeded: true, autoRefreshOnOpen: false, refreshThresholdMinutes: 5, popoverSize: PopoverSize(width: 462, height: 840))
+    for (account, email) in [(claude, "studio@example.com"), (codex, "builder@example.com"), (claudeB, "work@example.com")] {
+        let snapshot = UsageSnapshot(identity: AccountIdentity(email: email, plan: account.provider == .claude ? "Team Premium" : "Plus", organization: nil), windows: [], capturedAt: now)
+        try await snapshots.update(AccountRecord(id: account, snapshot: snapshot, lastAttemptAt: now, lastError: nil))
+    }
+    let coordinator = try await RefreshCoordinator(settingsStore: store, snapshotStore: snapshots, providers: [:], policy: ProbePolicy.bundled())
+    let model = CapBarViewModel(settings: settings, settingsStore: store, coordinator: coordinator, tokenScanner: TokenLogScanner(cacheURL: root.appendingPathComponent("token-cache.json")))
+    model.updateRows()
+    for _ in 0..<100 where model.rows.count != 3 { try await Task.sleep(for: .milliseconds(10)) }
+    await model.tokenUsage.scan(); model.showTokenUsage()
+    for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+        try render(model: model, appearance: appearance, to: URL(fileURLWithPath: "/tmp/capbar-token-\(name).png"))
+    }
+    if let day = model.tokenUsage.summary.daily.last?.date {
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            try render(view: CapBarPopoverView(model: model, initiallyHoveredTokenDay: day), size: CGSize(width: 462, height: 840), appearance: appearance, to: URL(fileURLWithPath: "/tmp/capbar-token-hover-\(name).png"))
+        }
+    }
+    let report = TokenReportModel(source: model.tokenUsage, labels: Dictionary(uniqueKeysWithValues: model.rows.map { ($0.account, $0.title) }))
+    for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+        try await renderReport(view: TokenUsageReportView(report: report), size: CGSize(width: 1680, height: 1000), appearance: appearance, to: URL(fileURLWithPath: "/tmp/capbar-token-report-\(name).png"))
+    }
+    report.query.search = "work sonnet"; report.sortOrder = [KeyPathComparator(\.total, order: .reverse)]
+    try await renderReport(view: TokenUsageReportView(report: report), size: CGSize(width: 1000, height: 620), appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-token-report-search.png"))
+    report.query.search = ""; report.query.scope = .model
+    try await renderReport(view: TokenUsageReportView(report: report), size: CGSize(width: 1680, height: 1000), appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-token-report-model.png"))
+    try Data(contentsOf: URL(fileURLWithPath: "/tmp/capbar-token-report-light.png")).write(to: URL(fileURLWithPath: "/tmp/capbar-token-report.png"))
+    try render(view: CapBarPopoverView(model: model, initialTokenSummaryGrouping: .model), size: CGSize(width: 462, height: 840), appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-token-models.png"))
+    model.tokenUsage.select(account: claudeB); await model.tokenUsage.waitForSummary()
+    try render(model: model, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-token-account.png"))
+    model.tokenUsage.select(account: nil); model.tokenUsage.select(provider: nil); await model.tokenUsage.waitForSummary()
+    model.showsSettings = true
+    for section in CapBarSettingsSection.allCases {
+        model.settingsSection = section
+        try render(model: model, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-token-settings-\(section == .accounts ? "accounts" : section == .quota ? "quota" : section == .usage ? "usage" : section == .access ? "access" : "general").png"))
+    }
+    model.setPopoverSize(width: 448, height: 620); model.showsSettings = false
+    try render(model: model, appearance: .aqua, to: URL(fileURLWithPath: "/tmp/capbar-token-minimum.png"))
+    print("Rendered /tmp/capbar-token-{light,dark,settings,minimum}.png")
 }

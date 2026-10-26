@@ -3,6 +3,8 @@ import SwiftUI
 
 struct CapBarPopoverView: View {
     @ObservedObject var model: CapBarViewModel
+    var initiallyHoveredTokenDay: Date? = nil
+    var initialTokenSummaryGrouping: TokenReportGrouping = .account
 
     private let line = Color(nsColor: .separatorColor)
     private let secondary = Color(nsColor: .secondaryLabelColor)
@@ -12,6 +14,8 @@ struct CapBarPopoverView: View {
             header
             if model.showsSettings {
                 CapBarSettingsView(model: model)
+            } else if model.showsTokenUsage {
+                CapBarTokenUsageView(controller: model.tokenUsage, accountLabels: Dictionary(uniqueKeysWithValues: model.rows.map { ($0.account, $0.title == "尚未识别" ? $0.directoryLabel : $0.title) }), openReport: { model.showTokenReport() }, initiallyHoveredDay: initiallyHoveredTokenDay, initialSummaryGrouping: initialTokenSummaryGrouping) { model.settingsSection = .usage; model.showsSettings = true }
             } else {
                 overview
             }
@@ -33,22 +37,37 @@ struct CapBarPopoverView: View {
                 .overlay(RoundedRectangle(cornerRadius: 7).stroke(line))
             VStack(alignment: .leading, spacing: 2) {
                 Text("CapBar").font(.system(size: 13, weight: .semibold))
-                Text("\(model.rows.count) 个账号 · \(model.settings.usageStatisticsEnabled ? "用量统计已开启" : model.settings.autoRefreshOnOpen ? "打开时按需刷新" : "仅手动刷新")")
+                Text(model.showsSettings ? "账号与设置" : model.showsTokenUsage ? "本机日志用量" : "\(model.rows.count) 个账号 · \(model.settings.usageStatisticsEnabled ? "用量统计已开启" : model.settings.autoRefreshOnOpen ? "打开时按需刷新" : "仅手动刷新")")
                     .font(.system(size: 10)).foregroundStyle(secondary)
             }
             Spacer(minLength: 8)
+            if !model.showsSettings {
             Button {
-                model.refreshAll()
+                if model.showsTokenUsage { Task { await model.tokenUsage.scan() } }
+                else { model.refreshAll() }
             } label: {
-                Label("全部刷新", systemImage: "arrow.clockwise")
-                    .font(.system(size: 11, weight: .semibold))
+                HStack(spacing: 6) {
+                    if model.showsTokenUsage, let progress = model.tokenUsage.scanProgress {
+                        ProgressView().controlSize(.mini).frame(width: 12, height: 12)
+                        Text(progress.label)
+                        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                            Text("\(max(0, Int(timeline.date.timeIntervalSince(progress.startedAt))))秒").foregroundStyle(secondary)
+                        }
+                    } else {
+                        Label(model.showsTokenUsage ? "扫描日志" : "全部刷新", systemImage: "arrow.clockwise")
+                    }
+                }
+                    .font(.system(size: 11, weight: .semibold)).monospacedDigit()
                     .padding(.horizontal, 9).padding(.vertical, 6)
                     .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(line))
             }
             .buttonStyle(.plain)
-            .help("刷新所有空闲账号；正在刷新的账号会跳过")
+            .disabled(model.showsTokenUsage && (model.tokenUsage.isScanning || model.tokenUsage.sources.isEmpty))
+            .help(model.showsTokenUsage ? "读取已勾选账号目录的本机日志，不调用模型" : "刷新所有空闲账号；正在刷新的账号会跳过")
+            if !model.showsTokenUsage {
             Button {
+                model.settingsSection = .accounts
                 model.showsSettings = true
             } label: {
                 Image(systemName: "plus").font(.system(size: 15, weight: .medium))
@@ -56,6 +75,8 @@ struct CapBarPopoverView: View {
             }
             .buttonStyle(.plain)
             .help("添加账号目录")
+            }
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.58))
@@ -161,23 +182,27 @@ struct CapBarPopoverView: View {
         }
     }
 
+    private func pageButton(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.system(size: 11, weight: selected ? .semibold : .medium))
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(selected ? Color(nsColor: .controlBackgroundColor) : .clear, in: RoundedRectangle(cornerRadius: 4))
+        }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
     private var footer: some View {
         HStack {
-            if model.settings.usageStatisticsEnabled && !model.showsSettings {
-                Picker("显示内容", selection: Binding(
-                    get: { model.showsTrend },
-                    set: { model.setTrendMode($0) }
-                )) {
-                    Text("额度").tag(false)
-                    Text("走势").tag(true)
+            if !model.showsSettings {
+                HStack(spacing: 2) {
+                    pageButton("额度", selected: !model.showsTrend && !model.showsTokenUsage) { model.setTrendMode(false) }
+                    pageButton("走势", selected: model.showsTrend) { model.setTrendMode(true) }
+                        .disabled(!model.settings.usageStatisticsEnabled)
+                        .help(model.settings.usageStatisticsEnabled ? "查看额度走势" : "请在账号与设置中开启 7 日用量统计")
+                    pageButton("用量", selected: model.showsTokenUsage) { model.showTokenUsage() }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 112)
-                .controlSize(.small)
+                .padding(2).background(Color(nsColor: .separatorColor).opacity(0.25), in: RoundedRectangle(cornerRadius: 6))
             } else {
-                Text("额度为剩余百分比 · 时间为本地时间")
-                    .font(.system(size: 10)).foregroundStyle(secondary)
+                Text("设置全局生效").font(.system(size: 10)).foregroundStyle(secondary)
             }
             Spacer()
             Button(model.showsSettings ? "返回总览" : "账号与设置") {

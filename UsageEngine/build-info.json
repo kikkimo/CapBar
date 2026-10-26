@@ -1,0 +1,12 @@
+{
+  "upstream": "e351d846191a0176520e8b3d8151dd80a60bc7e4",
+  "version": "20.0.44",
+  "target": "aarch64-apple-darwin",
+  "rust": "1.97.1",
+  "sha256": {
+    "Sources/CapBarCore/Resources/capbar-usage-engine": "0ec7b905e02b1377953388493ac575258fc03afad8234d324a15edcaec48a993",
+    "UsageEngine/src/main.rs": "e1329add6350afb4999f2dcdee04818097d3380ecf8477af3d82e0a5d76f12d3",
+    "UsageEngine/Cargo.toml": "615904dee7276a1edab17d03443799a82f4d7dd6ef21a3493ecbf499ad33026d",
+    "UsageEngine/Cargo.lock": "a632ca1cc2525f05784891ba32499481bfa6344a7673a88bb0dc545c716d8459"
+  }
+}

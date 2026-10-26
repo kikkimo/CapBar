@@ -1,7 +1,7 @@
 # CapBar
 
 [![CI](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kikkimo/CapBar/actions/workflows/ci.yml)
-[![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-2F80ED?style=flat-square)](../scripts/Info.plist)
+[![Version 0.4.0](https://img.shields.io/badge/version-0.4.0-2F80ED?style=flat-square)](../scripts/Info.plist)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-333333?style=flat-square&logo=apple&logoColor=white)](#安装与使用)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](../Package.swift)
 [![Apple Silicon](https://img.shields.io/badge/arch-Apple%20Silicon-0A7F75?style=flat-square)](#从源码构建)
@@ -19,6 +19,8 @@
 
 ## 功能
 
+- **本机 Token 用量：** 独立「用量」页支持今日、近 7 日、近 30 日和自定义范围，展示 token 分类、每日图表、工具、账号、模型汇总与 API 等价金额。支持手动扫描和默认每 30 分钟的自动扫描，不调用模型、不消耗模型 token。设置按账号、额度走势、用量、接口和通用分组。见[用量说明与价格口径](token-usage.md)。
+- **独立详细报表：** 非模态窗口支持独立的日期、账号、工具筛选、多词搜索及数值列排序，默认 1680 × 1000 pt 并适配屏幕可用区域。单独关闭后可再次打开，保留本次筛选状态。
 - **多账号集中查看：** 添加多个 Claude Code 和 Codex 配置目录；邮箱、套餐和组织等可用信息由服务识别，无需手动给账号命名。
 - **额度与时间一目了然：** 分别显示服务提供的 5 小时、7 天窗口及剩余百分比、重置时间、账号快照采集时间。服务未提供的窗口不会凭空显示。
 - **七日重置环：** 具体周重置时间旁的小环显示当前周期进度。7 天额度为 0% 时账号卡片显示浅红背景；仅 5 小时额度为 0% 时，只强调该窗口的数值。周重置时间已过而尚未刷新时，隐藏环并标记旧值待刷新。
@@ -44,10 +46,10 @@
 
 ## 安装与使用
 
-CapBar 0.3.0 需要 **macOS 14 或更高版本**及 **Apple Silicon Mac**。从 [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest) 下载安装包与校验文件；安装包由 CI 从对应版本源码构建。
+CapBar 0.4.0 需要 **macOS 14 或更高版本**及 **Apple Silicon Mac**。从 [GitHub Releases](https://github.com/kikkimo/CapBar/releases/latest) 下载安装包与校验文件；安装包由 CI 从对应版本源码构建。
 
-1. 下载 `CapBar-0.3.0.pkg` 和 `SHA256SUMS`，在下载目录运行 `shasum -a 256 -c SHA256SUMS`。
-2. 打开 `CapBar-0.3.0.pkg`；应用会安装到 `/Applications/CapBar.app`。
+1. 下载 `CapBar-0.4.0.pkg` 和 `SHA256SUMS`，在下载目录运行 `shasum -a 256 -c SHA256SUMS`。
+2. 打开 `CapBar-0.4.0.pkg`；应用会安装到 `/Applications/CapBar.app`。
 3. 从“应用程序”启动 CapBar。它只显示在菜单栏，不显示 Dock 图标。
 4. 点击菜单栏图标查看快照；需要最新额度时，手动点“全部刷新”或某个账号旁的刷新按钮。
 
@@ -65,7 +67,7 @@ CapBar 0.3.0 需要 **macOS 14 或更高版本**及 **Apple Silicon Mac**。从 
 
 弹窗默认尺寸为 448 × 620 pt。宽、高可以输入精确数值后提交，也可以用上下按钮每次调整 10 pt；窗口加宽后，账号信息会横向排布。设置和额度快照以 JSON 文件保存在 `~/Library/Application Support/CapBar/`。
 
-用量统计默认关闭。开启后，应用运行期间会定时探测额度；关闭统计会停止定时采样。成功采集的记录保存在本机 SQLite 中。走势图按 UTC 区间计算，以本地时区显示日期；只有采样覆盖完整区间后才显示用量，缺测区间不会当作 0%。新采样会一并记录当时识别或手动选择的套餐档位；旧采样没有档位时，总走势暂按当前校准档位估算。
+原有的额度走势统计默认关闭。开启后，应用运行期间会定时探测额度；关闭统计会停止定时采样。成功采集的记录保存在本机 SQLite 中。走势图按 UTC 区间计算，以本地时区显示日期；只有采样覆盖完整区间后才显示用量，缺测区间不会当作 0%。新采样会一并记录当时识别或手动选择的套餐档位；旧采样没有档位时，总走势暂按当前校准档位估算。
 
 ## 额度如何刷新
 
@@ -75,7 +77,7 @@ Codex 使用本机只读 app-server 接口查询，不发送对话。关闭弹�
 
 ## 从源码构建
 
-需要 Swift 6 工具链和 macOS 自带的打包命令行工具。
+需要 Swift 6 工具链、用于内置引擎校验的 Python 3，以及 macOS 自带的打包命令行工具。普通构建使用仓库内已编译的原生 ccusage 引擎，无需 Rust、Node 或系统安装的 ccusage；如需从锁定的原样上游源码和离线价格快照重建引擎，见[引擎构建说明](../UsageEngine/README.md)。
 
 ```sh
 git clone https://github.com/kikkimo/CapBar.git
@@ -83,7 +85,7 @@ cd CapBar
 ./scripts/package-installer.sh
 ```
 
-脚本会运行项目检查，构建并验证 `dist/CapBar.app`，生成 `dist/CapBar-0.3.0.pkg`，同时检查安装包固定安装到 `/Applications`，不会定位到开发目录中的旧应用。
+脚本会运行项目检查，构建并验证 `dist/CapBar.app`，生成 `dist/CapBar-0.4.0.pkg`，同时检查安装包固定安装到 `/Applications`，不会定位到开发目录中的旧应用。
 
 ```sh
 swift run CapBarChecks
@@ -104,6 +106,8 @@ swift run CapBarChecks
 - [七日重置环设计](../design/reset-visual-study.html)
 - [产品与工程规格](../design/spec.md)
 - [实施计划](../design/implementation-plan.md)
+- [Token 用量与详细报表](token-usage.md)
+- [ccusage 引擎构建与第三方许可](../UsageEngine/README.md)
 
 ## 许可证
 
