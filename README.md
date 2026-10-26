@@ -22,6 +22,7 @@
 - **Local agent access:** Optional read-only MCP and local HTTP/JSON access to accounts, quotas, trends and statistics, with separately permitted one-shot refresh. Both permissions default to off. See the [connection guide](docs/external-access.md).
 
 - **Token usage:** A separate Usage page reads selected account logs locally, showing today, the last 7/30 days or a custom range, token breakdowns, daily charts, account/model summaries and API-equivalent USD estimates. Manual and automatic scans (30 minutes by default) do not call a model. Settings are grouped into Accounts, Quota/Trends, Usage, Access and General. See the [usage guide and pricing limits](docs/token-usage.md).
+- **Detailed usage report:** Open a separate, nonmodal window with independent date/account/tool filters, multiword search and numeric column sorting. It starts at 1680 × 1000 pt, bounded by available screen space, and retains its filters when closed and reopened.
 - **Multiple accounts:** Add Claude Code and Codex configuration directories. CapBar identifies available email, plan, and organization details instead of asking for display names.
 - **Quota at a glance:** See available 5-hour and 7-day windows, remaining percentages, reset times, and the age of each account's snapshot. A window that the provider does not report stays hidden.
 - **Seven-day reset ring:** A small ring beside the exact weekly reset time shows how far the cycle has progressed. A depleted 7-day quota gives the account a pale red background; a depleted 5-hour quota highlights only its own value. Once the weekly reset time passes, the ring disappears and the old value is marked as awaiting refresh.
@@ -78,7 +79,7 @@ Codex refresh uses the local read-only app-server interface and does not send a 
 
 ## Build from source
 
-You need a Swift 6 toolchain and the macOS command-line packaging tools.
+You need a Swift 6 toolchain, Python 3 for bundled-engine verification, and the macOS command-line packaging tools. Ordinary builds use the checked-in native ccusage helper; Rust, Node and a system ccusage installation are not required. See the [engine build guide](UsageEngine/README.md) to rebuild the helper from the pinned, unmodified upstream source and offline pricing snapshots.
 
 ```sh
 git clone https://github.com/kikkimo/CapBar.git
@@ -107,6 +108,8 @@ The screenshot command renders sample data from the SwiftUI app and updates `doc
 - [Seven-day reset ring design](design/reset-visual-study.html)
 - [Product and engineering specification](design/spec.md)
 - [Implementation plan](design/implementation-plan.md)
+- [Token usage and reports](docs/token-usage.md)
+- [ccusage engine build and third-party licenses](UsageEngine/README.md)
 
 ## License
 
